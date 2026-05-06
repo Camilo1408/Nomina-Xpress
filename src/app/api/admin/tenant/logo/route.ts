@@ -1,23 +1,19 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
-import { writeFile, mkdir, unlink, readdir } from "fs/promises";
-import path from "path";
+import { v2 as cloudinary } from "cloudinary";
 
-const UPLOAD_DIR = () => path.join(process.cwd(), "public", "uploads", "logos");
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
-async function deleteExistingLogoFiles(tenantId: string) {
-  try {
-    const dir = UPLOAD_DIR();
-    const files = await readdir(dir);
-    await Promise.all(
-      files
-        .filter((f) => f.startsWith(tenantId + "."))
-        .map((f) => unlink(path.join(dir, f)).catch(() => {}))
-    );
-  } catch {
-    // directory may not exist yet — ignore
-  }
+// Extract Cloudinary public_id from a stored URL
+function extractPublicId(url: string): string | null {
+  // URL format: https://res.cloudinary.com/<cloud>/image/upload/v.../nomina-xpress/<id>.ext
+  const match = url.match(/nomina-xpress\/([^.?]+)/);
+  return match ? `nomina-xpress/${match[1]}` : null;
 }
 
 export async function POST(req: Request) {
@@ -28,10 +24,7 @@ export async function POST(req: Request) {
 
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
-
-  if (!file) {
-    return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
-  }
+  if (!file) return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
 
   if (file.size > 2 * 1024 * 1024) {
     return NextResponse.json({ error: "File too large (max 2MB)" }, { status: 400 });
@@ -42,24 +35,43 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid file type" }, { status: 400 });
   }
 
-  const dir = UPLOAD_DIR();
-  await mkdir(dir, { recursive: true });
-
-  // Delete any previously saved logo files for this tenant (all extensions)
-  await deleteExistingLogoFiles(session.user.tenantId);
-
-  const filename = `${session.user.tenantId}.${ext}`;
-  const bytes = await file.arrayBuffer();
-  await writeFile(path.join(dir, filename), Buffer.from(bytes));
-
-  // Append cache-busting version so browser always fetches the new file
-  const logoUrl = `/uploads/logos/${filename}?v=${Date.now()}`;
-  await prisma.tenant.update({
+  // Delete previous logo from Cloudinary if exists
+  const tenant = await prisma.tenant.findUnique({
     where: { id: session.user.tenantId },
-    data: { logoUrl },
+    select: { logoUrl: true },
+  });
+  if (tenant?.logoUrl) {
+    const publicId = extractPublicId(tenant.logoUrl);
+    if (publicId) await cloudinary.uploader.destroy(publicId).catch(() => null);
+  }
+
+  // Upload new logo to Cloudinary
+  const bytes = await file.arrayBuffer();
+  const buffer = Buffer.from(bytes);
+
+  const result = await new Promise<{ secure_url: string }>((resolve, reject) => {
+    cloudinary.uploader
+      .upload_stream(
+        {
+          folder: "nomina-xpress",
+          public_id: session!.user.tenantId,
+          overwrite: true,
+          resource_type: "image",
+        },
+        (err, res) => {
+          if (err || !res) return reject(err ?? new Error("Upload failed"));
+          resolve(res as { secure_url: string });
+        }
+      )
+      .end(buffer);
   });
 
-  return NextResponse.json({ logoUrl });
+  await prisma.tenant.update({
+    where: { id: session.user.tenantId },
+    data: { logoUrl: result.secure_url },
+  });
+
+  return NextResponse.json({ logoUrl: result.secure_url });
 }
 
 export async function DELETE() {
@@ -68,7 +80,15 @@ export async function DELETE() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  await deleteExistingLogoFiles(session.user.tenantId);
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: session.user.tenantId },
+    select: { logoUrl: true },
+  });
+
+  if (tenant?.logoUrl) {
+    const publicId = extractPublicId(tenant.logoUrl);
+    if (publicId) await cloudinary.uploader.destroy(publicId).catch(() => null);
+  }
 
   await prisma.tenant.update({
     where: { id: session.user.tenantId },

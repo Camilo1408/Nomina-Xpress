@@ -79,13 +79,25 @@ El cliente generado está en `src/generated/prisma/` (custom output).
 - Body/UI: Inter, 400-500
 - Números/tablas: JetBrains Mono, 400
 
-## Environment Variables (.env.local)
+## Environment Variables
 
+### Local (rama `local`) — `.env.local`
 | Variable | Descripción |
 |----------|-------------|
-| `DATABASE_URL` | SQLite file path (e.g. `file:./dev.db`) |
+| `DATABASE_URL` | SQLite file path (`file:./dev.db`) |
 | `NEXTAUTH_SECRET` | Secreto JWT (32 chars) |
-| `NEXTAUTH_URL` | URL base de la app |
+| `NEXTAUTH_URL` | `http://localhost:3000` |
+
+### Producción (rama `main`) — Vercel env vars
+| Variable | Descripción |
+|----------|-------------|
+| `TURSO_DATABASE_URL` | `libsql://nomina-xpress-xxxx.turso.io` |
+| `TURSO_AUTH_TOKEN` | Token de Turso |
+| `CLOUDINARY_CLOUD_NAME` | Nombre del cloud en Cloudinary |
+| `CLOUDINARY_API_KEY` | API Key de Cloudinary |
+| `CLOUDINARY_API_SECRET` | API Secret de Cloudinary |
+| `NEXTAUTH_SECRET` | Secreto JWT (32 chars) |
+| `NEXTAUTH_URL` | URL de Vercel (`https://...vercel.app`) |
 
 ## Reglas No Negociables
 
