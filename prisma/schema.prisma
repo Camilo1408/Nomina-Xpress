@@ -1,0 +1,127 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Tenant {
+  id             String   @id @default(cuid())
+  name           String
+  logoUrl        String?
+  primaryColor   String   @default("#C1643F")
+  secondaryColor String   @default("#8B6355")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  users          User[]
+  employees      Employee[]
+  timeEntries    TimeEntry[]
+  schedules      Schedule[]
+  payAdjustments PayAdjustment[]
+}
+
+model User {
+  id           String    @id @default(cuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  username     String    @unique
+  passwordHash String
+  role         String    @default("EMPLOYEE")
+  employeeId   String?   @unique
+  employee     Employee? @relation(fields: [employeeId], references: [id])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([tenantId])
+}
+
+model Employee {
+  id                String   @id @default(cuid())
+  tenantId          String
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name              String
+  documentId        String?
+  phone             String?
+  hourlyRateNormal  Float    @default(6400)
+  hourlyRateSpecial Float    @default(11500)
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user           User?
+  timeEntries    TimeEntry[]
+  scheduleShifts ScheduleShift[]
+  payAdjustments PayAdjustment[]
+
+  @@index([tenantId])
+}
+
+model TimeEntry {
+  id         String    @id @default(cuid())
+  tenantId   String
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [id])
+  date       String
+  checkIn    DateTime
+  checkOut   DateTime?
+  checkIn2   DateTime?
+  checkOut2  DateTime?
+  isSpecial  Boolean   @default(false)
+  notes      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([tenantId, employeeId])
+  @@index([tenantId, date])
+}
+
+model Schedule {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  weekStart String
+  published Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  shifts ScheduleShift[]
+
+  @@index([tenantId])
+}
+
+model ScheduleShift {
+  id         String   @id @default(cuid())
+  scheduleId String
+  schedule   Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  date       String
+  startTime  String
+  endTime    String
+  startTime2 String?
+  endTime2   String?
+
+  @@index([scheduleId])
+  @@index([employeeId])
+}
+
+model PayAdjustment {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  type        String
+  amount      Float
+  description String
+  periodStart String
+  periodEnd   String
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, employeeId])
+}
