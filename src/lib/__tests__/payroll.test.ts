@@ -29,6 +29,8 @@ function makeEntry(overrides: Partial<TimeEntry>): TimeEntry {
     date: "2026-05-05",
     checkIn: new Date("2026-05-05T08:00:00"),
     checkOut: new Date("2026-05-05T16:00:00"),
+    checkIn2: null,
+    checkOut2: null,
     isSpecial: false,
     notes: null,
     createdAt: new Date(),
