@@ -8,9 +8,6 @@ const SUPERADMIN_ONLY_PATHS = [
   "/admin/settings",
 ];
 
-// Portal routes ADMIN can also access (to view their own quincena and horario)
-const ADMIN_ALLOWED_PORTAL = ["/portal/report", "/portal/schedule"];
-
 export default auth((req) => {
   const { pathname } = req.nextUrl;
   const session = req.auth;
@@ -30,8 +27,7 @@ export default auth((req) => {
   }
 
   if (pathname.startsWith("/portal")) {
-    const adminCanAccess = role === "ADMIN" && ADMIN_ALLOWED_PORTAL.some((p) => pathname.startsWith(p));
-    if (role !== "EMPLOYEE" && !adminCanAccess) {
+    if (role !== "EMPLOYEE") {
       return NextResponse.redirect(new URL("/admin/dashboard", req.url));
     }
   }

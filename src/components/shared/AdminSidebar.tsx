@@ -30,8 +30,8 @@ const allNavItems = [
 
 // Links that only appear for ADMIN (not SUPERADMIN — they have employees section)
 const adminOnlyNavItems = [
-  { href: "/portal/report", label: "Mi Quincena", icon: Wallet },
-  { href: "/portal/schedule", label: "Mi Horario", icon: Calendar },
+  { href: "/admin/my-quincena", label: "Mi Quincena", icon: Wallet },
+  { href: "/admin/my-horario", label: "Mi Horario", icon: Calendar },
 ];
 
 interface AdminSidebarProps {
