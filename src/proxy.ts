@@ -3,14 +3,13 @@ import { NextResponse } from "next/server";
 
 // Routes that the restricted ADMIN role cannot access
 const SUPERADMIN_ONLY_PATHS = [
-  "/admin/dashboard",
   "/admin/employees",
   "/admin/schedules",
   "/admin/settings",
 ];
 
-// Routes ADMIN can access (explicitly allowed — everything else in /admin is blocked)
-// /admin/time-entries, /admin/reports, /admin/profile are allowed for ADMIN
+// Portal routes ADMIN can also access (to view their own quincena and horario)
+const ADMIN_ALLOWED_PORTAL = ["/portal/report", "/portal/schedule"];
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
@@ -30,14 +29,16 @@ export default auth((req) => {
     }
   }
 
-  if (pathname.startsWith("/portal") && role !== "EMPLOYEE") {
-    return NextResponse.redirect(new URL("/admin/time-entries", req.url));
+  if (pathname.startsWith("/portal")) {
+    const adminCanAccess = role === "ADMIN" && ADMIN_ALLOWED_PORTAL.some((p) => pathname.startsWith(p));
+    if (role !== "EMPLOYEE" && !adminCanAccess) {
+      return NextResponse.redirect(new URL("/admin/dashboard", req.url));
+    }
   }
 
   if (pathname === "/login" && session) {
     let redirect = "/portal/report";
-    if (role === "SUPERADMIN") redirect = "/admin/dashboard";
-    else if (role === "ADMIN") redirect = "/admin/time-entries";
+    if (role === "SUPERADMIN" || role === "ADMIN") redirect = "/admin/dashboard";
     return NextResponse.redirect(new URL(redirect, req.url));
   }
 });

@@ -16,15 +16,22 @@ import {
   Menu,
   X,
   UserCircle,
+  Wallet,
 } from "lucide-react";
 
 const allNavItems = [
-  { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard, superadminOnly: true },
+  { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard, superadminOnly: false },
   { href: "/admin/employees", label: "Empleados", icon: Users, superadminOnly: true },
   { href: "/admin/time-entries", label: "Registro de Horas", icon: Clock, superadminOnly: false },
   { href: "/admin/schedules", label: "Horarios", icon: Calendar, superadminOnly: true },
   { href: "/admin/reports", label: "Reportes", icon: BarChart3, superadminOnly: false },
   { href: "/admin/settings", label: "Configuración", icon: Settings, superadminOnly: true },
+];
+
+// Links that only appear for ADMIN (not SUPERADMIN — they have employees section)
+const adminOnlyNavItems = [
+  { href: "/portal/report", label: "Mi Quincena", icon: Wallet },
+  { href: "/portal/schedule", label: "Mi Horario", icon: Calendar },
 ];
 
 interface AdminSidebarProps {
@@ -140,6 +147,33 @@ export function AdminSidebar({ tenantName, logoUrl, role }: AdminSidebarProps) {
               </Link>
             );
           })}
+
+          {/* Mi Quincena y Mi Horario — solo para ADMIN con empleado vinculado */}
+          {!isSuperAdmin && (
+            <>
+              <div className="pt-2 pb-1 px-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">Mi cuenta</p>
+              </div>
+              {adminOnlyNavItems.map(({ href, label, icon: Icon }) => {
+                const active = pathname === href;
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
+                      active
+                        ? "bg-[var(--accent)] text-[var(--primary)]"
+                        : "text-[var(--muted-foreground)] hover:bg-[var(--sidebar-accent)] hover:text-[var(--sidebar-foreground)]"
+                    )}
+                  >
+                    <Icon className="w-4 h-4 flex-shrink-0" />
+                    {label}
+                  </Link>
+                );
+              })}
+            </>
+          )}
         </nav>
 
         {/* Bottom */}

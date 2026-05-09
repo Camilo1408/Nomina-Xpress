@@ -9,7 +9,7 @@ export default async function PortalLayout({
   children: React.ReactNode;
 }) {
   const session = await auth();
-  if (!session || session.user.role !== "EMPLOYEE") redirect("/login");
+  if (!session || !["EMPLOYEE", "ADMIN"].includes(session.user.role)) redirect("/login");
 
   const tenant = await prisma.tenant.findUnique({
     where: { id: session.user.tenantId },
