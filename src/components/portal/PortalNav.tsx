@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
-import { BarChart3, Calendar, LogOut } from "lucide-react";
+import { BarChart3, Calendar, LogOut, UserCircle } from "lucide-react";
 
 interface PortalNavProps {
   userName: string;
@@ -31,8 +31,9 @@ export function PortalNav({ userName, logoUrl }: PortalNavProps) {
           </div>
           <nav className="flex items-center gap-0.5 sm:gap-1">
             {[
-              { href: "/portal/report", label: "Mi Nómina", icon: BarChart3 },
+              { href: "/portal/report", label: "Mi Quincena", icon: BarChart3 },
               { href: "/portal/schedule", label: "Mi Horario", icon: Calendar },
+              { href: "/portal/profile", label: "Mi Cuenta", icon: UserCircle },
             ].map(({ href, label, icon: Icon }) => (
               <Link
                 key={href}

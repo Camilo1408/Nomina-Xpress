@@ -14,9 +14,22 @@ const createSchema = z.object({
   notes: z.string().nullable().optional(),
 });
 
+function rangesOverlap(
+  aStart: Date,
+  aEnd: Date | null,
+  bStart: Date,
+  bEnd: Date | null,
+  date: string
+): boolean {
+  const dayEnd = new Date(date + "T23:59:59");
+  const effAEnd = aEnd ?? dayEnd;
+  const effBEnd = bEnd ?? dayEnd;
+  return aStart < effBEnd && bStart < effAEnd;
+}
+
 export async function GET(req: Request) {
   const session = await auth();
-  if (!session || session.user.role !== "ADMIN") {
+  if (!session || !["ADMIN", "SUPERADMIN"].includes(session.user.role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const url = new URL(req.url);
@@ -38,7 +51,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session || session.user.role !== "ADMIN") {
+  if (!session || !["ADMIN", "SUPERADMIN"].includes(session.user.role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const body = await req.json();
@@ -48,6 +61,30 @@ export async function POST(req: Request) {
   }
 
   const { date, checkIn, checkOut, checkIn2, checkOut2, employeeId, notes } = parsed.data;
+
+  const existingEntries = await prisma.timeEntry.findMany({
+    where: { tenantId: session.user.tenantId, employeeId, date },
+  });
+
+  if (existingEntries.length >= 2) {
+    return NextResponse.json(
+      { error: "El empleado ya tiene 2 registros para este día. El máximo permitido son 2 turnos diarios." },
+      { status: 409 }
+    );
+  }
+
+  const newStart = new Date(checkIn);
+  const newEnd = checkOut ? new Date(checkOut) : null;
+
+  for (const existing of existingEntries) {
+    if (rangesOverlap(newStart, newEnd, existing.checkIn, existing.checkOut, date)) {
+      return NextResponse.json(
+        { error: "El horario ingresado se superpone con un turno ya registrado para este empleado en esta fecha." },
+        { status: 409 }
+      );
+    }
+  }
+
   const special = isSpecialDay(date);
 
   const entry = await prisma.timeEntry.create({

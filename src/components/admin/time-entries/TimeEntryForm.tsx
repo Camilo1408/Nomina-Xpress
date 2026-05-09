@@ -61,7 +61,7 @@ export function TimeEntryForm({ employees, entry }: TimeEntryFormProps) {
     return d.toISOString();
   };
 
-  async function postEntry(payload: object): Promise<boolean> {
+  async function postEntry(payload: object): Promise<{ ok: boolean; error?: string }> {
     const url = isEdit ? `/api/admin/time-entries/${entry!.id}` : "/api/admin/time-entries";
     const method = isEdit ? "PUT" : "POST";
     const res = await fetch(url, {
@@ -69,7 +69,11 @@ export function TimeEntryForm({ employees, entry }: TimeEntryFormProps) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    return res.ok;
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return { ok: false, error: typeof data.error === "string" ? data.error : "Error al guardar" };
+    }
+    return { ok: true };
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -85,23 +89,23 @@ export function TimeEntryForm({ employees, entry }: TimeEntryFormProps) {
     };
 
     if (isEdit) {
-      const ok = await postEntry(turno1);
+      const result = await postEntry(turno1);
       setLoading(false);
-      if (ok) {
+      if (result.ok) {
         toast.success("Registro actualizado");
         router.push("/admin/time-entries");
         router.refresh();
       } else {
-        toast.error("Error al actualizar");
+        toast.error(result.error ?? "Error al actualizar");
       }
       return;
     }
 
     // CREATE — puede ser 1 o 2 registros
-    const ok1 = await postEntry(turno1);
-    if (!ok1) {
+    const result1 = await postEntry(turno1);
+    if (!result1.ok) {
       setLoading(false);
-      toast.error("Error al guardar el turno 1");
+      toast.error(result1.error ?? "Error al guardar el turno 1");
       return;
     }
 
@@ -113,14 +117,10 @@ export function TimeEntryForm({ employees, entry }: TimeEntryFormProps) {
         checkOut: form.checkOut2 ? buildDateTime(form.date, form.checkOut2) : null,
         notes: null,
       };
-      const ok2 = await fetch("/api/admin/time-entries", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(turno2),
-      });
-      if (!ok2.ok) {
+      const result2 = await postEntry(turno2);
+      if (!result2.ok) {
         setLoading(false);
-        toast.warning("Turno 1 guardado, pero falló el turno 2");
+        toast.warning(`Turno 1 guardado, pero falló el turno 2: ${result2.error ?? "error desconocido"}`);
         router.push("/admin/time-entries");
         router.refresh();
         return;

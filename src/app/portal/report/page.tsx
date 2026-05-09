@@ -50,7 +50,7 @@ export default function PortalReportPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-heading font-bold text-[#2C1F15]">Mi Liquidación</h1>
+        <h1 className="text-2xl font-heading font-bold text-[#2C1F15]">Mi Quincena</h1>
         {data && <p className="text-sm text-[#7A6358] mt-1">{data.employeeName}</p>}
       </div>
 

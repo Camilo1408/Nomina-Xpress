@@ -18,7 +18,7 @@ export default async function ReportsPage() {
         <h1 className="text-2xl font-heading font-bold text-[#2C1F15]">Reportes de Nómina</h1>
         <p className="text-sm text-[#7A6358] mt-1">Calcula y exporta el reporte de nómina por período</p>
       </div>
-      <ReportsClient employees={employees} />
+      <ReportsClient employees={employees} role={session!.user.role} />
     </div>
   );
 }

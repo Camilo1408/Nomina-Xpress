@@ -15,29 +15,34 @@ import {
   LogOut,
   Menu,
   X,
+  UserCircle,
 } from "lucide-react";
 
-const navItems = [
-  { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/employees", label: "Empleados", icon: Users },
-  { href: "/admin/time-entries", label: "Registro de Horas", icon: Clock },
-  { href: "/admin/schedules", label: "Horarios", icon: Calendar },
-  { href: "/admin/reports", label: "Reportes", icon: BarChart3 },
-  { href: "/admin/settings", label: "Configuración", icon: Settings },
+const allNavItems = [
+  { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard, superadminOnly: true },
+  { href: "/admin/employees", label: "Empleados", icon: Users, superadminOnly: true },
+  { href: "/admin/time-entries", label: "Registro de Horas", icon: Clock, superadminOnly: false },
+  { href: "/admin/schedules", label: "Horarios", icon: Calendar, superadminOnly: true },
+  { href: "/admin/reports", label: "Reportes", icon: BarChart3, superadminOnly: false },
+  { href: "/admin/settings", label: "Configuración", icon: Settings, superadminOnly: true },
 ];
 
 interface AdminSidebarProps {
   tenantName: string;
   logoUrl?: string | null;
+  role: string;
 }
 
-export function AdminSidebar({ tenantName, logoUrl }: AdminSidebarProps) {
+export function AdminSidebar({ tenantName, logoUrl, role }: AdminSidebarProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
+
+  const isSuperAdmin = role === "SUPERADMIN";
+  const navItems = allNavItems.filter((item) => isSuperAdmin || !item.superadminOnly);
 
   return (
     <>
@@ -138,7 +143,19 @@ export function AdminSidebar({ tenantName, logoUrl }: AdminSidebarProps) {
         </nav>
 
         {/* Bottom */}
-        <div className="px-3 pb-4 pt-3 border-t border-[var(--sidebar-border)]">
+        <div className="px-3 pb-4 pt-3 border-t border-[var(--sidebar-border)] space-y-0.5">
+          <Link
+            href="/admin/profile"
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
+              pathname === "/admin/profile"
+                ? "bg-[var(--accent)] text-[var(--primary)]"
+                : "text-[var(--muted-foreground)] hover:bg-[var(--sidebar-accent)] hover:text-[var(--sidebar-foreground)]"
+            )}
+          >
+            <UserCircle className="w-4 h-4 flex-shrink-0" />
+            Mi Perfil
+          </Link>
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-[var(--muted-foreground)] hover:bg-red-50 hover:text-red-600 transition-colors"

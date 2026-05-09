@@ -31,7 +31,7 @@ async function main() {
       tenantId: tenant.id,
       username: "admin",
       passwordHash: adminHash,
-      role: "ADMIN",
+      role: "SUPERADMIN",
     },
   });
 

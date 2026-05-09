@@ -6,7 +6,7 @@ import { formatCurrency, formatHours } from "@/lib/utils";
 
 export async function GET(req: Request) {
   const session = await auth();
-  if (!session || session.user.role !== "ADMIN") {
+  if (!session || session.user.role !== "SUPERADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

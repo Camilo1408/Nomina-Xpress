@@ -12,6 +12,11 @@ import { AdjustmentModal } from "./AdjustmentModal";
 
 interface Employee { id: string; name: string; }
 
+interface ReportsClientProps {
+  employees: Employee[];
+  role: string;
+}
+
 function getCurrentPeriod(): { from: string; to: string } {
   const today = new Date();
   const day = today.getDate();
@@ -30,7 +35,8 @@ function getCurrentPeriod(): { from: string; to: string } {
   };
 }
 
-export function ReportsClient({ employees }: { employees: Employee[] }) {
+export function ReportsClient({ employees, role }: ReportsClientProps) {
+  const isSuperAdmin = role === "SUPERADMIN";
   const period = getCurrentPeriod();
   const [from, setFrom] = useState(period.from);
   const [to, setTo] = useState(period.to);
@@ -103,7 +109,7 @@ export function ReportsClient({ employees }: { employees: Employee[] }) {
             {loading ? "Calculando..." : "Calcular nómina"}
           </Button>
         </div>
-        {results && results.length > 0 && (
+        {results && results.length > 0 && isSuperAdmin && (
           <div className="flex gap-2 pt-1 border-t border-[#F2EDE6]">
             <Button variant="outline" size="sm" onClick={() => downloadExport("excel")} className="gap-1.5 border-[#6B8E6B] text-[#6B8E6B]">
               <FileSpreadsheet className="w-4 h-4" /> Excel
@@ -147,7 +153,7 @@ export function ReportsClient({ employees }: { employees: Employee[] }) {
                   <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]">Bruto</th>
                   <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]">Ajustes</th>
                   <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]">Neto</th>
-                  <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]">Acción</th>
+                  {isSuperAdmin && <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]">Acción</th>}
                 </tr>
               </thead>
               <tbody>
@@ -163,20 +169,24 @@ export function ReportsClient({ employees }: { employees: Employee[] }) {
                                 {adj.type === "BONUS" ? "+" : "-"}{formatCurrency(adj.amount)}
                               </span>
                               <span className="text-xs text-[#7A6358]">— {adj.description}</span>
-                              <button
-                                onClick={() => setEditingAdjustment({ ...adj, type: adj.type as "DISCOUNT" | "BONUS", employeeId: emp.employeeId, name: emp.employeeName })}
-                                className="ml-1 opacity-0 group-hover:opacity-100 text-[#7A6358] hover:text-[#C1643F] transition-all"
-                                title="Editar ajuste"
-                              >
-                                <Pencil className="w-3 h-3" />
-                              </button>
-                              <button
-                                onClick={() => deleteAdjustment(adj.id)}
-                                className="opacity-0 group-hover:opacity-100 text-[#7A6358] hover:text-[#B94040] transition-all"
-                                title="Eliminar ajuste"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
+                              {isSuperAdmin && (
+                                <>
+                                  <button
+                                    onClick={() => setEditingAdjustment({ ...adj, type: adj.type as "DISCOUNT" | "BONUS", employeeId: emp.employeeId, name: emp.employeeName })}
+                                    className="ml-1 opacity-0 group-hover:opacity-100 text-[#7A6358] hover:text-[#C1643F] transition-all"
+                                    title="Editar ajuste"
+                                  >
+                                    <Pencil className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    onClick={() => deleteAdjustment(adj.id)}
+                                    className="opacity-0 group-hover:opacity-100 text-[#7A6358] hover:text-[#B94040] transition-all"
+                                    title="Eliminar ajuste"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -195,6 +205,7 @@ export function ReportsClient({ employees }: { employees: Employee[] }) {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right font-mono font-bold text-[#6B8E6B]">{formatCurrency(emp.netPay)}</td>
+                    {isSuperAdmin && (
                     <td className="px-4 py-3 text-right">
                       <Button
                         variant="ghost"
@@ -205,6 +216,7 @@ export function ReportsClient({ employees }: { employees: Employee[] }) {
                         <Plus className="w-3 h-3" /> Ajuste
                       </Button>
                     </td>
+                    )}
                   </tr>
                 ))}
                 {results.length === 0 && (

@@ -6,7 +6,10 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff, KeyRound, UserPlus } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Eye, EyeOff, KeyRound, UserPlus, ShieldCheck, User } from "lucide-react";
+
+type AccessRole = "NONE" | "EMPLOYEE" | "ADMIN";
 
 interface EmployeeFormProps {
   employee?: {
@@ -18,43 +21,58 @@ interface EmployeeFormProps {
     hourlyRateSpecial: number;
     active: boolean;
   };
-  existingUser?: { username: string } | null;
+  existingUser?: { username: string; role: string } | null;
 }
+
+const roleLabels: Record<string, string> = {
+  EMPLOYEE: "Empleado",
+  ADMIN: "Admin",
+  SUPERADMIN: "Superadmin",
+};
+
+const roleBadgeStyle: Record<string, string> = {
+  EMPLOYEE: "bg-[#6B8E6B]/10 text-[#6B8E6B] border-0",
+  ADMIN: "bg-[#C1643F]/10 text-[#C1643F] border-0",
+  SUPERADMIN: "bg-[#2C1F15]/10 text-[#2C1F15] border-0",
+};
 
 export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
   const router = useRouter();
   const isEdit = !!employee;
 
-  // --- Employee data form ---
   const [form, setForm] = useState({
     name: employee?.name ?? "",
     documentId: employee?.documentId ?? "",
     phone: employee?.phone ?? "",
     hourlyRateNormal: employee?.hourlyRateNormal ?? 6400,
     hourlyRateSpecial: employee?.hourlyRateSpecial ?? 11500,
-    createPortalAccess: false,
+    accessRole: "NONE" as AccessRole,
     username: "",
     password: "",
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // --- Credentials section (edit mode only) ---
+  // Edit mode: update existing credentials
   const [credUsername, setCredUsername] = useState(existingUser?.username ?? "");
   const [credPassword, setCredPassword] = useState("");
+  const [credRole, setCredRole] = useState<"EMPLOYEE" | "ADMIN">(
+    (existingUser?.role === "ADMIN" ? "ADMIN" : "EMPLOYEE") as "EMPLOYEE" | "ADMIN"
+  );
   const [showCredPassword, setShowCredPassword] = useState(false);
   const [credLoading, setCredLoading] = useState(false);
-  // For employees without user: toggle create form
+
+  // Edit mode: create credentials for employee without access
   const [creatingAccess, setCreatingAccess] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [newRole, setNewRole] = useState<"EMPLOYEE" | "ADMIN">("EMPLOYEE");
   const [showNewPassword, setShowNewPassword] = useState(false);
 
   function set(field: string, value: string | number | boolean) {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
-  // Save employee basic data
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -80,19 +98,17 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
     }
   }
 
-  // Update existing credentials (username and/or password)
   async function handleUpdateCredentials(e: React.FormEvent) {
     e.preventDefault();
-    if (!credUsername && !credPassword) return;
-    setCredLoading(true);
     const body: Record<string, string> = {};
     if (credUsername && credUsername !== existingUser?.username) body.username = credUsername;
     if (credPassword) body.password = credPassword;
+    if (credRole !== existingUser?.role) body.role = credRole;
     if (Object.keys(body).length === 0) {
       toast.info("Sin cambios para guardar");
-      setCredLoading(false);
       return;
     }
+    setCredLoading(true);
     const res = await fetch(`/api/admin/employees/${employee!.id}/credentials`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -109,7 +125,6 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
     }
   }
 
-  // Create credentials for employee without access
   async function handleCreateCredentials(e: React.FormEvent) {
     e.preventDefault();
     if (!newUsername || !newPassword) return;
@@ -117,17 +132,19 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
     const res = await fetch(`/api/admin/employees/${employee!.id}/credentials`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: newUsername, password: newPassword }),
+      body: JSON.stringify({ username: newUsername, password: newPassword, role: newRole }),
     });
     setCredLoading(false);
     if (res.ok) {
-      toast.success("Acceso al portal creado");
+      toast.success("Acceso creado");
       router.refresh();
     } else {
       const data = await res.json();
       toast.error(data.error?.message ?? "Error al crear acceso");
     }
   }
+
+  const needsCredentials = form.accessRole !== "NONE";
 
   return (
     <div className="space-y-6">
@@ -149,8 +166,7 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
           <div className="space-y-1.5">
             <Label>Tarifa hora normal (COP) *</Label>
             <Input
-              type="number"
-              value={form.hourlyRateNormal}
+              type="number" value={form.hourlyRateNormal}
               onChange={(e) => set("hourlyRateNormal", e.target.value)}
               min="0" step="100" required
             />
@@ -158,8 +174,7 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
           <div className="space-y-1.5">
             <Label>Tarifa hora especial (COP) *</Label>
             <Input
-              type="number"
-              value={form.hourlyRateSpecial}
+              type="number" value={form.hourlyRateSpecial}
               onChange={(e) => set("hourlyRateSpecial", e.target.value)}
               min="0" step="100" required
             />
@@ -167,27 +182,54 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
           </div>
         </div>
 
-        {/* Portal access — CREATE mode only */}
+        {/* ── Acceso al sistema — solo en CREATE ── */}
         {!isEdit && (
           <div className="border border-[#E0D5CA] rounded-lg p-4 space-y-4">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.createPortalAccess}
-                onChange={(e) => set("createPortalAccess", e.target.checked)}
-                className="accent-[#C1643F]"
-              />
-              <span className="text-sm font-medium text-[#2C1F15]">Crear acceso al portal del empleado</span>
-            </label>
-            {form.createPortalAccess && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-6">
+            <p className="text-sm font-semibold text-[#2C1F15]">Acceso al sistema</p>
+            <div className="space-y-2">
+              {(
+                [
+                  { value: "NONE", label: "Sin acceso", desc: "Solo aparece en registros internos", icon: null },
+                  { value: "EMPLOYEE", label: "Empleado", desc: "Puede ver su quincena y horario en el portal", icon: User },
+                  { value: "ADMIN", label: "Admin", desc: "Puede registrar horas y ver reportes", icon: ShieldCheck },
+                ] as const
+              ).map(({ value, label, desc, icon: Icon }) => (
+                <label
+                  key={value}
+                  className={`flex items-start gap-3 p-3 rounded-md border cursor-pointer transition-colors ${
+                    form.accessRole === value
+                      ? "border-[#C1643F] bg-[#C1643F]/5"
+                      : "border-[#E0D5CA] hover:border-[#C1643F]/40"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="accessRole"
+                    value={value}
+                    checked={form.accessRole === value}
+                    onChange={() => set("accessRole", value)}
+                    className="accent-[#C1643F] mt-0.5"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      {Icon && <Icon className="w-3.5 h-3.5 text-[#C1643F]" />}
+                      <span className="text-sm font-medium text-[#2C1F15]">{label}</span>
+                    </div>
+                    <p className="text-xs text-[#7A6358] mt-0.5">{desc}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+
+            {needsCredentials && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1 border-t border-[#E0D5CA]">
                 <div className="space-y-1.5">
                   <Label>Usuario *</Label>
                   <Input
                     type="text"
                     value={form.username}
                     onChange={(e) => set("username", e.target.value.toLowerCase().replace(/\s/g, ""))}
-                    required={form.createPortalAccess}
+                    required={needsCredentials}
                     minLength={3}
                     placeholder="ej: juan.perez"
                     autoComplete="off"
@@ -202,7 +244,7 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
                       value={form.password}
                       onChange={(e) => set("password", e.target.value)}
                       minLength={6}
-                      required={form.createPortalAccess}
+                      required={needsCredentials}
                       placeholder="Mín. 6 caracteres"
                       className="pr-10"
                     />
@@ -227,31 +269,57 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
         </div>
       </form>
 
-      {/* ── Acceso al portal — EDIT mode only ── */}
+      {/* ── Acceso al sistema — EDIT mode (SUPERADMIN only) ── */}
       {isEdit && (
         <div className="max-w-xl">
           <div className="border border-[#E0D5CA] rounded-lg p-4 space-y-4">
             <div className="flex items-center gap-2">
               <KeyRound className="w-4 h-4 text-[#7A6358]" />
-              <h3 className="text-sm font-semibold text-[#2C1F15]">Acceso al portal</h3>
+              <h3 className="text-sm font-semibold text-[#2C1F15]">Acceso al sistema</h3>
+              {existingUser && (
+                <Badge className={roleBadgeStyle[existingUser.role] ?? "bg-gray-100 text-gray-600 border-0"}>
+                  {roleLabels[existingUser.role] ?? existingUser.role}
+                </Badge>
+              )}
             </div>
 
             {existingUser ? (
-              /* Edit existing credentials */
               <form onSubmit={handleUpdateCredentials} className="space-y-4">
                 <p className="text-xs text-[#7A6358]">
                   Usuario actual: <span className="font-mono font-medium text-[#2C1F15]">@{existingUser.username}</span>
                 </p>
+
+                {/* Role selector */}
+                {existingUser.role !== "SUPERADMIN" && (
+                  <div className="space-y-1.5">
+                    <Label>Rol de acceso</Label>
+                    <div className="flex gap-3">
+                      {(["EMPLOYEE", "ADMIN"] as const).map((r) => (
+                        <label key={r} className={`flex items-center gap-2 px-3 py-2 rounded-md border text-sm cursor-pointer transition-colors ${
+                          credRole === r ? "border-[#C1643F] bg-[#C1643F]/5 text-[#C1643F]" : "border-[#E0D5CA] text-[#7A6358]"
+                        }`}>
+                          <input
+                            type="radio" name="credRole" value={r}
+                            checked={credRole === r}
+                            onChange={() => setCredRole(r)}
+                            className="accent-[#C1643F]"
+                          />
+                          {roleLabels[r]}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Cambiar usuario</Label>
                     <Input
-                      type="text"
-                      value={credUsername}
+                      type="text" value={credUsername}
                       onChange={(e) => setCredUsername(e.target.value.toLowerCase().replace(/\s/g, ""))}
-                      minLength={3}
-                      placeholder={existingUser.username}
+                      minLength={3} placeholder={existingUser.username}
                       autoComplete="off"
+                      disabled={existingUser.role === "SUPERADMIN"}
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -261,8 +329,7 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
                         type={showCredPassword ? "text" : "password"}
                         value={credPassword}
                         onChange={(e) => setCredPassword(e.target.value)}
-                        minLength={6}
-                        placeholder="Dejar vacío para no cambiar"
+                        minLength={6} placeholder="Dejar vacío para no cambiar"
                         className="pr-10"
                       />
                       <button type="button" onClick={() => setShowCredPassword((v) => !v)}
@@ -278,18 +345,32 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
                 </Button>
               </form>
             ) : creatingAccess ? (
-              /* Create credentials for employee without access */
               <form onSubmit={handleCreateCredentials} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label>Rol de acceso</Label>
+                  <div className="flex gap-3">
+                    {(["EMPLOYEE", "ADMIN"] as const).map((r) => (
+                      <label key={r} className={`flex items-center gap-2 px-3 py-2 rounded-md border text-sm cursor-pointer transition-colors ${
+                        newRole === r ? "border-[#C1643F] bg-[#C1643F]/5 text-[#C1643F]" : "border-[#E0D5CA] text-[#7A6358]"
+                      }`}>
+                        <input
+                          type="radio" name="newRole" value={r}
+                          checked={newRole === r}
+                          onChange={() => setNewRole(r)}
+                          className="accent-[#C1643F]"
+                        />
+                        {roleLabels[r]}
+                      </label>
+                    ))}
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Usuario *</Label>
                     <Input
-                      type="text"
-                      value={newUsername}
+                      type="text" value={newUsername}
                       onChange={(e) => setNewUsername(e.target.value.toLowerCase().replace(/\s/g, ""))}
-                      required minLength={3}
-                      placeholder="ej: juan.perez"
-                      autoComplete="off"
+                      required minLength={3} placeholder="ej: juan.perez" autoComplete="off"
                     />
                     <p className="text-xs text-[#7A6358]">Mínimo 3 caracteres, sin espacios</p>
                   </div>
@@ -300,9 +381,7 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
                         type={showNewPassword ? "text" : "password"}
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
-                        required minLength={6}
-                        placeholder="Mín. 6 caracteres"
-                        className="pr-10"
+                        required minLength={6} placeholder="Mín. 6 caracteres" className="pr-10"
                       />
                       <button type="button" onClick={() => setShowNewPassword((v) => !v)}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7A6358] hover:text-[#2C1F15]" tabIndex={-1}>
@@ -321,13 +400,10 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
                 </div>
               </form>
             ) : (
-              /* No access yet — invite to create */
               <div className="flex items-center justify-between">
-                <p className="text-sm text-[#7A6358]">Este empleado no tiene acceso al portal.</p>
+                <p className="text-sm text-[#7A6358]">Este empleado no tiene acceso al sistema.</p>
                 <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
+                  type="button" size="sm" variant="outline"
                   onClick={() => setCreatingAccess(true)}
                   className="border-[#C1643F] text-[#C1643F] hover:bg-[#C1643F]/5 gap-1.5"
                 >
