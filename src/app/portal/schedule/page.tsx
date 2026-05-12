@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { PushNotificationButton } from "@/components/portal/PushNotificationButton";
 
 const DAY_NAMES = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
@@ -37,9 +38,12 @@ export default function PortalSchedulePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-heading font-bold text-[#2C1F15]">Mi Horario</h1>
-        <p className="text-sm text-[#7A6358] mt-1">Horario publicado por el administrador</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-heading font-bold text-[#2C1F15]">Mi Horario</h1>
+          <p className="text-sm text-[#7A6358] mt-1">Horario publicado por el administrador</p>
+        </div>
+        <PushNotificationButton />
       </div>
 
       {schedule ? (

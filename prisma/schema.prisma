@@ -16,11 +16,12 @@ model Tenant {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  users          User[]
-  employees      Employee[]
-  timeEntries    TimeEntry[]
-  schedules      Schedule[]
-  payAdjustments PayAdjustment[]
+  users             User[]
+  employees         Employee[]
+  timeEntries       TimeEntry[]
+  schedules         Schedule[]
+  payAdjustments    PayAdjustment[]
+  pushSubscriptions PushSubscription[]
 }
 
 model User {
@@ -34,6 +35,8 @@ model User {
   employee     Employee? @relation(fields: [employeeId], references: [id])
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+
+  pushSubscriptions PushSubscription[]
 
   @@index([tenantId])
 }
@@ -124,4 +127,20 @@ model PayAdjustment {
   createdAt   DateTime @default(now())
 
   @@index([tenantId, employeeId])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([userId])
 }
