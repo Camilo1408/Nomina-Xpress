@@ -25,7 +25,7 @@ export async function PUT(req: Request) {
   }
 
   // ADMIN cannot change username — only SUPERADMIN can
-  if (parsed.data.username && session.user.role === "ADMIN") {
+  if (parsed.data.username && session.user.role === "SUPERADMIN") {
     return NextResponse.json({ error: "Sin permisos para cambiar el usuario" }, { status: 403 });
   }
 

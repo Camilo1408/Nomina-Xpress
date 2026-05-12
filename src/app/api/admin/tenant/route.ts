@@ -11,7 +11,7 @@ const updateSchema = z.object({
 
 export async function GET() {
   const session = await auth();
-  if (!session || session.user.role !== "ADMIN") {
+  if (!session || session.user.role !== "SUPERADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const tenant = await prisma.tenant.findUnique({ where: { id: session.user.tenantId } });
@@ -20,7 +20,7 @@ export async function GET() {
 
 export async function PUT(req: Request) {
   const session = await auth();
-  if (!session || session.user.role !== "ADMIN") {
+  if (!session || session.user.role !== "SUPERADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const body = await req.json();
