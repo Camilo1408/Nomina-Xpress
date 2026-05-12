@@ -1,4 +1,4 @@
-export type Role = "ADMIN" | "EMPLOYEE";
+export type Role = "SUPERADMIN" | "ADMIN" | "EMPLOYEE";
 export type AdjustmentType = "DISCOUNT" | "BONUS";
 export type PeriodType = "first" | "second" | "month" | "custom";
 

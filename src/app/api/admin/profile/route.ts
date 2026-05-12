@@ -24,8 +24,8 @@ export async function PUT(req: Request) {
     return NextResponse.json({ error: "Nada que actualizar" }, { status: 400 });
   }
 
-  // ADMIN cannot change username — only SUPERADMIN can
-  if (parsed.data.username && session.user.role === "SUPERADMIN") {
+  // Only SUPERADMIN can change username — ADMIN cannot
+  if (parsed.data.username && session.user.role !== "SUPERADMIN") {
     return NextResponse.json({ error: "Sin permisos para cambiar el usuario" }, { status: 403 });
   }
 
