@@ -48,7 +48,7 @@ export async function POST(req: Request) {
     const exists = await prisma.user.findUnique({ where: { username } });
     if (exists) {
       return NextResponse.json(
-        { error: { message: "El nombre de usuario ya está en uso" } },
+        { error: "El nombre de usuario ya está en uso" },
         { status: 409 }
       );
     }

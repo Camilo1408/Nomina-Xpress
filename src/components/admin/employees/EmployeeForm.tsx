@@ -115,8 +115,8 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
       router.push("/admin/employees");
       router.refresh();
     } else {
-      const data = await res.json();
-      toast.error(data.error?.message ?? "Error al guardar");
+      const data = await res.json() as { error?: string };
+      toast.error(data.error ?? "Error al guardar");
     }
   }
 
@@ -142,8 +142,8 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
       setCredPassword("");
       router.refresh();
     } else {
-      const data = await res.json();
-      toast.error(data.error?.message ?? "Error al actualizar credenciales");
+      const data = await res.json() as { error?: string };
+      toast.error(data.error ?? "Error al actualizar credenciales");
     }
   }
 
@@ -161,8 +161,8 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
       toast.success("Acceso creado");
       router.refresh();
     } else {
-      const data = await res.json();
-      toast.error(data.error?.message ?? "Error al crear acceso");
+      const data = await res.json() as { error?: string };
+      toast.error(data.error ?? "Error al crear acceso");
     }
   }
 
