@@ -5,12 +5,14 @@ declare module "next-auth" {
     role: string;
     tenantId: string;
     employeeId?: string | null;
+    inventoryAccess: boolean;
   }
   interface Session {
     user: {
       role: string;
       tenantId: string;
       employeeId?: string | null;
+      inventoryAccess: boolean;
     } & DefaultSession["user"];
   }
 }
@@ -20,5 +22,6 @@ declare module "next-auth/jwt" {
     role: string;
     tenantId: string;
     employeeId?: string | null;
+    inventoryAccess: boolean;
   }
 }

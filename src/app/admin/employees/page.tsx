@@ -4,7 +4,7 @@ import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Package } from "lucide-react";
 import { EmployeeActions } from "@/components/admin/employees/EmployeeActions";
 
 export default async function EmployeesPage() {
@@ -13,7 +13,7 @@ export default async function EmployeesPage() {
 
   const employees = await prisma.employee.findMany({
     where: { tenantId },
-    include: { user: { select: { username: true } } },
+    include: { user: { select: { username: true, inventoryAccess: true } } },
     orderBy: { name: "asc" },
   });
 
@@ -50,9 +50,17 @@ export default async function EmployeesPage() {
                 className={`border-b border-[#F2EDE6] last:border-0 ${i % 2 === 1 ? "bg-[#F2EDE6]/50" : ""}`}
               >
                 <td className="px-4 py-3">
-                  <div>
-                    <p className="font-medium text-[#2C1F15]">{emp.name}</p>
-                    {emp.user && <p className="text-xs text-[#7A6358]">@{emp.user.username}</p>}
+                  <div className="flex items-center gap-2">
+                    <div>
+                      <p className="font-medium text-[#2C1F15]">{emp.name}</p>
+                      {emp.user && <p className="text-xs text-[#7A6358]">@{emp.user.username}</p>}
+                    </div>
+                    {emp.user?.inventoryAccess && (
+                      <Badge className="bg-blue-100 text-blue-700 border-0 gap-1 text-[10px]">
+                        <Package className="w-2.5 h-2.5" />
+                        Inventario
+                      </Badge>
+                    )}
                   </div>
                 </td>
                 <td className="px-4 py-3 text-[#7A6358] font-mono">{emp.documentId ?? "—"}</td>

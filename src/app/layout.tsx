@@ -26,6 +26,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="Nómina Xpress" />
         {/* Elimina atributos inyectados por extensiones del navegador */}
         <script
+          suppressHydrationWarning
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var o=new MutationObserver(function(m){m.forEach(function(r){if(r.type==='attributes'&&r.attributeName.indexOf('bis_')===0){r.target.removeAttribute(r.attributeName)}})});o.observe(document.documentElement,{attributes:true,subtree:true,attributeFilter:['bis_skin_checked','bis_register']})}catch(e){}})()`,
           }}

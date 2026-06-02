@@ -27,6 +27,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           role: user.role,
           tenantId: user.tenantId,
           employeeId: user.employeeId,
+          inventoryAccess: user.inventoryAccess,
         };
       },
     }),
@@ -38,6 +39,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.role = user.role;
         token.tenantId = user.tenantId;
         token.employeeId = user.employeeId;
+        token.inventoryAccess = user.inventoryAccess ?? false;
       }
       return token;
     },
@@ -46,6 +48,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.user.role = token.role as string;
       session.user.tenantId = token.tenantId as string;
       session.user.employeeId = token.employeeId as string | null | undefined;
+      session.user.inventoryAccess = (token.inventoryAccess as boolean) ?? false;
       return session;
     },
   },
