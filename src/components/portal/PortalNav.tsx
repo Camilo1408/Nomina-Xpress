@@ -4,14 +4,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
-import { BarChart3, Calendar, LogOut, UserCircle } from "lucide-react";
+import { BarChart3, Calendar, LogOut, UserCircle, Package } from "lucide-react";
 
 interface PortalNavProps {
   userName: string;
   logoUrl?: string | null;
+  inventarioUrl?: string;
 }
 
-export function PortalNav({ userName, logoUrl }: PortalNavProps) {
+export function PortalNav({ userName, logoUrl, inventarioUrl }: PortalNavProps) {
   const pathname = usePathname();
 
   return (
@@ -52,6 +53,18 @@ export function PortalNav({ userName, logoUrl }: PortalNavProps) {
           </nav>
         </div>
         <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+          {inventarioUrl && (
+            <a
+              href={inventarioUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-md text-sm font-medium transition-colors bg-blue-600 text-white hover:bg-blue-700"
+              title="Ir al sistema de inventario"
+            >
+              <Package className="w-4 h-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Inventario</span>
+            </a>
+          )}
           <span className="text-sm text-[var(--muted-foreground)] hidden sm:block truncate max-w-[120px]">{userName}</span>
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
