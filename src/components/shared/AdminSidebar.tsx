@@ -17,6 +17,8 @@ import {
   X,
   UserCircle,
   Wallet,
+  Package,
+  ExternalLink,
 } from "lucide-react";
 
 const allNavItems = [
@@ -38,9 +40,10 @@ interface AdminSidebarProps {
   tenantName: string;
   logoUrl?: string | null;
   role: string;
+  inventarioUrl?: string;
 }
 
-export function AdminSidebar({ tenantName, logoUrl, role }: AdminSidebarProps) {
+export function AdminSidebar({ tenantName, logoUrl, role, inventarioUrl }: AdminSidebarProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -147,6 +150,25 @@ export function AdminSidebar({ tenantName, logoUrl, role }: AdminSidebarProps) {
               </Link>
             );
           })}
+
+          {/* Acceso a Inventario — solo SUPERADMIN */}
+          {isSuperAdmin && inventarioUrl && (
+            <>
+              <div className="pt-2 pb-1 px-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">Módulos</p>
+              </div>
+              <a
+                href={inventarioUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors text-[var(--muted-foreground)] hover:bg-[var(--sidebar-accent)] hover:text-[var(--sidebar-foreground)]"
+              >
+                <Package className="w-4 h-4 flex-shrink-0" />
+                Inventario
+                <ExternalLink className="w-3 h-3 ml-auto opacity-50" />
+              </a>
+            </>
+          )}
 
           {/* Mi Quincena y Mi Horario — solo para ADMIN con empleado vinculado */}
           {!isSuperAdmin && (
