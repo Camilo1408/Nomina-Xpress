@@ -5,13 +5,14 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Package, ExternalLink } from "lucide-react";
 
 interface ProfileClientProps {
   role: string;
+  inventarioUrl?: string;
 }
 
-export function ProfileClient({ role }: ProfileClientProps) {
+export function ProfileClient({ role, inventarioUrl }: ProfileClientProps) {
   const isSuperAdmin = role === "SUPERADMIN";
 
   const [form, setForm] = useState({ currentPassword: "", username: "", newPassword: "" });
@@ -54,7 +55,29 @@ export function ProfileClient({ role }: ProfileClientProps) {
   }
 
   return (
-    <div className="bg-white rounded-lg border border-[#E0D5CA] shadow-[0_1px_3px_rgba(44,31,21,0.08)] p-6 max-w-md">
+    <div className="space-y-4 max-w-md">
+      {inventarioUrl && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Package className="w-5 h-5 text-blue-600 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-blue-800">Sistema de Inventario</p>
+              <p className="text-xs text-blue-600 mt-0.5">Gestiona el stock del restaurante</p>
+            </div>
+          </div>
+          <a
+            href={inventarioUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors shrink-0"
+          >
+            Ir al inventario
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
+      )}
+
+      <div className="bg-white rounded-lg border border-[#E0D5CA] shadow-[0_1px_3px_rgba(44,31,21,0.08)] p-6">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
           <Label>Contraseña actual *</Label>
@@ -111,6 +134,7 @@ export function ProfileClient({ role }: ProfileClientProps) {
           {loading ? "Guardando..." : "Guardar cambios"}
         </Button>
       </form>
+      </div>
     </div>
   );
 }

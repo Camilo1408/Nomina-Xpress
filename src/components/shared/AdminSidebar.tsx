@@ -151,8 +151,8 @@ export function AdminSidebar({ tenantName, logoUrl, role, inventarioUrl }: Admin
             );
           })}
 
-          {/* Acceso a Inventario — solo SUPERADMIN */}
-          {isSuperAdmin && inventarioUrl && (
+          {/* Acceso a Inventario — SUPERADMIN y ADMIN */}
+          {(isSuperAdmin || role === "ADMIN") && inventarioUrl && (
             <>
               <div className="pt-2 pb-1 px-3">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">Módulos</p>

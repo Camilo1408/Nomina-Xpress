@@ -4,6 +4,9 @@ import { ProfileClient } from "./ProfileClient";
 export default async function AdminProfilePage() {
   const session = await auth();
   const role = session!.user.role;
+  const inventarioUrl = process.env.NEXT_PUBLIC_INVENTARIO_APP_URL;
+  const hasInventoryAccess =
+    role === "SUPERADMIN" || role === "ADMIN" || session!.user.inventoryAccess;
 
   return (
     <div className="space-y-6">
@@ -13,7 +16,10 @@ export default async function AdminProfilePage() {
           {role === "SUPERADMIN" ? "Cambia tu usuario o contraseña" : "Cambia tu contraseña"}
         </p>
       </div>
-      <ProfileClient role={role} />
+      <ProfileClient
+        role={role}
+        inventarioUrl={hasInventoryAccess ? inventarioUrl : undefined}
+      />
     </div>
   );
 }
