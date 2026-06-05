@@ -1,111 +1,61 @@
-"use client";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import { formatCurrency } from "@/lib/utils";
+import { PortalProfileClient } from "./PortalProfileClient";
 
-import { useState } from "react";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Eye, EyeOff } from "lucide-react";
+export default async function PortalProfilePage() {
+  const session = await auth();
+  const employeeId = session!.user.employeeId;
 
-export default function PortalProfilePage() {
-  const [form, setForm] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
-  });
-  const [showCurrent, setShowCurrent] = useState(false);
-  const [showNew, setShowNew] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const employee = employeeId
+    ? await prisma.employee.findUnique({
+        where: { id: employeeId },
+        select: { name: true, documentId: true, phone: true, hourlyRateNormal: true, hourlyRateSpecial: true },
+      })
+    : null;
 
-  function set(field: string, value: string) {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (form.newPassword !== form.confirmPassword) {
-      toast.error("Las contraseñas nuevas no coinciden");
-      return;
-    }
-    setLoading(true);
-    const res = await fetch("/api/employee/credentials", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        currentPassword: form.currentPassword,
-        newPassword: form.newPassword,
-      }),
-    });
-    setLoading(false);
-    if (res.ok) {
-      toast.success("Contraseña actualizada");
-      setForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-    } else {
-      const data = await res.json();
-      toast.error(typeof data.error === "string" ? data.error : "Error al actualizar");
-    }
-  }
+  const displayName = employee?.name ?? session!.user.name ?? "Empleado";
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-heading font-bold text-[#2C1F15]">Mi Cuenta</h1>
+        <h1 className="text-2xl font-heading font-bold text-[#2C1F15]">Hola, {displayName}</h1>
         <p className="text-sm text-[#7A6358] mt-1">Cambia tu contraseña de acceso</p>
       </div>
 
-      <div className="bg-white rounded-lg border border-[#E0D5CA] shadow-[0_1px_3px_rgba(44,31,21,0.08)] p-6 max-w-md">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>Contraseña actual *</Label>
-            <div className="relative">
-              <Input
-                type={showCurrent ? "text" : "password"}
-                value={form.currentPassword}
-                onChange={(e) => set("currentPassword", e.target.value)}
-                required placeholder="Tu contraseña actual"
-                className="pr-10"
-              />
-              <button type="button" onClick={() => setShowCurrent((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7A6358] hover:text-[#2C1F15]" tabIndex={-1}>
-                {showCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
+      {employee && (
+        <div className="bg-white rounded-lg border border-[#E0D5CA] shadow-[0_1px_3px_rgba(44,31,21,0.08)] p-6 max-w-md">
+          <h2 className="text-sm font-semibold text-[#2C1F15] mb-4 uppercase tracking-wide">Mis datos</h2>
+          <dl className="space-y-3">
+            <div className="flex justify-between items-center py-1.5 border-b border-[#F2EDE6]">
+              <dt className="text-sm text-[#7A6358]">Nombre</dt>
+              <dd className="text-sm font-medium text-[#2C1F15]">{employee.name}</dd>
             </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Nueva contraseña *</Label>
-            <div className="relative">
-              <Input
-                type={showNew ? "text" : "password"}
-                value={form.newPassword}
-                onChange={(e) => set("newPassword", e.target.value)}
-                required minLength={6}
-                placeholder="Mín. 6 caracteres"
-                className="pr-10"
-              />
-              <button type="button" onClick={() => setShowNew((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7A6358] hover:text-[#2C1F15]" tabIndex={-1}>
-                {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
+            {employee.documentId && (
+              <div className="flex justify-between items-center py-1.5 border-b border-[#F2EDE6]">
+                <dt className="text-sm text-[#7A6358]">Cédula</dt>
+                <dd className="text-sm font-mono text-[#2C1F15]">{employee.documentId}</dd>
+              </div>
+            )}
+            {employee.phone && (
+              <div className="flex justify-between items-center py-1.5 border-b border-[#F2EDE6]">
+                <dt className="text-sm text-[#7A6358]">Teléfono</dt>
+                <dd className="text-sm font-mono text-[#2C1F15]">{employee.phone}</dd>
+              </div>
+            )}
+            <div className="flex justify-between items-center py-1.5 border-b border-[#F2EDE6]">
+              <dt className="text-sm text-[#7A6358]">Hora normal</dt>
+              <dd className="text-sm font-mono font-semibold text-[#2C1F15]">{formatCurrency(employee.hourlyRateNormal)}</dd>
             </div>
-          </div>
+            <div className="flex justify-between items-center py-1.5">
+              <dt className="text-sm text-[#7A6358]">Hora especial</dt>
+              <dd className="text-sm font-mono font-semibold text-[#C1643F]">{formatCurrency(employee.hourlyRateSpecial)}</dd>
+            </div>
+          </dl>
+        </div>
+      )}
 
-          <div className="space-y-1.5">
-            <Label>Confirmar nueva contraseña *</Label>
-            <Input
-              type="password"
-              value={form.confirmPassword}
-              onChange={(e) => set("confirmPassword", e.target.value)}
-              required minLength={6}
-              placeholder="Repite la nueva contraseña"
-            />
-          </div>
-
-          <Button type="submit" disabled={loading} className="bg-[#C1643F] hover:bg-[#A8522F] text-[#FAF7F2] w-full">
-            {loading ? "Guardando..." : "Cambiar contraseña"}
-          </Button>
-        </form>
-      </div>
+      <PortalProfileClient />
     </div>
   );
 }

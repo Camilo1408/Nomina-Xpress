@@ -33,7 +33,7 @@ export function PortalNav({ userName, logoUrl }: PortalNavProps) {
             {[
               { href: "/portal/report", label: "Mi Quincena", icon: BarChart3 },
               { href: "/portal/schedule", label: "Mi Horario", icon: Calendar },
-              { href: "/portal/profile", label: "Mi Cuenta", icon: UserCircle },
+              { href: "/portal/profile", label: userName, icon: UserCircle },
             ].map(({ href, label, icon: Icon }) => (
               <Link
                 key={href}
@@ -52,7 +52,6 @@ export function PortalNav({ userName, logoUrl }: PortalNavProps) {
           </nav>
         </div>
         <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-          <span className="text-sm text-[var(--muted-foreground)] hidden sm:block truncate max-w-[120px]">{userName}</span>
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
             className="flex items-center gap-1.5 text-sm text-[var(--muted-foreground)] hover:text-red-500 transition-colors"
