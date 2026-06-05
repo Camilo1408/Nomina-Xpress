@@ -21,6 +21,7 @@ export default async function AdminLayout({
         tenantName={tenant?.name ?? "Restaurante"}
         logoUrl={tenant?.logoUrl}
         role={session.user.role}
+        userName={session.user.name ?? "Usuario"}
       />
       <main className="flex-1 overflow-y-auto bg-background min-w-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8 pt-[72px] lg:pt-8">
