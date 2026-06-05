@@ -11,14 +11,19 @@ export default async function PortalLayout({
   const session = await auth();
   if (!session || session.user.role !== "EMPLOYEE") redirect("/login");
 
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: session.user.tenantId },
-  });
+  const [tenant, employee] = await Promise.all([
+    prisma.tenant.findUnique({ where: { id: session.user.tenantId } }),
+    session.user.employeeId
+      ? prisma.employee.findUnique({ where: { id: session.user.employeeId } })
+      : null,
+  ]);
+
+  const displayName = employee?.name ?? session.user.name ?? "Empleado";
 
   return (
     <div className="min-h-screen bg-background">
       <PortalNav
-        userName={session.user.name ?? session.user.email ?? "Empleado"}
+        userName={displayName}
         logoUrl={tenant?.logoUrl}
         inventarioUrl={session.user.inventoryAccess
           ? process.env.NEXT_PUBLIC_INVENTARIO_APP_URL

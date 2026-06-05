@@ -41,9 +41,10 @@ interface AdminSidebarProps {
   logoUrl?: string | null;
   role: string;
   inventarioUrl?: string;
+  userName: string;
 }
 
-export function AdminSidebar({ tenantName, logoUrl, role, inventarioUrl }: AdminSidebarProps) {
+export function AdminSidebar({ tenantName, logoUrl, role, inventarioUrl, userName }: AdminSidebarProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -210,7 +211,7 @@ export function AdminSidebar({ tenantName, logoUrl, role, inventarioUrl }: Admin
             )}
           >
             <UserCircle className="w-4 h-4 flex-shrink-0" />
-            Mi Perfil
+            {userName}
           </Link>
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
