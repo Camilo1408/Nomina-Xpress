@@ -2,8 +2,13 @@ import ExcelJS from "exceljs";
 import type { PayrollResult } from "@/lib/payroll";
 import { formatCurrency, formatHours } from "@/lib/utils";
 
+type PayrollWithTips = PayrollResult & {
+  totalTips: number;
+  netPayWithTips: number;
+};
+
 export async function generatePayrollExcel(
-  data: { period: { from: string; to: string }; employees: PayrollResult[] },
+  data: { period: { from: string; to: string }; employees: PayrollWithTips[] },
   tenantName: string,
   primaryColor: string
 ): Promise<Buffer> {
@@ -19,9 +24,11 @@ export async function generatePayrollExcel(
     { key: "gross", width: 18 },
     { key: "adjustments", width: 18 },
     { key: "net", width: 18 },
+    { key: "tips", width: 18 },
+    { key: "total", width: 18 },
   ];
 
-  summary.mergeCells("A1:F1");
+  summary.mergeCells("A1:H1");
   const titleCell = summary.getCell("A1");
   titleCell.value = `${tenantName} — Nómina ${data.period.from} al ${data.period.to}`;
   titleCell.font = { bold: true, size: 14 };
@@ -30,7 +37,7 @@ export async function generatePayrollExcel(
   titleCell.alignment = { horizontal: "center" };
   summary.getRow(1).height = 28;
 
-  const headers = ["Empleado", "Horas Normales", "Horas Especiales", "Bruto", "Ajustes", "Neto"];
+  const headers = ["Empleado", "Horas Normales", "Horas Especiales", "Bruto", "Ajustes", "Neto", "Propinas", "Total Final"];
   const headerRow = summary.addRow(headers);
   headerRow.eachCell((cell) => {
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF2EDE6" } };
@@ -47,6 +54,8 @@ export async function generatePayrollExcel(
       emp.grossPay,
       emp.totalAdjustments,
       emp.netPay,
+      emp.totalTips,
+      emp.netPayWithTips,
     ]);
     if (i % 2 === 1) {
       row.eachCell((cell) => {
@@ -54,7 +63,7 @@ export async function generatePayrollExcel(
       });
     }
     // Currency format
-    ["D", "E", "F"].forEach((col) => {
+    ["D", "E", "F", "G", "H"].forEach((col) => {
       const cell = row.getCell(col);
       cell.numFmt = '"$"#,##0';
     });
@@ -66,15 +75,17 @@ export async function generatePayrollExcel(
       gross: acc.gross + e.grossPay,
       adj: acc.adj + e.totalAdjustments,
       net: acc.net + e.netPay,
+      tips: acc.tips + e.totalTips,
+      total: acc.total + e.netPayWithTips,
     }),
-    { gross: 0, adj: 0, net: 0 }
+    { gross: 0, adj: 0, net: 0, tips: 0, total: 0 }
   );
-  const totalRow = summary.addRow(["TOTAL", "", "", totals.gross, totals.adj, totals.net]);
+  const totalRow = summary.addRow(["TOTAL", "", "", totals.gross, totals.adj, totals.net, totals.tips, totals.total]);
   totalRow.eachCell((cell) => {
     cell.font = { bold: true };
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF2EDE6" } };
   });
-  ["D", "E", "F"].forEach((col) => {
+  ["D", "E", "F", "G", "H"].forEach((col) => {
     totalRow.getCell(col).numFmt = '"$"#,##0';
   });
 

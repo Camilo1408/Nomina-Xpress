@@ -24,11 +24,14 @@ export async function GET(req: Request) {
 
   const results = await Promise.all(
     employees.map(async (emp) => {
-      const [entries, adjustments] = await Promise.all([
+      const [entries, adjustments, tipDists] = await Promise.all([
         prisma.timeEntry.findMany({ where: { tenantId, employeeId: emp.id, date: { gte: from, lte: to } } }),
         prisma.payAdjustment.findMany({ where: { tenantId, employeeId: emp.id, periodStart: { gte: from }, periodEnd: { lte: to } } }),
+        prisma.tipDistribution.findMany({ where: { tenantId, employeeId: emp.id, tipEntry: { date: { gte: from, lte: to } } } }),
       ]);
-      return calculatePayroll(emp, entries, adjustments);
+      const payroll = calculatePayroll(emp, entries, adjustments);
+      const totalTips = Math.round(tipDists.reduce((s, d) => s + Number(d.amount), 0));
+      return { ...payroll, totalTips, netPayWithTips: Math.round(payroll.netPay + totalTips) };
     })
   );
 

@@ -30,7 +30,7 @@ export async function GET(req: Request) {
 
   const results = await Promise.all(
     employees.map(async (emp) => {
-      const [entries, adjustments] = await Promise.all([
+      const [entries, adjustments, tipDists] = await Promise.all([
         prisma.timeEntry.findMany({
           where: { tenantId, employeeId: emp.id, date: { gte: from, lte: to } },
         }),
@@ -42,8 +42,28 @@ export async function GET(req: Request) {
             periodEnd: { lte: to },
           },
         }),
+        prisma.tipDistribution.findMany({
+          where: {
+            tenantId,
+            employeeId: emp.id,
+            tipEntry: { date: { gte: from, lte: to } },
+          },
+          include: { tipEntry: { select: { date: true } } },
+        }),
       ]);
-      return calculatePayroll(emp, entries, adjustments);
+      const payroll = calculatePayroll(emp, entries, adjustments);
+      const totalTips = tipDists.reduce((s, d) => s + Number(d.amount), 0);
+      return {
+        ...payroll,
+        totalTips: Math.round(totalTips),
+        netPayWithTips: Math.round(payroll.netPay + totalTips),
+        tipDistributions: tipDists.map((d) => ({
+          date: d.tipEntry.date,
+          amount: Number(d.amount),
+          hoursWorked: Number(d.hoursWorked),
+          tipPercent: Number(d.tipPercent),
+        })),
+      };
     })
   );
 

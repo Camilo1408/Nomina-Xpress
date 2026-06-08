@@ -3,6 +3,8 @@ import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import type { PayrollResult } from "@/lib/payroll";
 import { formatCurrency, formatHours } from "@/lib/utils";
 
+type PayrollWithTips = PayrollResult & { totalTips: number; netPayWithTips: number };
+
 const styles = StyleSheet.create({
   page: { padding: 32, fontSize: 10, fontFamily: "Helvetica", color: "#2C1F15" },
   header: { marginBottom: 20 },
@@ -35,13 +37,14 @@ const styles = StyleSheet.create({
 interface PayrollPDFProps {
   tenantName: string;
   period: { from: string; to: string };
-  employees: PayrollResult[];
+  employees: PayrollWithTips[];
   primaryColor: string;
 }
 
 export function PayrollPDF({ tenantName, period, employees, primaryColor }: PayrollPDFProps) {
   const totalGross = employees.reduce((s, e) => s + e.grossPay, 0);
-  const totalNet = employees.reduce((s, e) => s + e.netPay, 0);
+  const totalTips = employees.reduce((s, e) => s + e.totalTips, 0);
+  const totalNet = employees.reduce((s, e) => s + e.netPayWithTips, 0);
 
   return (
     <Document>
@@ -85,9 +88,17 @@ export function PayrollPDF({ tenantName, period, employees, primaryColor }: Payr
                   </Text>
                 </View>
               ))}
+              {emp.totalTips > 0 && (
+                <View style={styles.tableRow}>
+                  <Text style={styles.col1}>Propinas del período</Text>
+                  <Text style={styles.col2}></Text>
+                  <Text style={styles.col3}></Text>
+                  <Text style={[styles.col4, { color: "#C1643F" }]}>+{formatCurrency(emp.totalTips)}</Text>
+                </View>
+              )}
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>TOTAL NETO</Text>
-                <Text style={[styles.totalValue, styles.netPay]}>{formatCurrency(emp.netPay)}</Text>
+                <Text style={[styles.totalValue, styles.netPay]}>{formatCurrency(emp.netPayWithTips)}</Text>
               </View>
             </View>
           </View>
@@ -98,6 +109,12 @@ export function PayrollPDF({ tenantName, period, employees, primaryColor }: Payr
           <Text style={{ fontFamily: "Helvetica-Bold" }}>Total bruto del período</Text>
           <Text style={{ fontFamily: "Helvetica-Bold" }}>{formatCurrency(totalGross)}</Text>
         </View>
+        {totalTips > 0 && (
+          <View style={styles.summaryLine}>
+            <Text style={{ color: "#C1643F", fontFamily: "Helvetica-Bold" }}>Total propinas del período</Text>
+            <Text style={{ color: "#C1643F", fontFamily: "Helvetica-Bold" }}>{formatCurrency(totalTips)}</Text>
+          </View>
+        )}
         <View style={styles.summaryLine}>
           <Text style={[{ fontFamily: "Helvetica-Bold" }, styles.netPay]}>Total neto del período</Text>
           <Text style={[{ fontFamily: "Helvetica-Bold", fontSize: 13 }, styles.netPay]}>{formatCurrency(totalNet)}</Text>

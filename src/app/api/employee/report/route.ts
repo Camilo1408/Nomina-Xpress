@@ -29,11 +29,30 @@ export async function GET(req: Request) {
 
   if (!employee) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const [entries, adjustments] = await Promise.all([
+  const [entries, adjustments, tipDists] = await Promise.all([
     prisma.timeEntry.findMany({ where: { tenantId, employeeId, date: { gte: from, lte: to } } }),
     prisma.payAdjustment.findMany({ where: { tenantId, employeeId, periodStart: { gte: from }, periodEnd: { lte: to } } }),
+    prisma.tipDistribution.findMany({
+      where: { tenantId, employeeId, tipEntry: { date: { gte: from, lte: to } } },
+      include: { tipEntry: { select: { date: true, totalAmount: true } } },
+      orderBy: { tipEntry: { date: "asc" } },
+    }),
   ]);
 
   const result = calculatePayroll(employee, entries, adjustments);
-  return NextResponse.json({ period: { from, to }, ...result });
+  const totalTips = Math.round(tipDists.reduce((s, d) => s + Number(d.amount), 0));
+  const tipDistributions = tipDists.map((d) => ({
+    date: d.tipEntry.date,
+    amount: d.amount,
+    hoursWorked: d.hoursWorked,
+    tipPercent: d.tipPercent,
+  }));
+
+  return NextResponse.json({
+    period: { from, to },
+    ...result,
+    totalTips,
+    netPayWithTips: Math.round(result.netPay + totalTips),
+    tipDistributions,
+  });
 }

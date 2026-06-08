@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isSpecialDay } from "@/lib/holidays";
+import { recalculateTipForDate } from "@/lib/recalculate-tips";
 
 const createSchema = z.object({
   employeeId: z.string(),
@@ -100,6 +101,9 @@ export async function POST(req: Request) {
       notes: notes ?? null,
     },
   });
+
+  // Si hay propinas registradas para este día, recalcular distribuciones
+  await recalculateTipForDate(session.user.tenantId, date);
 
   return NextResponse.json(entry, { status: 201 });
 }

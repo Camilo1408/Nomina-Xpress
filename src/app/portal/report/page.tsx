@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { formatCurrency, formatHours, formatDate, formatTime } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Coins } from "lucide-react";
 
 function getCurrentPeriod() {
   const today = new Date();
@@ -36,12 +37,17 @@ export default function PortalReportPage() {
     netPay: number;
     entries: { id: string; date: string; checkIn: string; checkOut: string | null; isSpecial: boolean; notes: string | null }[];
   } | null>(null);
+  const [tips, setTips] = useState<{ totalTips: number; distributions: { amount: number; tipEntry: { date: string } }[] } | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function fetchReport(f: string, t: string) {
     setLoading(true);
-    const res = await fetch(`/api/employee/report?from=${f}&to=${t}`);
-    if (res.ok) setData(await res.json());
+    const [reportRes, tipsRes] = await Promise.all([
+      fetch(`/api/employee/report?from=${f}&to=${t}`),
+      fetch(`/api/employee/tips?from=${f}&to=${t}`),
+    ]);
+    if (reportRes.ok) setData(await reportRes.json());
+    if (tipsRes.ok) setTips(await tipsRes.json());
     setLoading(false);
   }
 
@@ -86,6 +92,43 @@ export default function PortalReportPage() {
               </Card>
             ))}
           </div>
+
+          {/* Propinas acumuladas */}
+          {tips !== null && (
+            <div className="bg-white rounded-lg border border-[#C1643F]/30 shadow-[0_1px_3px_rgba(44,31,21,0.08)] overflow-hidden">
+              <div className="px-4 py-3 border-b border-[#F2EDE6] bg-[#C1643F]/5 flex items-center gap-2">
+                <Coins className="w-4 h-4 text-[#C1643F]" />
+                <h3 className="text-sm font-semibold text-[#2C1F15]">
+                  Propinas acumuladas — quincena actual
+                </h3>
+                <span className="ml-auto font-mono font-bold text-[#C1643F]">
+                  {formatCurrency(tips.totalTips)}
+                </span>
+              </div>
+              {tips.distributions.length === 0 ? (
+                <p className="px-4 py-6 text-sm text-center text-[#7A6358]">
+                  No hay propinas registradas en este período.
+                </p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-[#E0D5CA]">
+                      <th className="text-left px-4 py-2 font-medium text-[#7A6358]">Fecha</th>
+                      <th className="text-right px-4 py-2 font-medium text-[#7A6358]">Propina</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tips.distributions.map((d, i) => (
+                      <tr key={i} className={`border-b border-[#F2EDE6] last:border-0 ${i % 2 === 1 ? "bg-[#F2EDE6]/50" : ""}`}>
+                        <td className="px-4 py-2 font-mono text-[#2C1F15]">{formatDate(d.tipEntry.date)}</td>
+                        <td className="px-4 py-2 font-mono text-right font-bold text-[#C1643F]">{formatCurrency(d.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
 
           {data.adjustments.length > 0 && (
             <div className="bg-white rounded-lg border border-[#E0D5CA] p-4 space-y-2">

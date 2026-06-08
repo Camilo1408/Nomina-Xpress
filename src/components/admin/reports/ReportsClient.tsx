@@ -10,6 +10,12 @@ import { toast } from "sonner";
 import type { PayrollResult } from "@/lib/payroll";
 import { AdjustmentModal } from "./AdjustmentModal";
 
+type PayrollWithTips = PayrollResult & {
+  totalTips: number;
+  netPayWithTips: number;
+  tipDistributions: { date: string; amount: number; hoursWorked: number; tipPercent: number }[];
+};
+
 interface Employee { id: string; name: string; }
 
 interface ReportsClientProps {
@@ -41,7 +47,7 @@ export function ReportsClient({ employees, role }: ReportsClientProps) {
   const [from, setFrom] = useState(period.from);
   const [to, setTo] = useState(period.to);
   const [selectedEmployee, setSelectedEmployee] = useState("");
-  const [results, setResults] = useState<PayrollResult[] | null>(null);
+  const [results, setResults] = useState<PayrollWithTips[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [adjustmentTarget, setAdjustmentTarget] = useState<{ employeeId: string; name: string } | null>(null);
   const [editingAdjustment, setEditingAdjustment] = useState<{
@@ -80,10 +86,11 @@ export function ReportsClient({ employees, role }: ReportsClientProps) {
     window.open(url, "_blank");
   }
 
-  const totalGross = results?.reduce((s, e) => s + e.grossPay, 0) ?? 0;
   const totalNet = results?.reduce((s, e) => s + e.netPay, 0) ?? 0;
   const totalNormalH = results?.reduce((s, e) => s + e.normalHours, 0) ?? 0;
   const totalSpecialH = results?.reduce((s, e) => s + e.specialHours, 0) ?? 0;
+  const totalTips = results?.reduce((s, e) => s + e.totalTips, 0) ?? 0;
+  const totalNetWithTips = results?.reduce((s, e) => s + e.netPayWithTips, 0) ?? 0;
 
   return (
     <div className="space-y-5">
@@ -124,12 +131,13 @@ export function ReportsClient({ employees, role }: ReportsClientProps) {
       {results && (
         <>
           {/* Summary cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             {[
               { label: "Horas normales", value: formatHours(totalNormalH), color: "#6B8E6B" },
               { label: "Horas especiales", value: formatHours(totalSpecialH), color: "#C1643F" },
-              { label: "Total bruto", value: formatCurrency(totalGross), color: "#2C1F15" },
-              { label: "Total neto", value: formatCurrency(totalNet), color: "#6B8E6B" },
+              { label: "Total neto", value: formatCurrency(totalNet), color: "#2C1F15" },
+              { label: "Propinas", value: formatCurrency(totalTips), color: "#C1643F" },
+              { label: "Total c/ propinas", value: formatCurrency(totalNetWithTips), color: "#6B8E6B" },
             ].map((card) => (
               <Card key={card.label} className="shadow-[0_1px_3px_rgba(44,31,21,0.08)]">
                 <CardHeader className="pb-1">
@@ -150,9 +158,10 @@ export function ReportsClient({ employees, role }: ReportsClientProps) {
                   <th className="text-left px-4 py-3 font-semibold text-[#2C1F15]">Empleado</th>
                   <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]">H. Normal</th>
                   <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]">H. Especial</th>
-                  <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]">Bruto</th>
                   <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]">Ajustes</th>
                   <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]">Neto</th>
+                  <th className="text-right px-4 py-3 font-semibold text-[#C1643F]">Propinas</th>
+                  <th className="text-right px-4 py-3 font-semibold text-[#6B8E6B]">Total final</th>
                   {isSuperAdmin && <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]">Acción</th>}
                 </tr>
               </thead>
@@ -198,13 +207,16 @@ export function ReportsClient({ employees, role }: ReportsClientProps) {
                         <span className="text-[#C1643F]">{formatHours(emp.specialHours)}</span>
                       ) : <span className="text-[#7A6358]">—</span>}
                     </td>
-                    <td className="px-4 py-3 text-right font-mono text-[#2C1F15]">{formatCurrency(emp.grossPay)}</td>
                     <td className="px-4 py-3 text-right font-mono">
                       <span className={emp.totalAdjustments >= 0 ? "text-[#6B8E6B]" : "text-[#B94040]"}>
                         {emp.totalAdjustments >= 0 ? "+" : ""}{formatCurrency(emp.totalAdjustments)}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right font-mono font-bold text-[#6B8E6B]">{formatCurrency(emp.netPay)}</td>
+                    <td className="px-4 py-3 text-right font-mono text-[#C1643F]">
+                      {emp.totalTips > 0 ? formatCurrency(emp.totalTips) : <span className="text-[#7A6358]">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono font-bold text-[#6B8E6B]">{formatCurrency(emp.netPayWithTips)}</td>
                     {isSuperAdmin && (
                     <td className="px-4 py-3 text-right">
                       <Button
@@ -221,7 +233,7 @@ export function ReportsClient({ employees, role }: ReportsClientProps) {
                 ))}
                 {results.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-12 text-center text-[#7A6358]">
+                    <td colSpan={8} className="px-4 py-12 text-center text-[#7A6358]">
                       No hay datos para este período.
                     </td>
                   </tr>

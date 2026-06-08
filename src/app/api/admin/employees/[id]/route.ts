@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { recalculateTipForDate } from "@/lib/recalculate-tips";
 
 const updateSchema = z.object({
   name: z.string().min(2).optional(),
@@ -9,6 +10,7 @@ const updateSchema = z.object({
   phone: z.string().optional(),
   hourlyRateNormal: z.number().positive().optional(),
   hourlyRateSpecial: z.number().positive().optional(),
+  tipPercent: z.number().min(0).max(100).optional(),
   active: z.boolean().optional(),
 });
 
@@ -34,6 +36,16 @@ export async function PUT(
 
   if (employee.count === 0) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  // Si cambió tipPercent, recalcular todas las distribuciones existentes del empleado
+  if (parsed.data.tipPercent !== undefined) {
+    const affectedDists = await prisma.tipDistribution.findMany({
+      where: { employeeId: id, tenantId: session.user.tenantId },
+      include: { tipEntry: { select: { date: true } } },
+    });
+    const dates = [...new Set(affectedDists.map((d) => d.tipEntry.date))];
+    await Promise.all(dates.map((date) => recalculateTipForDate(session.user.tenantId, date)));
   }
 
   return NextResponse.json({ success: true });

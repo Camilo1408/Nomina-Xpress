@@ -17,6 +17,7 @@ import {
   X,
   UserCircle,
   Wallet,
+  Coins,
 } from "lucide-react";
 
 const allNavItems = [
@@ -24,6 +25,7 @@ const allNavItems = [
   { href: "/admin/employees", label: "Empleados", icon: Users, superadminOnly: true },
   { href: "/admin/time-entries", label: "Registro de Horas", icon: Clock, superadminOnly: false },
   { href: "/admin/schedules", label: "Horarios", icon: Calendar, superadminOnly: true },
+  { href: "/admin/tips", label: "Propinas", icon: Coins, superadminOnly: false },
   { href: "/admin/reports", label: "Reportes", icon: BarChart3, superadminOnly: false },
   { href: "/admin/settings", label: "Configuración", icon: Settings, superadminOnly: true },
 ];

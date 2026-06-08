@@ -34,6 +34,9 @@ export default function AdminMyQuincenaPage() {
     grossPay: number;
     adjustments: { type: string; amount: number; description: string }[];
     netPay: number;
+    totalTips: number;
+    netPayWithTips: number;
+    tipDistributions: { date: string; amount: number; hoursWorked: number; tipPercent: number }[];
     entries: { id: string; date: string; checkIn: string; checkOut: string | null; isSpecial: boolean; notes: string | null }[];
   } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -73,8 +76,8 @@ export default function AdminMyQuincenaPage() {
             {[
               { label: "Horas normales", value: formatHours(data.normalHours), color: "#2C1F15" },
               { label: "Horas especiales", value: formatHours(data.specialHours), color: "#C1643F" },
-              { label: "Pago bruto", value: formatCurrency(data.grossPay), color: "#2C1F15" },
-              { label: "Pago estimado neto", value: formatCurrency(data.netPay), color: "#6B8E6B" },
+              { label: "Pago neto", value: formatCurrency(data.netPay), color: "#2C1F15" },
+              { label: "Propinas", value: formatCurrency(data.totalTips), color: "#C1643F" },
             ].map((card) => (
               <Card key={card.label} className="shadow-[0_1px_3px_rgba(44,31,21,0.08)]">
                 <CardHeader className="pb-1">
@@ -87,6 +90,14 @@ export default function AdminMyQuincenaPage() {
             ))}
           </div>
 
+          {/* Total c/ propinas */}
+          <Card className="shadow-[0_1px_3px_rgba(44,31,21,0.08)] border-[#6B8E6B]/40">
+            <CardContent className="flex items-center justify-between py-4">
+              <span className="text-sm font-medium text-[#7A6358]">Total estimado c/ propinas</span>
+              <span className="text-xl font-bold font-mono text-[#6B8E6B]">{formatCurrency(data.netPayWithTips)}</span>
+            </CardContent>
+          </Card>
+
           {data.adjustments.length > 0 && (
             <div className="bg-white rounded-lg border border-[#E0D5CA] p-4 space-y-2">
               <h3 className="text-sm font-semibold text-[#2C1F15]">Ajustes</h3>
@@ -98,6 +109,34 @@ export default function AdminMyQuincenaPage() {
                   </span>
                 </div>
               ))}
+            </div>
+          )}
+
+          {data.tipDistributions.length > 0 && (
+            <div className="bg-white rounded-lg border border-[#E0D5CA] shadow-[0_1px_3px_rgba(44,31,21,0.08)] overflow-hidden">
+              <div className="px-4 py-3 border-b border-[#E0D5CA] bg-[#F2EDE6]">
+                <h3 className="text-sm font-semibold text-[#2C1F15]">Propinas del período</h3>
+              </div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[#E0D5CA]">
+                    <th className="text-left px-4 py-2 font-medium text-[#7A6358]">Fecha</th>
+                    <th className="text-right px-4 py-2 font-medium text-[#7A6358]">Horas</th>
+                    <th className="text-right px-4 py-2 font-medium text-[#7A6358]">% Prop.</th>
+                    <th className="text-right px-4 py-2 font-medium text-[#C1643F]">Propina</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.tipDistributions.map((d, i) => (
+                    <tr key={i} className={`border-b border-[#F2EDE6] last:border-0 ${i % 2 === 1 ? "bg-[#F2EDE6]/50" : ""}`}>
+                      <td className="px-4 py-2 font-mono text-[#2C1F15]">{formatDate(d.date)}</td>
+                      <td className="px-4 py-2 text-right font-mono text-[#2C1F15]">{d.hoursWorked.toFixed(2)}h</td>
+                      <td className="px-4 py-2 text-right font-mono text-[#2C1F15]">{d.tipPercent}%</td>
+                      <td className="px-4 py-2 text-right font-mono font-bold text-[#C1643F]">{formatCurrency(d.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
 

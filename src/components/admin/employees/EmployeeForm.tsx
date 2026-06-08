@@ -19,6 +19,7 @@ interface EmployeeFormProps {
     phone: string | null;
     hourlyRateNormal: number;
     hourlyRateSpecial: number;
+    tipPercent: number;
     active: boolean;
   };
   existingUser?: { username: string; role: string } | null;
@@ -46,6 +47,7 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
     phone: employee?.phone ?? "",
     hourlyRateNormal: employee?.hourlyRateNormal ?? 6400,
     hourlyRateSpecial: employee?.hourlyRateSpecial ?? 11500,
+    tipPercent: employee?.tipPercent ?? 100,
     accessRole: "NONE" as AccessRole,
     username: "",
     password: "",
@@ -85,6 +87,7 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
         ...form,
         hourlyRateNormal: Number(form.hourlyRateNormal),
         hourlyRateSpecial: Number(form.hourlyRateSpecial),
+        tipPercent: Number(form.tipPercent),
       }),
     });
     setLoading(false);
@@ -179,6 +182,17 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
               min="0" step="100" required
             />
             <p className="text-xs text-[#7A6358]">Aplica para domingos y festivos colombianos</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label>% Participación en propinas *</Label>
+            <Input
+              type="number" value={form.tipPercent}
+              onChange={(e) => set("tipPercent", e.target.value)}
+              min="0" max="100" step="1" required
+            />
+            <p className="text-xs text-[#7A6358]">
+              0 = no participa · 50 = media participación · 100 = participación completa
+            </p>
           </div>
         </div>
 

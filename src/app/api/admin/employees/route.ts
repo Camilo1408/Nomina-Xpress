@@ -10,6 +10,7 @@ const createSchema = z.object({
   phone: z.string().optional(),
   hourlyRateNormal: z.number().positive().default(6400),
   hourlyRateSpecial: z.number().positive().default(11500),
+  tipPercent: z.number().min(0).max(100).default(100),
   accessRole: z.enum(["NONE", "EMPLOYEE", "ADMIN"]).default("NONE"),
   username: z.string().min(3).optional(),
   password: z.string().min(6).optional(),

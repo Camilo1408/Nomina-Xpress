@@ -22,6 +22,7 @@ model Tenant {
   schedules         Schedule[]
   payAdjustments    PayAdjustment[]
   pushSubscriptions PushSubscription[]
+  tipEntries        TipEntry[]
 }
 
 model User {
@@ -50,14 +51,16 @@ model Employee {
   phone             String?
   hourlyRateNormal  Float    @default(6400)
   hourlyRateSpecial Float    @default(11500)
+  tipPercent        Float    @default(100)
   active            Boolean  @default(true)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  user           User?
-  timeEntries    TimeEntry[]
-  scheduleShifts ScheduleShift[]
-  payAdjustments PayAdjustment[]
+  user             User?
+  timeEntries      TimeEntry[]
+  scheduleShifts   ScheduleShift[]
+  payAdjustments   PayAdjustment[]
+  tipDistributions TipDistribution[]
 
   @@index([tenantId])
 }
@@ -143,4 +146,42 @@ model PushSubscription {
 
   @@index([tenantId])
   @@index([userId])
+}
+
+model TipEntry {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  date        String
+  totalAmount Float
+  menaje      Float
+  netAmount   Float
+  periodStart String
+  periodEnd   String
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  distributions TipDistribution[]
+
+  @@unique([tenantId, date])
+  @@index([tenantId])
+  @@index([tenantId, periodStart, periodEnd])
+}
+
+model TipDistribution {
+  id             String    @id @default(cuid())
+  tenantId       String
+  tipEntryId     String
+  tipEntry       TipEntry  @relation(fields: [tipEntryId], references: [id], onDelete: Cascade)
+  employeeId     String
+  employee       Employee  @relation(fields: [employeeId], references: [id])
+  hoursWorked    Float
+  tipPercent     Float
+  effectiveHours Float
+  amount         Float
+  createdAt      DateTime  @default(now())
+
+  @@index([tenantId, employeeId])
+  @@index([tipEntryId])
 }

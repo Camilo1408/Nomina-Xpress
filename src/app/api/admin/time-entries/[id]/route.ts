@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isSpecialDay } from "@/lib/holidays";
+import { recalculateTipForDate } from "@/lib/recalculate-tips";
 
 const updateSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
@@ -29,6 +30,13 @@ export async function PUT(
   }
 
   const { date, checkIn, checkOut, checkIn2, checkOut2, notes } = parsed.data;
+
+  // Leer la fecha actual antes de actualizar (para recalcular si cambia de día)
+  const existing = await prisma.timeEntry.findFirst({
+    where: { id, tenantId: session.user.tenantId },
+    select: { date: true },
+  });
+
   const updateData: Record<string, unknown> = {};
   if (date !== undefined) {
     updateData.date = date;
@@ -45,6 +53,13 @@ export async function PUT(
     data: updateData,
   });
 
+  // Recalcular propinas en la fecha nueva (y en la vieja si cambió)
+  const newDate = (date ?? existing?.date)!;
+  await recalculateTipForDate(session.user.tenantId, newDate);
+  if (existing?.date && date && existing.date !== date) {
+    await recalculateTipForDate(session.user.tenantId, existing.date);
+  }
+
   return NextResponse.json({ success: true });
 }
 
@@ -57,6 +72,18 @@ export async function DELETE(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const { id } = await params;
+
+  // Leer la fecha antes de borrar para poder recalcular propinas
+  const toDelete = await prisma.timeEntry.findFirst({
+    where: { id, tenantId: session.user.tenantId },
+    select: { date: true },
+  });
+
   await prisma.timeEntry.deleteMany({ where: { id, tenantId: session.user.tenantId } });
+
+  if (toDelete?.date) {
+    await recalculateTipForDate(session.user.tenantId, toDelete.date);
+  }
+
   return NextResponse.json({ success: true });
 }

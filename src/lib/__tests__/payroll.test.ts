@@ -14,6 +14,7 @@ function makeEmployee(overrides?: Partial<Employee>): Employee {
     phone: null,
     hourlyRateNormal: 6400,
     hourlyRateSpecial: 11500,
+    tipPercent: 100,
     active: true,
     createdAt: new Date(),
     updatedAt: new Date(),
