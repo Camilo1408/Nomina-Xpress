@@ -75,6 +75,7 @@ CREATE TABLE "Employee" (
   "phone"             TEXT,
   "hourlyRateNormal"  REAL     NOT NULL DEFAULT 6400,
   "hourlyRateSpecial" REAL     NOT NULL DEFAULT 11500,
+  "tipPercent"        REAL     NOT NULL DEFAULT 100,
   "active"            BOOLEAN  NOT NULL DEFAULT true,
   "createdAt"         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt"         DATETIME NOT NULL,
@@ -162,20 +163,54 @@ CREATE TABLE "PushSubscription" (
   CONSTRAINT "PushSubscription_userId_fkey"   FOREIGN KEY ("userId")   REFERENCES "User"   ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
+CREATE TABLE "TipEntry" (
+  "id"          TEXT     NOT NULL PRIMARY KEY,
+  "tenantId"    TEXT     NOT NULL,
+  "date"        TEXT     NOT NULL,
+  "totalAmount" REAL     NOT NULL,
+  "menaje"      REAL     NOT NULL,
+  "netAmount"   REAL     NOT NULL,
+  "periodStart" TEXT     NOT NULL,
+  "periodEnd"   TEXT     NOT NULL,
+  "notes"       TEXT,
+  "createdAt"   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt"   DATETIME NOT NULL,
+  CONSTRAINT "TipEntry_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE "TipDistribution" (
+  "id"             TEXT     NOT NULL PRIMARY KEY,
+  "tenantId"       TEXT     NOT NULL,
+  "tipEntryId"     TEXT     NOT NULL,
+  "employeeId"     TEXT     NOT NULL,
+  "hoursWorked"    REAL     NOT NULL,
+  "tipPercent"     REAL     NOT NULL,
+  "effectiveHours" REAL     NOT NULL,
+  "amount"         REAL     NOT NULL,
+  "createdAt"      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "TipDistribution_tipEntryId_fkey" FOREIGN KEY ("tipEntryId") REFERENCES "TipEntry"  ("id") ON DELETE CASCADE  ON UPDATE CASCADE,
+  CONSTRAINT "TipDistribution_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
 CREATE UNIQUE INDEX "User_username_key"            ON "User"("username");
 CREATE UNIQUE INDEX "User_employeeId_key"           ON "User"("employeeId");
 CREATE UNIQUE INDEX "PushSubscription_endpoint_key" ON "PushSubscription"("endpoint");
+CREATE UNIQUE INDEX "TipEntry_tenantId_date_key"    ON "TipEntry"("tenantId", "date");
 
-CREATE INDEX "User_tenantId_idx"                     ON "User"("tenantId");
-CREATE INDEX "Employee_tenantId_idx"                  ON "Employee"("tenantId");
-CREATE INDEX "TimeEntry_tenantId_employeeId_idx"      ON "TimeEntry"("tenantId", "employeeId");
-CREATE INDEX "TimeEntry_tenantId_date_idx"            ON "TimeEntry"("tenantId", "date");
-CREATE INDEX "Schedule_tenantId_idx"                  ON "Schedule"("tenantId");
-CREATE INDEX "ScheduleShift_scheduleId_idx"           ON "ScheduleShift"("scheduleId");
-CREATE INDEX "ScheduleShift_employeeId_idx"           ON "ScheduleShift"("employeeId");
-CREATE INDEX "PayAdjustment_tenantId_employeeId_idx"  ON "PayAdjustment"("tenantId", "employeeId");
-CREATE INDEX "PushSubscription_tenantId_idx"          ON "PushSubscription"("tenantId");
-CREATE INDEX "PushSubscription_userId_idx"            ON "PushSubscription"("userId")
+CREATE INDEX "User_tenantId_idx"                              ON "User"("tenantId");
+CREATE INDEX "Employee_tenantId_idx"                           ON "Employee"("tenantId");
+CREATE INDEX "TimeEntry_tenantId_employeeId_idx"               ON "TimeEntry"("tenantId", "employeeId");
+CREATE INDEX "TimeEntry_tenantId_date_idx"                     ON "TimeEntry"("tenantId", "date");
+CREATE INDEX "Schedule_tenantId_idx"                           ON "Schedule"("tenantId");
+CREATE INDEX "ScheduleShift_scheduleId_idx"                    ON "ScheduleShift"("scheduleId");
+CREATE INDEX "ScheduleShift_employeeId_idx"                    ON "ScheduleShift"("employeeId");
+CREATE INDEX "PayAdjustment_tenantId_employeeId_idx"           ON "PayAdjustment"("tenantId", "employeeId");
+CREATE INDEX "PushSubscription_tenantId_idx"                   ON "PushSubscription"("tenantId");
+CREATE INDEX "PushSubscription_userId_idx"                     ON "PushSubscription"("userId");
+CREATE INDEX "TipEntry_tenantId_idx"                           ON "TipEntry"("tenantId");
+CREATE INDEX "TipEntry_tenantId_periodStart_periodEnd_idx"     ON "TipEntry"("tenantId", "periodStart", "periodEnd");
+CREATE INDEX "TipDistribution_tenantId_employeeId_idx"         ON "TipDistribution"("tenantId", "employeeId");
+CREATE INDEX "TipDistribution_tipEntryId_idx"                  ON "TipDistribution"("tipEntryId")
 `;
 
 // ── Seed ─────────────────────────────────────────────────────────────────────
