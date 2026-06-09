@@ -1,5 +1,4 @@
 import type { NextConfig } from "next";
-import path from "path";
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@react-pdf/renderer", "exceljs"],
@@ -7,7 +6,7 @@ const nextConfig: NextConfig = {
     remotePatterns: [],
   },
   turbopack: {
-    root: path.resolve(__dirname),
+    root: process.cwd(),
   },
 };
 
