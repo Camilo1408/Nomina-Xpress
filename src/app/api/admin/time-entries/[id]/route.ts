@@ -29,6 +29,39 @@ export async function PUT(
   }
 
   const { date, checkIn, checkOut, checkIn2, checkOut2, notes } = parsed.data;
+
+  const existing = await prisma.timeEntry.findFirst({
+    where: { id, tenantId: session.user.tenantId },
+    select: { date: true, checkIn: true, checkOut: true, checkIn2: true, checkOut2: true },
+  });
+
+  const effectiveCheckIn = checkIn ? new Date(checkIn) : existing?.checkIn;
+  const effectiveCheckOut =
+    checkOut !== undefined
+      ? checkOut ? new Date(checkOut) : null
+      : existing?.checkOut ?? null;
+  const effectiveCheckIn2 =
+    checkIn2 !== undefined
+      ? checkIn2 ? new Date(checkIn2) : null
+      : existing?.checkIn2 ?? null;
+  const effectiveCheckOut2 =
+    checkOut2 !== undefined
+      ? checkOut2 ? new Date(checkOut2) : null
+      : existing?.checkOut2 ?? null;
+
+  if (effectiveCheckIn && effectiveCheckOut && effectiveCheckOut <= effectiveCheckIn) {
+    return NextResponse.json(
+      { error: "La hora de salida debe ser posterior a la hora de entrada." },
+      { status: 400 }
+    );
+  }
+  if (effectiveCheckIn2 && effectiveCheckOut2 && effectiveCheckOut2 <= effectiveCheckIn2) {
+    return NextResponse.json(
+      { error: "La hora de salida del segundo turno debe ser posterior a su hora de entrada." },
+      { status: 400 }
+    );
+  }
+
   const updateData: Record<string, unknown> = {};
   if (date !== undefined) {
     updateData.date = date;

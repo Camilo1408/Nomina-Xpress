@@ -78,6 +78,16 @@ export function TimeEntryForm({ employees, entry }: TimeEntryFormProps) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    if (form.checkOut && form.checkOut <= form.checkIn) {
+      toast.error("La hora de salida debe ser posterior a la hora de entrada.");
+      return;
+    }
+    if (splitShift && form.checkIn2 && form.checkOut2 && form.checkOut2 <= form.checkIn2) {
+      toast.error("La hora de salida del turno 2 debe ser posterior a su hora de entrada.");
+      return;
+    }
+
     setLoading(true);
 
     const turno1 = {
