@@ -73,6 +73,20 @@ export async function POST(req: Request) {
     );
   }
 
+  // Validar que la salida sea posterior a la entrada
+  if (checkOut && new Date(checkOut) <= new Date(checkIn)) {
+    return NextResponse.json(
+      { error: "La hora de salida debe ser posterior a la hora de entrada." },
+      { status: 400 }
+    );
+  }
+  if (checkIn2 && checkOut2 && new Date(checkOut2) <= new Date(checkIn2)) {
+    return NextResponse.json(
+      { error: "La hora de salida del segundo turno debe ser posterior a su hora de entrada." },
+      { status: 400 }
+    );
+  }
+
   const newStart = new Date(checkIn);
   const newEnd = checkOut ? new Date(checkOut) : null;
 
