@@ -72,12 +72,22 @@ export async function DELETE(
   const employee = await prisma.employee.findFirst({ where: { id, tenantId } });
   if (!employee) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // Cascade manual: eliminar registros relacionados antes del empleado
-  await prisma.payAdjustment.deleteMany({ where: { employeeId: id, tenantId } });
-  await prisma.scheduleShift.deleteMany({ where: { employeeId: id } });
-  await prisma.timeEntry.deleteMany({ where: { employeeId: id, tenantId } });
-  await prisma.user.deleteMany({ where: { employeeId: id, tenantId } });
-  await prisma.employee.delete({ where: { id } });
+  try {
+    // Cascade manual: eliminar registros relacionados antes del empleado.
+    // Orden importa por las foreign keys que no tienen onDelete: Cascade en el schema.
+    await prisma.tipDistribution.deleteMany({ where: { employeeId: id, tenantId } });
+    await prisma.payAdjustment.deleteMany({ where: { employeeId: id, tenantId } });
+    await prisma.scheduleShift.deleteMany({ where: { employeeId: id } });
+    await prisma.timeEntry.deleteMany({ where: { employeeId: id, tenantId } });
+    await prisma.user.deleteMany({ where: { employeeId: id, tenantId } });
+    await prisma.employee.delete({ where: { id } });
+  } catch (err) {
+    console.error("[admin/employees DELETE] cascade error:", err);
+    return NextResponse.json(
+      { error: { message: "No se pudo eliminar el empleado. Revisa registros relacionados." } },
+      { status: 500 }
+    );
+  }
 
   return NextResponse.json({ success: true });
 }
