@@ -35,6 +35,19 @@ export async function PUT(
 
   const { name, shifts } = parsed.data;
   if (shifts) {
+    // Validar que todos los empleados referenciados pertenezcan al tenant
+    const shiftEmployeeIds = [...new Set(shifts.map((s) => s.employeeId))];
+    if (shiftEmployeeIds.length > 0) {
+      const validCount = await prisma.employee.count({
+        where: { id: { in: shiftEmployeeIds }, tenantId: session.user.tenantId },
+      });
+      if (validCount !== shiftEmployeeIds.length) {
+        return NextResponse.json(
+          { error: "Uno o más empleados no pertenecen a este restaurante" },
+          { status: 400 }
+        );
+      }
+    }
     await prisma.scheduleShift.deleteMany({ where: { scheduleId: id } });
     await prisma.scheduleShift.createMany({
       data: shifts.map((s) => ({

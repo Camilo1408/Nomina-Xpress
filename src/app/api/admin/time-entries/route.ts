@@ -63,6 +63,15 @@ export async function POST(req: Request) {
 
   const { date, checkIn, checkOut, checkIn2, checkOut2, employeeId, notes } = parsed.data;
 
+  // Validar que el empleado pertenezca al tenant antes de escribir
+  const employee = await prisma.employee.findFirst({
+    where: { id: employeeId, tenantId: session.user.tenantId },
+    select: { id: true },
+  });
+  if (!employee) {
+    return NextResponse.json({ error: "Empleado no encontrado" }, { status: 404 });
+  }
+
   const existingEntries = await prisma.timeEntry.findMany({
     where: { tenantId: session.user.tenantId, employeeId, date },
   });

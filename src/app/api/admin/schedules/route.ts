@@ -42,6 +42,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
   const { name, weekStart, shifts } = parsed.data;
+
+  // Validar que todos los empleados referenciados pertenezcan al tenant
+  const shiftEmployeeIds = [...new Set(shifts.map((s) => s.employeeId))];
+  if (shiftEmployeeIds.length > 0) {
+    const validCount = await prisma.employee.count({
+      where: { id: { in: shiftEmployeeIds }, tenantId: session.user.tenantId },
+    });
+    if (validCount !== shiftEmployeeIds.length) {
+      return NextResponse.json(
+        { error: "Uno o más empleados no pertenecen a este restaurante" },
+        { status: 400 }
+      );
+    }
+  }
+
   const schedule = await prisma.schedule.create({
     data: {
       tenantId: session.user.tenantId,
