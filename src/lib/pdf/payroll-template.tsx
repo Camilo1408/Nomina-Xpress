@@ -1,5 +1,5 @@
 import React from "react";
-import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { Document, Page, Text, View, StyleSheet, Image } from "@react-pdf/renderer";
 import type { PayrollResult } from "@/lib/payroll";
 import { formatCurrency, formatHours } from "@/lib/utils";
 
@@ -7,9 +7,13 @@ type PayrollWithTips = PayrollResult & { totalTips: number; netPayWithTips: numb
 
 const styles = StyleSheet.create({
   page: { padding: 32, fontSize: 10, fontFamily: "Helvetica", color: "#2C1F15" },
-  header: { marginBottom: 20 },
+  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
+  headerLeft: { flex: 1, paddingRight: 12 },
   title: { fontSize: 18, fontFamily: "Helvetica-Bold", marginBottom: 4 },
   subtitle: { fontSize: 11, color: "#7A6358" },
+  // Caja de logo fija (cuadrada) para mantener simetría sin importar el aspect ratio del archivo.
+  logoBox: { width: 70, height: 70, alignItems: "center", justifyContent: "center" },
+  logo: { maxWidth: 70, maxHeight: 70, objectFit: "contain" },
   section: { marginBottom: 16 },
   employeeName: { fontSize: 12, fontFamily: "Helvetica-Bold", marginBottom: 6, color: "#C1643F" },
   table: { border: 1, borderColor: "#E0D5CA", borderRadius: 4 },
@@ -25,33 +29,64 @@ const styles = StyleSheet.create({
   totalLabel: { flex: 5, fontFamily: "Helvetica-Bold", fontSize: 11 },
   totalValue: { flex: 2, fontFamily: "Helvetica-Bold", fontSize: 11, textAlign: "right" },
   netPay: { color: "#6B8E6B" },
-  adjustmentRow: { flexDirection: "row", padding: "3 8", borderTop: 1, borderColor: "#F2EDE6" },
   footer: { position: "absolute", bottom: 24, left: 32, right: 32, borderTop: 1, borderColor: "#E0D5CA", paddingTop: 6 },
   footerText: { fontSize: 8, color: "#A08878", textAlign: "center" },
   divider: { borderBottom: 1, borderColor: "#E0D5CA", marginVertical: 12 },
   summaryLine: { flexDirection: "row", justifyContent: "space-between", marginBottom: 3 },
-  summaryLabel: { color: "#7A6358" },
-  summaryValue: { fontFamily: "Helvetica-Bold" },
+  signatureBlock: { marginTop: 10, paddingTop: 6 },
+  signatureLine: { borderBottom: 1, borderColor: "#7A6358", marginTop: 18, width: "70%" },
+  signatureLabel: { fontSize: 9, color: "#7A6358", marginTop: 4 },
 });
+
+export type PdfReportType = "payroll" | "shifts";
+
+// `@react-pdf/renderer` server-side acepta:
+//   - una URL absoluta (https://…)
+//   - un objeto { data: Buffer, format: "png" | "jpg" }
+// Aquí aceptamos cualquiera de los dos para flexibilidad con Cloudinary o disco local.
+export type PdfLogo = string | { data: Buffer; format: "png" | "jpg" } | null | undefined;
 
 interface PayrollPDFProps {
   tenantName: string;
   period: { from: string; to: string };
   employees: PayrollWithTips[];
   primaryColor: string;
+  reportType?: PdfReportType;
+  logo?: PdfLogo;
 }
 
-export function PayrollPDF({ tenantName, period, employees, primaryColor }: PayrollPDFProps) {
+const REPORT_TITLES: Record<PdfReportType, string> = {
+  payroll: "Reporte de Nómina",
+  shifts: "Reporte de Turnos",
+};
+
+export function PayrollPDF({
+  tenantName,
+  period,
+  employees,
+  primaryColor,
+  reportType = "payroll",
+  logo,
+}: PayrollPDFProps) {
   const totalGross = employees.reduce((s, e) => s + e.grossPay, 0);
   const totalTips = employees.reduce((s, e) => s + e.totalTips, 0);
   const totalNet = employees.reduce((s, e) => s + e.netPayWithTips, 0);
+  const reportTitle = REPORT_TITLES[reportType];
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: primaryColor }]}>{tenantName}</Text>
-          <Text style={styles.subtitle}>Reporte de Nómina — {period.from} al {period.to}</Text>
+        <View style={styles.headerRow}>
+          <View style={styles.headerLeft}>
+            <Text style={[styles.title, { color: primaryColor }]}>{tenantName}</Text>
+            <Text style={styles.subtitle}>{reportTitle} — {period.from} al {period.to}</Text>
+          </View>
+          {logo && (
+            <View style={styles.logoBox}>
+              {/* eslint-disable-next-line jsx-a11y/alt-text */}
+              <Image src={logo} style={styles.logo} />
+            </View>
+          )}
         </View>
 
         {employees.map((emp) => (
@@ -100,6 +135,10 @@ export function PayrollPDF({ tenantName, period, employees, primaryColor }: Payr
                 <Text style={styles.totalLabel}>TOTAL NETO</Text>
                 <Text style={[styles.totalValue, styles.netPay]}>{formatCurrency(emp.netPayWithTips)}</Text>
               </View>
+            </View>
+            <View style={styles.signatureBlock}>
+              <View style={styles.signatureLine} />
+              <Text style={styles.signatureLabel}>Firma del empleado: {emp.employeeName}</Text>
             </View>
           </View>
         ))}

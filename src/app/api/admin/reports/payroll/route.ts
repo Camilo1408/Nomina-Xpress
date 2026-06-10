@@ -5,7 +5,7 @@ import { calculatePayroll } from "@/lib/payroll";
 
 export async function GET(req: Request) {
   const session = await auth();
-  if (!session || !["ADMIN", "SUPERADMIN"].includes(session.user.role)) {
+  if (!session || !["ADMIN", "SUPERADMIN", "PROPRIETARY"].includes(session.user.role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -13,6 +13,8 @@ export async function GET(req: Request) {
   const from = url.searchParams.get("from");
   const to = url.searchParams.get("to");
   const employeeId = url.searchParams.get("employeeId");
+  const typeParam = url.searchParams.get("type");
+  const payType = typeParam === "shifts" ? "SHIFT" : typeParam === "payroll" ? "PAYROLL" : null;
 
   if (!from || !to) {
     return NextResponse.json({ error: "from and to are required" }, { status: 400 });
@@ -24,6 +26,7 @@ export async function GET(req: Request) {
     where: {
       tenantId,
       active: true,
+      ...(payType ? { payType } : {}),
       ...(employeeId ? { id: employeeId } : {}),
     },
   });

@@ -22,7 +22,7 @@ interface ProfileClientProps {
 }
 
 export function ProfileClient({ role, employee }: ProfileClientProps) {
-  const isSuperAdmin = role === "SUPERADMIN";
+  const isSuperAdmin = role === "SUPERADMIN" || role === "PROPRIETARY";
 
   const [form, setForm] = useState({ currentPassword: "", username: "", newPassword: "" });
   const [showCurrent, setShowCurrent] = useState(false);

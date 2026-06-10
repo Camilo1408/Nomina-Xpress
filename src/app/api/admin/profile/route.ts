@@ -12,7 +12,7 @@ const schema = z.object({
 
 export async function PUT(req: Request) {
   const session = await auth();
-  if (!session || !["ADMIN", "SUPERADMIN"].includes(session.user.role)) {
+  if (!session || !["ADMIN", "SUPERADMIN", "PROPRIETARY"].includes(session.user.role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -25,7 +25,7 @@ export async function PUT(req: Request) {
   }
 
   // Only SUPERADMIN can change username — ADMIN cannot
-  if (parsed.data.username && session.user.role !== "SUPERADMIN") {
+  if (parsed.data.username && !["SUPERADMIN", "PROPRIETARY"].includes(session.user.role)) {
     return NextResponse.json({ error: "Sin permisos para cambiar el usuario" }, { status: 403 });
   }
 

@@ -11,6 +11,7 @@ import {
   Clock,
   Calendar,
   BarChart3,
+  CalendarClock,
   Settings,
   LogOut,
   Menu,
@@ -26,7 +27,8 @@ const allNavItems = [
   { href: "/admin/time-entries", label: "Registro de Horas", icon: Clock, superadminOnly: false },
   { href: "/admin/schedules", label: "Horarios", icon: Calendar, superadminOnly: true },
   { href: "/admin/tips", label: "Propinas", icon: Coins, superadminOnly: false },
-  { href: "/admin/reports", label: "Reportes", icon: BarChart3, superadminOnly: false },
+  { href: "/admin/reports/payroll", label: "Reportes Nómina", icon: BarChart3, superadminOnly: false },
+  { href: "/admin/reports/shifts", label: "Reportes Turnos", icon: CalendarClock, superadminOnly: false },
   { href: "/admin/settings", label: "Configuración", icon: Settings, superadminOnly: true },
 ];
 
@@ -51,7 +53,7 @@ export function AdminSidebar({ tenantName, logoUrl, role, userName }: AdminSideb
     setMobileOpen(false);
   }, [pathname]);
 
-  const isSuperAdmin = role === "SUPERADMIN";
+  const isSuperAdmin = role === "SUPERADMIN" || role === "PROPRIETARY";
   const navItems = allNavItems.filter((item) => isSuperAdmin || !item.superadminOnly);
 
   return (

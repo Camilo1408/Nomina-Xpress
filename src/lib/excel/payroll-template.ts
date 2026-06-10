@@ -1,19 +1,30 @@
 import ExcelJS from "exceljs";
 import type { PayrollResult } from "@/lib/payroll";
-import { formatCurrency, formatHours } from "@/lib/utils";
+import { formatHours } from "@/lib/utils";
+import type { LoadedLogo } from "@/lib/logo-loader";
 
 type PayrollWithTips = PayrollResult & {
   totalTips: number;
   netPayWithTips: number;
 };
 
+export type ExcelReportType = "payroll" | "shifts";
+
+const REPORT_TITLES: Record<ExcelReportType, string> = {
+  payroll: "Reporte de Nómina",
+  shifts: "Reporte de Turnos",
+};
+
 export async function generatePayrollExcel(
   data: { period: { from: string; to: string }; employees: PayrollWithTips[] },
   tenantName: string,
-  primaryColor: string
+  primaryColor: string,
+  reportType: ExcelReportType = "payroll",
+  logo?: LoadedLogo | null
 ): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   const hex = primaryColor.replace("#", "");
+  const reportTitle = REPORT_TITLES[reportType];
 
   // Summary sheet
   const summary = workbook.addWorksheet("Resumen");
@@ -28,14 +39,29 @@ export async function generatePayrollExcel(
     { key: "total", width: 18 },
   ];
 
-  summary.mergeCells("A1:H1");
+  // Altura fila 1 = encabezado con logo. Logo cuadrado 64x64 para mantener simetría.
+  const LOGO_SIZE = 64;
+  summary.getRow(1).height = 56;
+
+  // Logo (esquina sup. derecha del encabezado): cuadrado fijo, posicionado en última columna (H).
+  if (logo) {
+    const ext = logo.format === "jpg" ? "jpeg" : "png";
+    // ExcelJS espera Buffer pero define tipo restringido; cast seguro.
+    const imageId = workbook.addImage({ buffer: logo.data as unknown as ExcelJS.Buffer, extension: ext });
+    summary.addImage(imageId, {
+      tl: { col: 7.05, row: 0.05 }, // col 7 = H (base 0); offset pequeño para no pegarse al borde
+      ext: { width: LOGO_SIZE, height: LOGO_SIZE },
+      editAs: "oneCell",
+    });
+  }
+
+  // Título (merge sobre las primeras 7 columnas para no tapar logo)
+  summary.mergeCells("A1:G1");
   const titleCell = summary.getCell("A1");
-  titleCell.value = `${tenantName} — Nómina ${data.period.from} al ${data.period.to}`;
-  titleCell.font = { bold: true, size: 14 };
+  titleCell.value = `${tenantName} — ${reportTitle} ${data.period.from} al ${data.period.to}`;
   titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + hex } };
   titleCell.font = { bold: true, size: 14, color: { argb: "FFFAF7F2" } };
-  titleCell.alignment = { horizontal: "center" };
-  summary.getRow(1).height = 28;
+  titleCell.alignment = { horizontal: "center", vertical: "middle" };
 
   const headers = ["Empleado", "Horas Normales", "Horas Especiales", "Bruto", "Ajustes", "Neto", "Propinas", "Total Final"];
   const headerRow = summary.addRow(headers);
@@ -62,11 +88,21 @@ export async function generatePayrollExcel(
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF9F5F0" } };
       });
     }
-    // Currency format
     ["D", "E", "F", "G", "H"].forEach((col) => {
       const cell = row.getCell(col);
       cell.numFmt = '"$"#,##0';
     });
+
+    // Fila de firma debajo del empleado
+    const sigRow = summary.addRow([
+      `Firma del empleado: ______________________________`,
+      "", "", "", "", "", "", "",
+    ]);
+    summary.mergeCells(`A${sigRow.number}:H${sigRow.number}`);
+    const sigCell = sigRow.getCell(1);
+    sigCell.font = { italic: true, color: { argb: "FF7A6358" }, size: 10 };
+    sigCell.alignment = { horizontal: "left", vertical: "middle" };
+    sigRow.height = 22;
   });
 
   // Totals

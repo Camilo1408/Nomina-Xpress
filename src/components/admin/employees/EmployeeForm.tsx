@@ -20,10 +20,13 @@ interface EmployeeFormProps {
     hourlyRateNormal: number;
     hourlyRateSpecial: number;
     tipPercent: number;
+    payType: string;
     active: boolean;
   };
   existingUser?: { username: string; role: string } | null;
 }
+
+type PayType = "PAYROLL" | "SHIFT";
 
 const roleLabels: Record<string, string> = {
   EMPLOYEE: "Empleado",
@@ -48,6 +51,7 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
     hourlyRateNormal: employee?.hourlyRateNormal ?? 6400,
     hourlyRateSpecial: employee?.hourlyRateSpecial ?? 11500,
     tipPercent: employee?.tipPercent ?? 100,
+    payType: (employee?.payType ?? "PAYROLL") as PayType,
     accessRole: "NONE" as AccessRole,
     username: "",
     password: "",
@@ -194,6 +198,37 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
               0 = no participa · 50 = media participación · 100 = participación completa
             </p>
           </div>
+          <div className="sm:col-span-2 space-y-1.5">
+            <Label>Tipo de pago *</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {([
+                { value: "PAYROLL", label: "Pago de nómina", desc: "Empleado fijo bajo nómina" },
+                { value: "SHIFT", label: "Pago por turnos", desc: "Empleado pagado por turnos" },
+              ] as const).map(({ value, label, desc }) => (
+                <label
+                  key={value}
+                  className={`flex items-start gap-3 p-3 rounded-md border cursor-pointer transition-colors ${
+                    form.payType === value
+                      ? "border-[#C1643F] bg-[#C1643F]/5"
+                      : "border-[#E0D5CA] hover:border-[#C1643F]/40"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="payType"
+                    value={value}
+                    checked={form.payType === value}
+                    onChange={() => set("payType", value)}
+                    className="accent-[#C1643F] mt-0.5"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-medium text-[#2C1F15]">{label}</span>
+                    <p className="text-xs text-[#7A6358] mt-0.5">{desc}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* ── Acceso al sistema — solo en CREATE ── */}
@@ -304,7 +339,7 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
                 </p>
 
                 {/* Role selector */}
-                {existingUser.role !== "SUPERADMIN" && (
+                {existingUser.role !== "SUPERADMIN" && existingUser.role !== "PROPRIETARY" && (
                   <div className="space-y-1.5">
                     <Label>Rol de acceso</Label>
                     <div className="flex gap-3">
@@ -333,7 +368,7 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
                       onChange={(e) => setCredUsername(e.target.value.toLowerCase().replace(/\s/g, ""))}
                       minLength={3} placeholder={existingUser.username}
                       autoComplete="off"
-                      disabled={existingUser.role === "SUPERADMIN"}
+                      disabled={existingUser.role === "SUPERADMIN" || existingUser.role === "PROPRIETARY"}
                     />
                   </div>
                   <div className="space-y-1.5">

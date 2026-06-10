@@ -18,10 +18,18 @@ type PayrollWithTips = PayrollResult & {
 
 interface Employee { id: string; name: string; }
 
+export type ReportType = "payroll" | "shifts";
+
 interface ReportsClientProps {
   employees: Employee[];
   role: string;
+  reportType?: ReportType;
 }
+
+const REPORT_LABELS: Record<ReportType, { buttonLabel: string; fileSlug: string }> = {
+  payroll: { buttonLabel: "Calcular nómina", fileSlug: "nomina" },
+  shifts:  { buttonLabel: "Calcular turnos", fileSlug: "turnos" },
+};
 
 function getCurrentPeriod(): { from: string; to: string } {
   const today = new Date();
@@ -41,8 +49,9 @@ function getCurrentPeriod(): { from: string; to: string } {
   };
 }
 
-export function ReportsClient({ employees, role }: ReportsClientProps) {
-  const isSuperAdmin = role === "SUPERADMIN";
+export function ReportsClient({ employees, role, reportType = "payroll" }: ReportsClientProps) {
+  const isSuperAdmin = role === "SUPERADMIN" || role === "PROPRIETARY";
+  const labels = REPORT_LABELS[reportType];
   const period = getCurrentPeriod();
   const [from, setFrom] = useState(period.from);
   const [to, setTo] = useState(period.to);
@@ -58,7 +67,7 @@ export function ReportsClient({ employees, role }: ReportsClientProps) {
   async function fetchReport() {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ from, to });
+      const params = new URLSearchParams({ from, to, type: reportType });
       if (selectedEmployee) params.set("employeeId", selectedEmployee);
       const res = await fetch(`/api/admin/reports/payroll?${params}`);
       const data = await res.json();
@@ -81,7 +90,7 @@ export function ReportsClient({ employees, role }: ReportsClientProps) {
   }
 
   function downloadExport(format: "pdf" | "excel") {
-    const params = new URLSearchParams({ from, to });
+    const params = new URLSearchParams({ from, to, type: reportType });
     const url = `/api/admin/reports/payroll/export/${format === "pdf" ? "pdf" : "excel"}?${params}`;
     window.open(url, "_blank");
   }
@@ -113,16 +122,16 @@ export function ReportsClient({ employees, role }: ReportsClientProps) {
             </select>
           </div>
           <Button onClick={fetchReport} disabled={loading} className="bg-[#C1643F] hover:bg-[#A8522F] text-[#FAF7F2] w-full sm:w-auto">
-            {loading ? "Calculando..." : "Calcular nómina"}
+            {loading ? "Calculando..." : labels.buttonLabel}
           </Button>
         </div>
         {results && results.length > 0 && isSuperAdmin && (
           <div className="flex gap-2 pt-1 border-t border-[#F2EDE6]">
             <Button variant="outline" size="sm" onClick={() => downloadExport("excel")} className="gap-1.5 border-[#6B8E6B] text-[#6B8E6B]">
-              <FileSpreadsheet className="w-4 h-4" /> Excel
+              <FileSpreadsheet className="w-4 h-4" /> Exportar Excel ({labels.fileSlug})
             </Button>
             <Button variant="outline" size="sm" onClick={() => downloadExport("pdf")} className="gap-1.5 border-[#B94040] text-[#B94040]">
-              <FileDown className="w-4 h-4" /> PDF
+              <FileDown className="w-4 h-4" /> Exportar PDF ({labels.fileSlug})
             </Button>
           </div>
         )}

@@ -11,6 +11,7 @@ const updateSchema = z.object({
   hourlyRateNormal: z.number().positive().optional(),
   hourlyRateSpecial: z.number().positive().optional(),
   tipPercent: z.number().min(0).max(100).optional(),
+  payType: z.enum(["PAYROLL", "SHIFT"]).optional(),
   active: z.boolean().optional(),
 });
 
@@ -19,7 +20,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || session.user.role !== "SUPERADMIN") {
+  if (!session || !["SUPERADMIN", "PROPRIETARY"].includes(session.user.role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const { id } = await params;
@@ -27,6 +28,11 @@ export async function PUT(
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+
+  // Solo PROPRIETARY puede activar/desactivar empleados
+  if (parsed.data.active !== undefined && session.user.role !== "PROPRIETARY") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const employee = await prisma.employee.updateMany({
@@ -56,7 +62,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || session.user.role !== "SUPERADMIN") {
+  // Solo PROPRIETARY puede eliminar empleados
+  if (!session || session.user.role !== "PROPRIETARY") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const { id } = await params;

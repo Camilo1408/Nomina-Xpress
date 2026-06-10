@@ -9,7 +9,7 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const session = await auth();
-  if (!session || !["ADMIN", "SUPERADMIN"].includes(session.user.role)) redirect("/login");
+  if (!session || !["ADMIN", "SUPERADMIN", "PROPRIETARY"].includes(session.user.role)) redirect("/login");
 
   const tenant = await prisma.tenant.findUnique({
     where: { id: session.user.tenantId },

@@ -1,18 +1,21 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { calculatePayroll } from "@/lib/payroll";
+import { loadTenantLogo } from "@/lib/logo-loader";
 import { NextResponse } from "next/server";
-import { formatCurrency, formatHours } from "@/lib/utils";
 
 export async function GET(req: Request) {
   const session = await auth();
-  if (!session || session.user.role !== "SUPERADMIN") {
+  if (!session || !["SUPERADMIN", "PROPRIETARY"].includes(session.user.role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const url = new URL(req.url);
   const from = url.searchParams.get("from");
   const to = url.searchParams.get("to");
+  const typeParam = url.searchParams.get("type");
+  const reportType: "payroll" | "shifts" = typeParam === "shifts" ? "shifts" : "payroll";
+  const payType = reportType === "shifts" ? "SHIFT" : "PAYROLL";
 
   if (!from || !to) {
     return NextResponse.json({ error: "from and to required" }, { status: 400 });
@@ -20,7 +23,7 @@ export async function GET(req: Request) {
 
   const tenantId = session.user.tenantId;
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
-  const employees = await prisma.employee.findMany({ where: { tenantId, active: true } });
+  const employees = await prisma.employee.findMany({ where: { tenantId, active: true, payType } });
 
   const results = await Promise.all(
     employees.map(async (emp) => {
@@ -35,9 +38,9 @@ export async function GET(req: Request) {
     })
   );
 
-  // Generate PDF using @react-pdf/renderer server-side
   const { renderToBuffer } = await import("@react-pdf/renderer");
   const { PayrollPDF } = await import("@/lib/pdf/payroll-template");
+  const logo = await loadTenantLogo(tenant?.logoUrl);
 
   const buffer = await renderToBuffer(
     PayrollPDF({
@@ -45,13 +48,16 @@ export async function GET(req: Request) {
       period: { from, to },
       employees: results,
       primaryColor: tenant?.primaryColor ?? "#C1643F",
+      reportType,
+      logo,
     })
   );
 
+  const fileSlug = reportType === "shifts" ? "turnos" : "nomina";
   return new Response(buffer as unknown as BodyInit, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="nomina-${from}-${to}.pdf"`,
+      "Content-Disposition": `attachment; filename="${fileSlug}-${from}-${to}.pdf"`,
     },
   });
 }

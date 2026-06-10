@@ -11,6 +11,7 @@ const createSchema = z.object({
   hourlyRateNormal: z.number().positive().default(6400),
   hourlyRateSpecial: z.number().positive().default(11500),
   tipPercent: z.number().min(0).max(100).default(100),
+  payType: z.enum(["PAYROLL", "SHIFT"]).default("PAYROLL"),
   accessRole: z.enum(["NONE", "EMPLOYEE", "ADMIN"]).default("NONE"),
   username: z.string().min(3).optional(),
   password: z.string().min(6).optional(),
@@ -18,7 +19,7 @@ const createSchema = z.object({
 
 export async function GET() {
   const session = await auth();
-  if (!session || session.user.role !== "SUPERADMIN") {
+  if (!session || !["SUPERADMIN", "PROPRIETARY"].includes(session.user.role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const employees = await prisma.employee.findMany({
@@ -31,7 +32,8 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session || session.user.role !== "SUPERADMIN") {
+  // Solo PROPRIETARY puede crear empleados
+  if (!session || session.user.role !== "PROPRIETARY") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const body = await req.json();

@@ -13,7 +13,7 @@ const createSchema = z.object({
 
 export async function GET(req: Request) {
   const session = await auth();
-  if (!session || !["ADMIN", "SUPERADMIN"].includes(session.user.role)) {
+  if (!session || !["ADMIN", "SUPERADMIN", "PROPRIETARY"].includes(session.user.role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -42,7 +42,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session || !["ADMIN", "SUPERADMIN"].includes(session.user.role)) {
+  if (!session || !["ADMIN", "SUPERADMIN", "PROPRIETARY"].includes(session.user.role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -64,7 +64,7 @@ export function TipsClient({ role }: TipsClientProps) {
   const [editingEntry, setEditingEntry] = useState<TipEntry | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const isSuperAdmin = role === "SUPERADMIN";
+  const isSuperAdmin = role === "SUPERADMIN" || role === "PROPRIETARY";
 
   const fetchTips = useCallback(async (f = from, t = to) => {
     setLoading(true);

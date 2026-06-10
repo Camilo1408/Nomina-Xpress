@@ -5,7 +5,7 @@ import { Coins } from "lucide-react";
 
 export default async function TipsPage() {
   const session = await auth();
-  if (!session || !["ADMIN", "SUPERADMIN"].includes(session.user.role)) {
+  if (!session || !["ADMIN", "SUPERADMIN", "PROPRIETARY"].includes(session.user.role)) {
     redirect("/login");
   }
 

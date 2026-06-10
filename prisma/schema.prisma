@@ -52,6 +52,7 @@ model Employee {
   hourlyRateNormal  Float    @default(6400)
   hourlyRateSpecial Float    @default(11500)
   tipPercent        Float    @default(100)
+  payType           String   @default("PAYROLL")
   active            Boolean  @default(true)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
