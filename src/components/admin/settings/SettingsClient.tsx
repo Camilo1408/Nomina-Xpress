@@ -129,7 +129,7 @@ export function SettingsClient({ tenant }: { tenant: Tenant }) {
       {/* Nombre */}
       <div className="bg-card rounded-lg border border-border shadow-sm p-6 space-y-4">
         <h2 className="text-base font-heading font-bold text-foreground">Nombre del restaurante</h2>
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -139,7 +139,7 @@ export function SettingsClient({ tenant }: { tenant: Tenant }) {
           <Button
             onClick={handleSaveName}
             disabled={saving || name === tenant.name}
-            className="bg-[#C1643F] hover:bg-[#A8522F] text-white"
+            className="bg-[#C1643F] hover:bg-[#A8522F] text-white w-full sm:w-auto"
           >
             {saving ? "Guardando..." : "Guardar"}
           </Button>

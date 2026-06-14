@@ -2,6 +2,9 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { calculatePayroll } from "@/lib/payroll";
+import { resolveBonusesForEmployees } from "@/lib/bonus-service";
+import { resolveDiscountsForEmployees } from "@/lib/discount-service";
+import { clampFinalPay } from "@/lib/discounts";
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -48,11 +51,27 @@ export async function GET(req: Request) {
     tipPercent: d.tipPercent,
   }));
 
+  // Bonos y descuentos aplicados a este empleado en el período (quincena)
+  const empRef = [{ id: employee.id, payType: employee.payType }];
+  const [bonusMap, discountMap] = await Promise.all([
+    resolveBonusesForEmployees(tenantId, from, empRef),
+    resolveDiscountsForEmployees(tenantId, from, empRef),
+  ]);
+  const empBonuses = bonusMap.get(employee.id) ?? { bonuses: [], totalBonuses: 0 };
+  const empDiscounts = discountMap.get(employee.id) ?? { discounts: [], totalDiscounts: 0 };
+  const netPayWithTips = Math.round(result.netPay + totalTips);
+
   return NextResponse.json({
     period: { from, to },
     ...result,
     totalTips,
-    netPayWithTips: Math.round(result.netPay + totalTips),
+    netPayWithTips,
+    bonuses: empBonuses.bonuses,
+    totalBonuses: empBonuses.totalBonuses,
+    netPayWithBonuses: netPayWithTips + empBonuses.totalBonuses,
+    discounts: empDiscounts.discounts,
+    totalDiscounts: empDiscounts.totalDiscounts,
+    netPayWithBonusesAndDiscounts: clampFinalPay(netPayWithTips, empBonuses.totalBonuses, empDiscounts.totalDiscounts),
     tipDistributions,
   });
 }

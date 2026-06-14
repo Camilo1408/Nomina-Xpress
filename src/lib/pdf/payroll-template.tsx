@@ -1,9 +1,9 @@
 import React from "react";
 import { Document, Page, Text, View, StyleSheet, Image } from "@react-pdf/renderer";
-import type { PayrollResult } from "@/lib/payroll";
 import { formatCurrency, formatHours } from "@/lib/utils";
+import type { PayrollWithExtras } from "@/lib/report-types";
 
-type PayrollWithTips = PayrollResult & { totalTips: number; netPayWithTips: number };
+type PayrollWithTips = PayrollWithExtras;
 
 const styles = StyleSheet.create({
   page: { padding: 32, fontSize: 10, fontFamily: "Helvetica", color: "#2C1F15" },
@@ -70,7 +70,9 @@ export function PayrollPDF({
 }: PayrollPDFProps) {
   const totalGross = employees.reduce((s, e) => s + e.grossPay, 0);
   const totalTips = employees.reduce((s, e) => s + e.totalTips, 0);
-  const totalNet = employees.reduce((s, e) => s + e.netPayWithTips, 0);
+  const totalBonuses = employees.reduce((s, e) => s + e.totalBonuses, 0);
+  const totalDiscounts = employees.reduce((s, e) => s + e.totalDiscounts, 0);
+  const totalNet = employees.reduce((s, e) => s + e.finalPay, 0);
   const reportTitle = REPORT_TITLES[reportType];
 
   return (
@@ -131,9 +133,41 @@ export function PayrollPDF({
                   <Text style={[styles.col4, { color: "#C1643F" }]}>+{formatCurrency(emp.totalTips)}</Text>
                 </View>
               )}
+              {emp.bonuses.map((b, i) => (
+                <View key={b.bonusId} style={(emp.adjustments.length + i) % 2 === 0 ? styles.tableRow : styles.tableRowAlt}>
+                  <Text style={styles.col1}>Bono: {b.name}</Text>
+                  <Text style={styles.col2}></Text>
+                  <Text style={styles.col3}>Bono</Text>
+                  <Text style={[styles.col4, { color: "#6B8E6B" }]}>+{formatCurrency(b.appliedAmount)}</Text>
+                </View>
+              ))}
+              {emp.totalBonuses > 0 && (
+                <View style={styles.tableRow}>
+                  <Text style={[styles.col1, { fontFamily: "Helvetica-Bold" }]}>Total bonos</Text>
+                  <Text style={styles.col2}></Text>
+                  <Text style={styles.col3}></Text>
+                  <Text style={[styles.col4, { color: "#6B8E6B", fontFamily: "Helvetica-Bold" }]}>+{formatCurrency(emp.totalBonuses)}</Text>
+                </View>
+              )}
+              {emp.discounts.map((d, i) => (
+                <View key={d.discountId} style={i % 2 === 0 ? styles.tableRowAlt : styles.tableRow}>
+                  <Text style={styles.col1}>Descuento: {d.name}</Text>
+                  <Text style={styles.col2}></Text>
+                  <Text style={styles.col3}>Descuento</Text>
+                  <Text style={[styles.col4, { color: "#B94040" }]}>-{formatCurrency(d.appliedAmount)}</Text>
+                </View>
+              ))}
+              {emp.totalDiscounts > 0 && (
+                <View style={styles.tableRow}>
+                  <Text style={[styles.col1, { fontFamily: "Helvetica-Bold" }]}>Total descuentos</Text>
+                  <Text style={styles.col2}></Text>
+                  <Text style={styles.col3}></Text>
+                  <Text style={[styles.col4, { color: "#B94040", fontFamily: "Helvetica-Bold" }]}>-{formatCurrency(emp.totalDiscounts)}</Text>
+                </View>
+              )}
               <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>TOTAL NETO</Text>
-                <Text style={[styles.totalValue, styles.netPay]}>{formatCurrency(emp.netPayWithTips)}</Text>
+                <Text style={styles.totalLabel}>TOTAL FINAL</Text>
+                <Text style={[styles.totalValue, styles.netPay]}>{formatCurrency(emp.finalPay)}</Text>
               </View>
             </View>
             <View style={styles.signatureBlock}>
@@ -154,8 +188,20 @@ export function PayrollPDF({
             <Text style={{ color: "#C1643F", fontFamily: "Helvetica-Bold" }}>{formatCurrency(totalTips)}</Text>
           </View>
         )}
+        {totalBonuses > 0 && (
+          <View style={styles.summaryLine}>
+            <Text style={{ color: "#6B8E6B", fontFamily: "Helvetica-Bold" }}>Total bonos del período</Text>
+            <Text style={{ color: "#6B8E6B", fontFamily: "Helvetica-Bold" }}>{formatCurrency(totalBonuses)}</Text>
+          </View>
+        )}
+        {totalDiscounts > 0 && (
+          <View style={styles.summaryLine}>
+            <Text style={{ color: "#B94040", fontFamily: "Helvetica-Bold" }}>Total descuentos del período</Text>
+            <Text style={{ color: "#B94040", fontFamily: "Helvetica-Bold" }}>-{formatCurrency(totalDiscounts)}</Text>
+          </View>
+        )}
         <View style={styles.summaryLine}>
-          <Text style={[{ fontFamily: "Helvetica-Bold" }, styles.netPay]}>Total neto del período</Text>
+          <Text style={[{ fontFamily: "Helvetica-Bold" }, styles.netPay]}>Total final del período</Text>
           <Text style={[{ fontFamily: "Helvetica-Bold", fontSize: 13 }, styles.netPay]}>{formatCurrency(totalNet)}</Text>
         </View>
 

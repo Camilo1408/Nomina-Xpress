@@ -2,6 +2,9 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { calculatePayroll } from "@/lib/payroll";
+import { resolveBonusesForEmployees } from "@/lib/bonus-service";
+import { resolveDiscountsForEmployees } from "@/lib/discount-service";
+import { clampFinalPay } from "@/lib/discounts";
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -31,6 +34,13 @@ export async function GET(req: Request) {
     },
   });
 
+  // Bonos y descuentos aplicables a los empleados del reporte para este período (quincena)
+  const empRefs = employees.map((e) => ({ id: e.id, payType: e.payType }));
+  const [bonusMap, discountMap] = await Promise.all([
+    resolveBonusesForEmployees(tenantId, from, empRefs),
+    resolveDiscountsForEmployees(tenantId, from, empRefs),
+  ]);
+
   const results = await Promise.all(
     employees.map(async (emp) => {
       const [entries, adjustments, tipDists] = await Promise.all([
@@ -56,10 +66,18 @@ export async function GET(req: Request) {
       ]);
       const payroll = calculatePayroll(emp, entries, adjustments);
       const totalTips = tipDists.reduce((s, d) => s + Number(d.amount), 0);
+      const empBonuses = bonusMap.get(emp.id) ?? { bonuses: [], totalBonuses: 0 };
+      const empDiscounts = discountMap.get(emp.id) ?? { discounts: [], totalDiscounts: 0 };
+      const netPayWithTips = Math.round(payroll.netPay + totalTips);
       return {
         ...payroll,
         totalTips: Math.round(totalTips),
-        netPayWithTips: Math.round(payroll.netPay + totalTips),
+        netPayWithTips,
+        bonuses: empBonuses.bonuses,
+        totalBonuses: empBonuses.totalBonuses,
+        discounts: empDiscounts.discounts,
+        totalDiscounts: empDiscounts.totalDiscounts,
+        finalPay: clampFinalPay(netPayWithTips, empBonuses.totalBonuses, empDiscounts.totalDiscounts),
         tipDistributions: tipDists.map((d) => ({
           date: d.tipEntry.date,
           amount: Number(d.amount),

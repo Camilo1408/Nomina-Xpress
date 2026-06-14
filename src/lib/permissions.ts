@@ -27,3 +27,9 @@ export const canEditEmployee = (role: string | undefined | null) => isFullAdmin(
 export const canAddEmployee = (role: string | undefined | null) => isProprietary(role);
 export const canDeactivateEmployee = (role: string | undefined | null) => isProprietary(role);
 export const canDeleteEmployee = (role: string | undefined | null) => isProprietary(role);
+
+// Gestión de bonos: SUPERADMIN y PROPRIETARY (aunque SUPERADMIN no pueda crear/borrar empleados)
+export const canManageBonuses = (role: string | undefined | null) => isFullAdmin(role);
+
+// Gestión de descuentos: mismos roles que bonos (SUPERADMIN y PROPRIETARY)
+export const canManageDiscounts = (role: string | undefined | null) => isFullAdmin(role);

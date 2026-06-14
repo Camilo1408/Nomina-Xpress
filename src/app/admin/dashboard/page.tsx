@@ -89,9 +89,9 @@ export default async function DashboardPage() {
           <CardContent>
             <div className="space-y-2">
               {pendingCheckout.map((entry) => (
-                <div key={entry.id} className="flex items-center justify-between text-sm">
-                  <span className="font-medium text-foreground">{entry.employee.name}</span>
-                  <div className="flex items-center gap-2">
+                <div key={entry.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
+                  <span className="font-medium text-foreground min-w-0 break-words">{entry.employee.name}</span>
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <span className="text-muted-foreground">Entrada: {formatTime(entry.checkIn)}</span>
                     <Link href={`/admin/time-entries/${entry.id}`}>
                       <Badge variant="outline" className="text-[var(--primary)] border-[var(--primary)] cursor-pointer hover:bg-accent">
@@ -116,9 +116,9 @@ export default async function DashboardPage() {
           <CardContent>
             <div className="space-y-2">
               {todayEntries.map((entry) => (
-                <div key={entry.id} className="flex items-center justify-between text-sm py-1.5 border-b border-border last:border-0">
-                  <span className="font-medium text-foreground">{entry.employee.name}</span>
-                  <div className="flex items-center gap-3 text-muted-foreground">
+                <div key={entry.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm py-1.5 border-b border-border last:border-0">
+                  <span className="font-medium text-foreground min-w-0 break-words">{entry.employee.name}</span>
+                  <div className="flex items-center gap-3 text-muted-foreground flex-shrink-0">
                     <span>{formatTime(entry.checkIn)}</span>
                     <span>—</span>
                     <span>{entry.checkOut ? formatTime(entry.checkOut) : "—"}</span>

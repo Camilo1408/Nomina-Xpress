@@ -6,7 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { EmployeeActions } from "@/components/admin/employees/EmployeeActions";
-import { canAddEmployee, canDeactivateEmployee } from "@/lib/permissions";
+import { BonusManager } from "@/components/admin/bonuses/BonusManager";
+import { DiscountManager } from "@/components/admin/discounts/DiscountManager";
+import { canAddEmployee, canDeactivateEmployee, canManageBonuses, canManageDiscounts } from "@/lib/permissions";
 
 export default async function EmployeesPage() {
   const session = await auth();
@@ -14,12 +16,21 @@ export default async function EmployeesPage() {
   const role = session!.user.role;
   const canAdd = canAddEmployee(role);
   const canManageLifecycle = canDeactivateEmployee(role);
+  const canBonuses = canManageBonuses(role);
+  const canDiscounts = canManageDiscounts(role);
 
   const employees = await prisma.employee.findMany({
     where: { tenantId },
     include: { user: { select: { username: true } } },
     orderBy: { name: "asc" },
   });
+
+  const bonusEmployees = employees.map((e) => ({
+    id: e.id,
+    name: e.name,
+    payType: e.payType,
+    active: e.active,
+  }));
 
   return (
     <div className="space-y-6">
@@ -28,13 +39,17 @@ export default async function EmployeesPage() {
           <h1 className="text-2xl font-heading font-bold text-[#2C1F15]">Empleados</h1>
           <p className="text-sm text-[#7A6358] mt-1">{employees.filter(e => e.active).length} activos</p>
         </div>
-        {canAdd && (
-          <Link href="/admin/employees/new">
-            <Button className="bg-[#C1643F] hover:bg-[#A8522F] text-[#FAF7F2] gap-2">
-              <Plus className="w-4 h-4" /> Nuevo empleado
-            </Button>
-          </Link>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {canBonuses && <BonusManager employees={bonusEmployees} />}
+          {canDiscounts && <DiscountManager employees={bonusEmployees} />}
+          {canAdd && (
+            <Link href="/admin/employees/new">
+              <Button className="bg-[#C1643F] hover:bg-[#A8522F] text-[#FAF7F2] gap-2">
+                <Plus className="w-4 h-4" /> Nuevo empleado
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="bg-white rounded-lg border border-[#E0D5CA] shadow-[0_1px_3px_rgba(44,31,21,0.08)] overflow-x-auto">

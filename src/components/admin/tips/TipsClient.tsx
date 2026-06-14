@@ -104,14 +104,14 @@ export function TipsClient({ role }: TipsClientProps) {
     <div className="space-y-5">
       {/* Filters */}
       <div className="bg-white rounded-lg border border-[#E0D5CA] p-4 shadow-[0_1px_3px_rgba(44,31,21,0.08)]">
-        <div className="flex flex-wrap gap-3 items-end">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap gap-3 items-end">
           <div className="space-y-1">
             <label className="text-xs font-medium text-[#7A6358]">Desde</label>
             <input
               type="date"
               value={from}
               onChange={(e) => setFrom(e.target.value)}
-              className="border border-[#E0D5CA] rounded-md px-2 py-1.5 text-sm block"
+              className="border border-[#E0D5CA] rounded-md px-2 py-1.5 text-sm block w-full"
             />
           </div>
           <div className="space-y-1">
@@ -120,13 +120,13 @@ export function TipsClient({ role }: TipsClientProps) {
               type="date"
               value={to}
               onChange={(e) => setTo(e.target.value)}
-              className="border border-[#E0D5CA] rounded-md px-2 py-1.5 text-sm block"
+              className="border border-[#E0D5CA] rounded-md px-2 py-1.5 text-sm block w-full"
             />
           </div>
           <Button
             onClick={() => fetchTips()}
             disabled={loading}
-            className="bg-[#C1643F] hover:bg-[#A8522F] text-[#FAF7F2] gap-1.5"
+            className="bg-[#C1643F] hover:bg-[#A8522F] text-[#FAF7F2] gap-1.5 w-full sm:w-auto"
           >
             <SlidersHorizontal className="w-4 h-4" />
             {loading ? "Cargando..." : "Filtrar"}
@@ -134,7 +134,7 @@ export function TipsClient({ role }: TipsClientProps) {
           <Button
             onClick={() => setShowModal(true)}
             variant="outline"
-            className="gap-1.5 border-[#C1643F] text-[#C1643F] hover:bg-[#C1643F]/10"
+            className="gap-1.5 border-[#C1643F] text-[#C1643F] hover:bg-[#C1643F]/10 w-full sm:w-auto"
           >
             <Plus className="w-4 h-4" /> Registrar propinas
           </Button>
@@ -179,7 +179,7 @@ export function TipsClient({ role }: TipsClientProps) {
                   <div className="flex items-center gap-2 px-4 py-3 hover:bg-[#FAF7F2] transition-colors">
                     <button
                       onClick={() => setExpandedId(expanded ? null : entry.id)}
-                      className="flex-1 flex items-center gap-3 text-left min-w-0"
+                      className="flex-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-left min-w-0"
                     >
                       <span className="text-[#7A6358]">
                         {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
@@ -222,7 +222,7 @@ export function TipsClient({ role }: TipsClientProps) {
                   {/* Expanded: distribution detail */}
                   {expanded && (
                     <div className="bg-[#FAF7F2] px-4 pb-4 pt-2">
-                      <div className="flex gap-4 text-xs text-[#7A6358] mb-3">
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#7A6358] mb-3">
                         <span>Bruto: <strong className="text-[#2C1F15]">{formatCurrency(entry.totalAmount)}</strong></span>
                         <span>Menaje 10%: <strong className="text-[#B94040]">{formatCurrency(entry.menaje)}</strong></span>
                         <span>A distribuir: <strong className="text-[#6B8E6B]">{formatCurrency(entry.netAmount)}</strong></span>
@@ -232,7 +232,8 @@ export function TipsClient({ role }: TipsClientProps) {
                           Sin horas registradas ese día — no se distribuyó.
                         </p>
                       ) : (
-                        <table className="w-full text-xs">
+                        <div className="overflow-x-auto">
+                        <table className="w-full min-w-[480px] text-xs">
                           <thead>
                             <tr className="border-b border-[#E0D5CA]">
                               <th className="text-left py-1.5 text-[#7A6358] font-medium">Empleado</th>
@@ -259,6 +260,7 @@ export function TipsClient({ role }: TipsClientProps) {
                             })}
                           </tbody>
                         </table>
+                        </div>
                       )}
                     </div>
                   )}

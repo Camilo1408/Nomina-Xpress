@@ -8,11 +8,18 @@ import { formatCurrency, formatHours } from "@/lib/utils";
 import { FileDown, FileSpreadsheet, Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { PayrollResult } from "@/lib/payroll";
+import type { BonusApplied } from "@/lib/bonuses";
+import type { DiscountApplied } from "@/lib/discounts";
 import { AdjustmentModal } from "./AdjustmentModal";
 
 type PayrollWithTips = PayrollResult & {
   totalTips: number;
   netPayWithTips: number;
+  bonuses: BonusApplied[];
+  totalBonuses: number;
+  discounts: DiscountApplied[];
+  totalDiscounts: number;
+  finalPay: number;
   tipDistributions: { date: string; amount: number; hoursWorked: number; tipPercent: number }[];
 };
 
@@ -99,7 +106,9 @@ export function ReportsClient({ employees, role, reportType = "payroll" }: Repor
   const totalNormalH = results?.reduce((s, e) => s + e.normalHours, 0) ?? 0;
   const totalSpecialH = results?.reduce((s, e) => s + e.specialHours, 0) ?? 0;
   const totalTips = results?.reduce((s, e) => s + e.totalTips, 0) ?? 0;
-  const totalNetWithTips = results?.reduce((s, e) => s + e.netPayWithTips, 0) ?? 0;
+  const totalBonuses = results?.reduce((s, e) => s + e.totalBonuses, 0) ?? 0;
+  const totalDiscounts = results?.reduce((s, e) => s + e.totalDiscounts, 0) ?? 0;
+  const totalFinal = results?.reduce((s, e) => s + e.finalPay, 0) ?? 0;
 
   return (
     <div className="space-y-5">
@@ -126,11 +135,11 @@ export function ReportsClient({ employees, role, reportType = "payroll" }: Repor
           </Button>
         </div>
         {results && results.length > 0 && isSuperAdmin && (
-          <div className="flex gap-2 pt-1 border-t border-[#F2EDE6]">
-            <Button variant="outline" size="sm" onClick={() => downloadExport("excel")} className="gap-1.5 border-[#6B8E6B] text-[#6B8E6B]">
+          <div className="flex flex-col sm:flex-row gap-2 pt-1 border-t border-[#F2EDE6]">
+            <Button variant="outline" size="sm" onClick={() => downloadExport("excel")} className="gap-1.5 border-[#6B8E6B] text-[#6B8E6B] w-full sm:w-auto justify-center">
               <FileSpreadsheet className="w-4 h-4" /> Exportar Excel ({labels.fileSlug})
             </Button>
-            <Button variant="outline" size="sm" onClick={() => downloadExport("pdf")} className="gap-1.5 border-[#B94040] text-[#B94040]">
+            <Button variant="outline" size="sm" onClick={() => downloadExport("pdf")} className="gap-1.5 border-[#B94040] text-[#B94040] w-full sm:w-auto justify-center">
               <FileDown className="w-4 h-4" /> Exportar PDF ({labels.fileSlug})
             </Button>
           </div>
@@ -140,13 +149,15 @@ export function ReportsClient({ employees, role, reportType = "payroll" }: Repor
       {results && (
         <>
           {/* Summary cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4">
             {[
               { label: "Horas normales", value: formatHours(totalNormalH), color: "#6B8E6B" },
               { label: "Horas especiales", value: formatHours(totalSpecialH), color: "#C1643F" },
               { label: "Total neto", value: formatCurrency(totalNet), color: "#2C1F15" },
               { label: "Propinas", value: formatCurrency(totalTips), color: "#C1643F" },
-              { label: "Total c/ propinas", value: formatCurrency(totalNetWithTips), color: "#6B8E6B" },
+              { label: "Bonos", value: formatCurrency(totalBonuses), color: "#6B8E6B" },
+              { label: "Descuentos", value: formatCurrency(totalDiscounts), color: "#B94040" },
+              { label: "Total final", value: formatCurrency(totalFinal), color: "#6B8E6B" },
             ].map((card) => (
               <Card key={card.label} className="shadow-[0_1px_3px_rgba(44,31,21,0.08)]">
                 <CardHeader className="pb-1">
@@ -161,7 +172,7 @@ export function ReportsClient({ employees, role, reportType = "payroll" }: Repor
 
           {/* Results table */}
           <div className="bg-white rounded-lg border border-[#E0D5CA] shadow-[0_1px_3px_rgba(44,31,21,0.08)] overflow-x-auto">
-            <table className="w-full min-w-[640px] text-sm">
+            <table className="w-full min-w-[860px] text-sm">
               <thead>
                 <tr className="border-b border-[#E0D5CA] bg-[#C1643F]/8">
                   <th className="text-left px-4 py-3 font-semibold text-[#2C1F15]">Empleado</th>
@@ -170,6 +181,8 @@ export function ReportsClient({ employees, role, reportType = "payroll" }: Repor
                   <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]">Ajustes</th>
                   <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]">Neto</th>
                   <th className="text-right px-4 py-3 font-semibold text-[#C1643F]">Propinas</th>
+                  <th className="text-right px-4 py-3 font-semibold text-[#6B8E6B]">Bonos</th>
+                  <th className="text-right px-4 py-3 font-semibold text-[#B94040]">Descuentos</th>
                   <th className="text-right px-4 py-3 font-semibold text-[#6B8E6B]">Total final</th>
                   {isSuperAdmin && <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]">Acción</th>}
                 </tr>
@@ -209,6 +222,30 @@ export function ReportsClient({ employees, role, reportType = "payroll" }: Repor
                           ))}
                         </div>
                       )}
+                      {emp.bonuses.length > 0 && (
+                        <div className="mt-1 space-y-0.5">
+                          {emp.bonuses.map((b) => (
+                            <div key={b.bonusId} className="flex items-center gap-1 flex-wrap">
+                              <span className="text-xs text-[#6B8E6B] font-medium">
+                                +{formatCurrency(b.appliedAmount)}
+                              </span>
+                              <span className="text-xs text-[#7A6358]">— Bono: {b.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {emp.discounts.length > 0 && (
+                        <div className="mt-1 space-y-0.5">
+                          {emp.discounts.map((d) => (
+                            <div key={d.discountId} className="flex items-center gap-1 flex-wrap">
+                              <span className="text-xs text-[#B94040] font-medium">
+                                −{formatCurrency(d.appliedAmount)}
+                              </span>
+                              <span className="text-xs text-[#7A6358]">— Descuento: {d.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right font-mono text-[#2C1F15]">{formatHours(emp.normalHours)}</td>
                     <td className="px-4 py-3 text-right font-mono">
@@ -225,7 +262,13 @@ export function ReportsClient({ employees, role, reportType = "payroll" }: Repor
                     <td className="px-4 py-3 text-right font-mono text-[#C1643F]">
                       {emp.totalTips > 0 ? formatCurrency(emp.totalTips) : <span className="text-[#7A6358]">—</span>}
                     </td>
-                    <td className="px-4 py-3 text-right font-mono font-bold text-[#6B8E6B]">{formatCurrency(emp.netPayWithTips)}</td>
+                    <td className="px-4 py-3 text-right font-mono text-[#6B8E6B]">
+                      {emp.totalBonuses > 0 ? formatCurrency(emp.totalBonuses) : <span className="text-[#7A6358]">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-[#B94040]">
+                      {emp.totalDiscounts > 0 ? `−${formatCurrency(emp.totalDiscounts)}` : <span className="text-[#7A6358]">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono font-bold text-[#6B8E6B]">{formatCurrency(emp.finalPay)}</td>
                     {isSuperAdmin && (
                     <td className="px-4 py-3 text-right">
                       <Button
@@ -242,7 +285,7 @@ export function ReportsClient({ employees, role, reportType = "payroll" }: Repor
                 ))}
                 {results.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center text-[#7A6358]">
+                    <td colSpan={10} className="px-4 py-12 text-center text-[#7A6358]">
                       No hay datos para este período.
                     </td>
                   </tr>

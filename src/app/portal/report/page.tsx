@@ -4,7 +4,9 @@ import { useState, useEffect } from "react";
 import { formatCurrency, formatHours, formatDate, formatTime } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Coins } from "lucide-react";
+import { Coins, Gift, TrendingDown } from "lucide-react";
+import type { BonusApplied } from "@/lib/bonuses";
+import type { DiscountApplied } from "@/lib/discounts";
 
 function getCurrentPeriod() {
   const today = new Date();
@@ -35,6 +37,12 @@ export default function PortalReportPage() {
     grossPay: number;
     adjustments: { type: string; amount: number; description: string }[];
     netPay: number;
+    bonuses: BonusApplied[];
+    totalBonuses: number;
+    netPayWithBonuses: number;
+    discounts: DiscountApplied[];
+    totalDiscounts: number;
+    netPayWithBonusesAndDiscounts: number;
     entries: { id: string; date: string; checkIn: string; checkOut: string | null; isSpecial: boolean; notes: string | null }[];
   } | null>(null);
   const [tips, setTips] = useState<{ totalTips: number; distributions: { amount: number; tipEntry: { date: string } }[] } | null>(null);
@@ -128,6 +136,58 @@ export default function PortalReportPage() {
                 </table>
               )}
             </div>
+          )}
+
+          {/* Bonos aplicados en esta quincena */}
+          {data.bonuses.length > 0 && (
+            <div className="bg-white rounded-lg border border-[#6B8E6B]/30 shadow-[0_1px_3px_rgba(44,31,21,0.08)] overflow-hidden">
+              <div className="px-4 py-3 border-b border-[#F2EDE6] bg-[#6B8E6B]/8 flex items-center gap-2">
+                <Gift className="w-4 h-4 text-[#6B8E6B]" />
+                <h3 className="text-sm font-semibold text-[#2C1F15]">Bonos aplicados en esta quincena</h3>
+                <span className="ml-auto font-mono font-bold text-[#6B8E6B]">
+                  {formatCurrency(data.totalBonuses)}
+                </span>
+              </div>
+              <div className="divide-y divide-[#F2EDE6]">
+                {data.bonuses.map((b) => (
+                  <div key={b.bonusId} className="px-4 py-3 flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium text-[#2C1F15] min-w-0">{b.name}</p>
+                    <p className="font-mono font-bold text-[#6B8E6B] flex-shrink-0">+{formatCurrency(b.appliedAmount)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Descuentos aplicados en esta quincena */}
+          {data.discounts.length > 0 && (
+            <div className="bg-white rounded-lg border border-[#B94040]/30 shadow-[0_1px_3px_rgba(44,31,21,0.08)] overflow-hidden">
+              <div className="px-4 py-3 border-b border-[#F2EDE6] bg-[#B94040]/8 flex items-center gap-2">
+                <TrendingDown className="w-4 h-4 text-[#B94040]" />
+                <h3 className="text-sm font-semibold text-[#2C1F15]">Descuentos aplicados en esta quincena</h3>
+                <span className="ml-auto font-mono font-bold text-[#B94040]">
+                  −{formatCurrency(data.totalDiscounts)}
+                </span>
+              </div>
+              <div className="divide-y divide-[#F2EDE6]">
+                {data.discounts.map((d) => (
+                  <div key={d.discountId} className="px-4 py-3 flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium text-[#2C1F15] min-w-0">{d.name}</p>
+                    <p className="font-mono font-bold text-[#B94040] flex-shrink-0">−{formatCurrency(d.appliedAmount)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Total final con bonos y descuentos */}
+          {(data.totalBonuses > 0 || data.totalDiscounts > 0) && (
+            <Card className="shadow-[0_1px_3px_rgba(44,31,21,0.08)] border-[#6B8E6B]/40">
+              <CardContent className="flex items-center justify-between py-4">
+                <span className="text-sm font-medium text-[#7A6358]">Total estimado final</span>
+                <span className="text-xl font-bold font-mono text-[#6B8E6B]">{formatCurrency(data.netPayWithBonusesAndDiscounts)}</span>
+              </CardContent>
+            </Card>
           )}
 
           {data.adjustments.length > 0 && (

@@ -23,6 +23,10 @@ model Tenant {
   payAdjustments    PayAdjustment[]
   pushSubscriptions PushSubscription[]
   tipEntries        TipEntry[]
+  bonuses           Bonus[]
+  bonusAssignments  BonusAssignment[]
+  discounts            Discount[]
+  discountAssignments  DiscountAssignment[]
 }
 
 model User {
@@ -62,6 +66,8 @@ model Employee {
   scheduleShifts   ScheduleShift[]
   payAdjustments   PayAdjustment[]
   tipDistributions TipDistribution[]
+  bonusAssignments BonusAssignment[]
+  discountAssignments DiscountAssignment[]
 
   @@index([tenantId])
 }
@@ -185,4 +191,103 @@ model TipDistribution {
 
   @@index([tenantId, employeeId])
   @@index([tipEntryId])
+}
+
+// Bono fijo configurable. Se calcula de forma stateless por período (quincena)
+// del reporte, sin persistir aplicaciones — evita duplicados y no altera históricos.
+model Bonus {
+  id             String   @id @default(cuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  // STANDARD = mismo valor para todos | PER_EMPLOYEE = valor por asignación
+  valueType      String   @default("STANDARD")
+  // Valor del bono cuando valueType = STANDARD (ignorado en PER_EMPLOYEE)
+  amount         Float    @default(0)
+  // ALL | PAYROLL | SHIFT | SPECIFIC
+  assignmentType String   @default("ALL")
+  // BIWEEKLY | MONTHLY
+  frequency      String   @default("BIWEEKLY")
+  // Solo aplica si frequency = MONTHLY: FIRST | SECOND | SPLIT
+  monthlyMode    String?
+  active         Boolean  @default(true)
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  assignments BonusAssignment[]
+
+  @@index([tenantId])
+  @@index([tenantId, active])
+}
+
+// Membresía/valor por empleado. Necesaria para assignmentType = SPECIFIC
+// (define a quién aplica) y para valueType = PER_EMPLOYEE (define el monto).
+model BonusAssignment {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bonusId    String
+  bonus      Bonus    @relation(fields: [bonusId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  // Valor específico cuando el bono es PER_EMPLOYEE (null si STANDARD)
+  amount     Float?
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([bonusId, employeeId])
+  @@index([tenantId])
+  @@index([bonusId])
+  @@index([employeeId])
+}
+
+// Descuento fijo/personalizado. Resta del pago final. Mismo modelo de cálculo
+// stateless por quincena que Bonus (evita duplicados, no altera históricos).
+model Discount {
+  id             String   @id @default(cuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  // STANDARD = mismo valor para todos | PER_EMPLOYEE = valor por asignación
+  valueType      String   @default("STANDARD")
+  amount         Float    @default(0)
+  // ALL | PAYROLL | SHIFT | SPECIFIC
+  assignmentType String   @default("ALL")
+  // BIWEEKLY | MONTHLY
+  frequency      String   @default("BIWEEKLY")
+  // Solo aplica si frequency = MONTHLY: FIRST | SECOND | SPLIT
+  monthlyMode    String?
+  active         Boolean  @default(true)
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  assignments DiscountAssignment[]
+
+  @@index([tenantId])
+  @@index([tenantId, active])
+}
+
+model DiscountAssignment {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  discountId String
+  discount   Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  // Valor específico cuando el descuento es PER_EMPLOYEE (null si STANDARD)
+  amount     Float?
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([discountId, employeeId])
+  @@index([tenantId])
+  @@index([discountId])
+  @@index([employeeId])
 }
