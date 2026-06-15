@@ -53,7 +53,7 @@ export default function PortalSchedulePage() {
             <Badge className="bg-[#6B8E6B]/15 text-[#6B8E6B] border-0">Publicado</Badge>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[560px] text-sm">
               <thead>
                 <tr>
                   {DAY_NAMES.map((d) => (

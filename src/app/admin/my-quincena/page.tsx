@@ -174,7 +174,8 @@ export default function AdminMyQuincenaPage() {
               <div className="px-4 py-3 border-b border-[#E0D5CA] bg-[#F2EDE6]">
                 <h3 className="text-sm font-semibold text-[#2C1F15]">Propinas del período</h3>
               </div>
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto">
+              <table className="w-full min-w-[420px] text-sm">
                 <thead>
                   <tr className="border-b border-[#E0D5CA]">
                     <th className="text-left px-4 py-2 font-medium text-[#7A6358]">Fecha</th>
@@ -194,6 +195,7 @@ export default function AdminMyQuincenaPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
 
