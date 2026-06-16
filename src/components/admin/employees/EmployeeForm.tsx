@@ -9,6 +9,14 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Eye, EyeOff, KeyRound, UserPlus, ShieldCheck, User } from "lucide-react";
 
+function digitsOnly(raw: string): string {
+  return raw.replace(/\D/g, "").slice(0, 9);
+}
+function displayThousands(raw: string): string {
+  if (!raw) return "";
+  return Number(raw).toLocaleString("es-CO");
+}
+
 type AccessRole = "NONE" | "EMPLOYEE" | "ADMIN";
 
 interface EmployeeFormProps {
@@ -48,8 +56,8 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
     name: employee?.name ?? "",
     documentId: employee?.documentId ?? "",
     phone: employee?.phone ?? "",
-    hourlyRateNormal: employee?.hourlyRateNormal ?? 6400,
-    hourlyRateSpecial: employee?.hourlyRateSpecial ?? 11500,
+    hourlyRateNormal: String(employee?.hourlyRateNormal ?? 6400),
+    hourlyRateSpecial: String(employee?.hourlyRateSpecial ?? 11500),
     tipPercent: employee?.tipPercent ?? 100,
     payType: (employee?.payType ?? "PAYROLL") as PayType,
     accessRole: "NONE" as AccessRole,
@@ -173,17 +181,23 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
           <div className="space-y-1.5">
             <Label>Tarifa hora normal (COP) *</Label>
             <Input
-              type="number" value={form.hourlyRateNormal}
-              onChange={(e) => set("hourlyRateNormal", e.target.value)}
-              min="0" step="100" required
+              type="text"
+              inputMode="numeric"
+              value={displayThousands(form.hourlyRateNormal)}
+              onChange={(e) => set("hourlyRateNormal", digitsOnly(e.target.value))}
+              placeholder="Ej: 6.400"
+              required
             />
           </div>
           <div className="space-y-1.5">
             <Label>Tarifa hora especial (COP) *</Label>
             <Input
-              type="number" value={form.hourlyRateSpecial}
-              onChange={(e) => set("hourlyRateSpecial", e.target.value)}
-              min="0" step="100" required
+              type="text"
+              inputMode="numeric"
+              value={displayThousands(form.hourlyRateSpecial)}
+              onChange={(e) => set("hourlyRateSpecial", digitsOnly(e.target.value))}
+              placeholder="Ej: 11.500"
+              required
             />
             <p className="text-xs text-[#7A6358]">Aplica para domingos y festivos colombianos</p>
           </div>

@@ -7,6 +7,14 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { todayColombia } from "@/lib/utils";
 
+function digitsOnly(raw: string): string {
+  return raw.replace(/\D/g, "").slice(0, 9);
+}
+function displayThousands(raw: string): string {
+  if (!raw) return "";
+  return Number(raw).toLocaleString("es-CO");
+}
+
 interface TipEntryModalProps {
   editing?: { id: string; date: string; totalAmount: number; notes: string | null } | null;
   onClose: () => void;
@@ -15,7 +23,7 @@ interface TipEntryModalProps {
 
 export function TipEntryModal({ editing, onClose, onSaved }: TipEntryModalProps) {
   const [date, setDate] = useState(editing?.date ?? todayColombia());
-  const [totalAmount, setTotalAmount] = useState(editing?.totalAmount.toString() ?? "");
+  const [totalAmount, setTotalAmount] = useState(editing ? String(Math.round(editing.totalAmount)) : "");
   const [notes, setNotes] = useState(editing?.notes ?? "");
   const [loading, setLoading] = useState(false);
 
@@ -74,12 +82,11 @@ export function TipEntryModal({ editing, onClose, onSaved }: TipEntryModalProps)
             <Label htmlFor="tip-amount">Total propinas (COP)</Label>
             <Input
               id="tip-amount"
-              type="number"
-              min="1"
-              step="1"
-              placeholder="Ej: 150000"
-              value={totalAmount}
-              onChange={(e) => setTotalAmount(e.target.value)}
+              type="text"
+              inputMode="numeric"
+              placeholder="Ej: 150.000"
+              value={displayThousands(totalAmount)}
+              onChange={(e) => setTotalAmount(digitsOnly(e.target.value))}
               required
             />
           </div>
