@@ -13,8 +13,8 @@ const createSchema = z.object({
   tipPercent: z.number().min(0).max(100).default(100),
   payType: z.enum(["PAYROLL", "SHIFT"]).default("PAYROLL"),
   accessRole: z.enum(["NONE", "EMPLOYEE", "ADMIN"]).default("NONE"),
-  username: z.string().min(3).optional(),
-  password: z.string().min(6).optional(),
+  username: z.preprocess((v) => (v === "" ? undefined : v), z.string().min(3).optional()),
+  password: z.preprocess((v) => (v === "" ? undefined : v), z.string().min(6).optional()),
 });
 
 export async function GET() {
