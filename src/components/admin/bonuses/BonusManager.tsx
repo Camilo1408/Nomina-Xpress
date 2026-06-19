@@ -55,6 +55,9 @@ interface BonusRow {
 
 interface BonusManagerProps {
   employees: EmployeeLite[];
+  canCreate: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
 }
 
 function digitsOnly(raw: string): string {
@@ -65,7 +68,7 @@ function displayThousands(raw: string): string {
   return Number(raw).toLocaleString("es-CO");
 }
 
-export function BonusManager({ employees }: BonusManagerProps) {
+export function BonusManager({ employees, canCreate, canEdit, canDelete }: BonusManagerProps) {
   const [open, setOpen] = useState(false);
   const [bonuses, setBonuses] = useState<BonusRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -170,9 +173,11 @@ export function BonusManager({ employees }: BonusManagerProps) {
                     <p className="text-sm text-[#7A6358]">
                       {bonuses.length} bono{bonuses.length !== 1 ? "s" : ""} configurado{bonuses.length !== 1 ? "s" : ""}
                     </p>
-                    <Button onClick={openCreate} className="bg-[#C1643F] hover:bg-[#A8522F] text-[#FAF7F2] gap-1.5">
-                      <Plus className="w-4 h-4" /> Nuevo bono
-                    </Button>
+                    {canCreate && (
+                      <Button onClick={openCreate} className="bg-[#C1643F] hover:bg-[#A8522F] text-[#FAF7F2] gap-1.5">
+                        <Plus className="w-4 h-4" /> Nuevo bono
+                      </Button>
+                    )}
                   </div>
 
                   {loading ? (
@@ -187,6 +192,8 @@ export function BonusManager({ employees }: BonusManagerProps) {
                         <BonusCard
                           key={b.id}
                           bonus={b}
+                          canEdit={canEdit}
+                          canDelete={canDelete}
                           onEdit={() => openEdit(b)}
                           onToggle={() => toggleActive(b)}
                           onDelete={() => deleteBonus(b)}
@@ -206,11 +213,15 @@ export function BonusManager({ employees }: BonusManagerProps) {
 
 function BonusCard({
   bonus,
+  canEdit,
+  canDelete,
   onEdit,
   onToggle,
   onDelete,
 }: {
   bonus: BonusRow;
+  canEdit: boolean;
+  canDelete: boolean;
   onEdit: () => void;
   onToggle: () => void;
   onDelete: () => void;
@@ -245,18 +256,24 @@ function BonusCard({
           </div>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
-          <button onClick={onToggle} title={bonus.active ? "Desactivar" : "Activar"}
-            className="p-1.5 rounded-md text-[#7A6358] hover:text-[#C1643F] hover:bg-[#F2EDE6]">
-            <Power className="w-4 h-4" />
-          </button>
-          <button onClick={onEdit} title="Editar"
-            className="p-1.5 rounded-md text-[#7A6358] hover:text-[#C1643F] hover:bg-[#F2EDE6]">
-            <Pencil className="w-4 h-4" />
-          </button>
-          <button onClick={onDelete} title="Eliminar"
-            className="p-1.5 rounded-md text-[#7A6358] hover:text-[#B94040] hover:bg-[#F2EDE6]">
-            <Trash2 className="w-4 h-4" />
-          </button>
+          {canEdit && (
+            <button onClick={onToggle} title={bonus.active ? "Desactivar" : "Activar"}
+              className="p-1.5 rounded-md text-[#7A6358] hover:text-[#C1643F] hover:bg-[#F2EDE6]">
+              <Power className="w-4 h-4" />
+            </button>
+          )}
+          {canEdit && (
+            <button onClick={onEdit} title="Editar"
+              className="p-1.5 rounded-md text-[#7A6358] hover:text-[#C1643F] hover:bg-[#F2EDE6]">
+              <Pencil className="w-4 h-4" />
+            </button>
+          )}
+          {canDelete && (
+            <button onClick={onDelete} title="Eliminar"
+              className="p-1.5 rounded-md text-[#7A6358] hover:text-[#B94040] hover:bg-[#F2EDE6]">
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
     </div>

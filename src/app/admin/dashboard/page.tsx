@@ -5,28 +5,46 @@ import { Badge } from "@/components/ui/badge";
 import { Users, Clock, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { formatTime } from "@/lib/utils";
+import { getSessionPermissions } from "@/lib/get-permissions";
+import { PERMISSIONS } from "@/lib/permission-keys";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const session = await auth();
   const tenantId = session!.user.tenantId;
+  const permissions = await getSessionPermissions(session);
+
+  const canViewEmployees = permissions.has(PERMISSIONS.EMPLOYEES_VIEW);
+  const canViewTimeEntries = permissions.has(PERMISSIONS.TIME_ENTRIES_VIEW);
+  const canEditTimeEntries = permissions.has(PERMISSIONS.TIME_ENTRIES_EDIT);
+  const canCreateTimeEntries = permissions.has(PERMISSIONS.TIME_ENTRIES_CREATE);
+  const canViewReports = permissions.has(PERMISSIONS.PAYROLL_VIEW);
 
   // Use Colombia timezone (UTC-5, no DST) so "today" matches the date users enter in forms
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" }).format(new Date());
 
+  // Solo se consulta lo que el usuario tiene permiso de ver
   const [totalEmployees, todayEntries, pendingCheckout] = await Promise.all([
-    prisma.employee.count({ where: { tenantId, active: true } }),
-    prisma.timeEntry.findMany({
-      where: { tenantId, date: today },
-      include: { employee: true },
-      orderBy: { checkIn: "desc" },
-    }),
-    prisma.timeEntry.findMany({
-      where: { tenantId, date: today, checkOut: null },
-      include: { employee: true },
-    }),
+    canViewEmployees
+      ? prisma.employee.count({ where: { tenantId, active: true } })
+      : Promise.resolve(0),
+    canViewTimeEntries
+      ? prisma.timeEntry.findMany({
+          where: { tenantId, date: today },
+          include: { employee: true },
+          orderBy: { checkIn: "desc" },
+        })
+      : Promise.resolve([]),
+    canViewTimeEntries
+      ? prisma.timeEntry.findMany({
+          where: { tenantId, date: today, checkOut: null },
+          include: { employee: true },
+        })
+      : Promise.resolve([]),
   ]);
+
+  const hasAnyWidget = canViewEmployees || canViewTimeEntries;
 
   return (
     <div className="space-y-6">
@@ -43,42 +61,50 @@ export default async function DashboardPage() {
         </p>
       </div>
 
+      {hasAnyWidget && (
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="border-l-4 border-l-[var(--primary)] shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Users className="w-4 h-4" /> Empleados activos
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-foreground font-mono">{totalEmployees}</p>
-          </CardContent>
-        </Card>
+        {canViewEmployees && (
+          <Card className="border-l-4 border-l-[var(--primary)] shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <Users className="w-4 h-4" /> Empleados activos
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold text-foreground font-mono">{totalEmployees}</p>
+            </CardContent>
+          </Card>
+        )}
 
-        <Card className="border-l-4 border-l-[var(--success)] shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Clock className="w-4 h-4" /> Registros hoy
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-foreground font-mono">{todayEntries.length}</p>
-          </CardContent>
-        </Card>
+        {canViewTimeEntries && (
+          <Card className="border-l-4 border-l-[var(--success)] shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <Clock className="w-4 h-4" /> Registros hoy
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold text-foreground font-mono">{todayEntries.length}</p>
+            </CardContent>
+          </Card>
+        )}
 
-        <Card className="border-l-4 border-l-[var(--warning)] shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <AlertCircle className="w-4 h-4" /> Sin salida registrada
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-foreground font-mono">{pendingCheckout.length}</p>
-          </CardContent>
-        </Card>
+        {canViewTimeEntries && (
+          <Card className="border-l-4 border-l-[var(--warning)] shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" /> Sin salida registrada
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold text-foreground font-mono">{pendingCheckout.length}</p>
+            </CardContent>
+          </Card>
+        )}
       </div>
+      )}
 
-      {pendingCheckout.length > 0 && (
+      {canViewTimeEntries && pendingCheckout.length > 0 && (
         <Card className="border-[var(--warning)] bg-[var(--muted)] shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
@@ -93,11 +119,13 @@ export default async function DashboardPage() {
                   <span className="font-medium text-foreground min-w-0 break-words">{entry.employee.name}</span>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <span className="text-muted-foreground">Entrada: {formatTime(entry.checkIn)}</span>
-                    <Link href={`/admin/time-entries/${entry.id}`}>
-                      <Badge variant="outline" className="text-[var(--primary)] border-[var(--primary)] cursor-pointer hover:bg-accent">
-                        Registrar salida
-                      </Badge>
-                    </Link>
+                    {canEditTimeEntries && (
+                      <Link href={`/admin/time-entries/${entry.id}`}>
+                        <Badge variant="outline" className="text-[var(--primary)] border-[var(--primary)] cursor-pointer hover:bg-accent">
+                          Registrar salida
+                        </Badge>
+                      </Link>
+                    )}
                   </div>
                 </div>
               ))}
@@ -106,7 +134,7 @@ export default async function DashboardPage() {
         </Card>
       )}
 
-      {todayEntries.length > 0 && (
+      {canViewTimeEntries && todayEntries.length > 0 && (
         <Card className="shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-foreground">
@@ -135,20 +163,34 @@ export default async function DashboardPage() {
         </Card>
       )}
 
-      <div className="flex gap-3" suppressHydrationWarning>
-        <Link
-          href="/admin/time-entries/new"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-[var(--primary)] text-white text-sm font-medium hover:opacity-90 transition-opacity"
-        >
-          <Clock className="w-4 h-4" /> Registrar hora
-        </Link>
-        <Link
-          href="/admin/reports"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-border text-foreground text-sm font-medium hover:bg-muted transition-colors"
-        >
-          Ver reportes
-        </Link>
-      </div>
+      {(canCreateTimeEntries || canViewReports) && (
+        <div className="flex gap-3" suppressHydrationWarning>
+          {canCreateTimeEntries && (
+            <Link
+              href="/admin/time-entries/new"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-[var(--primary)] text-white text-sm font-medium hover:opacity-90 transition-opacity"
+            >
+              <Clock className="w-4 h-4" /> Registrar hora
+            </Link>
+          )}
+          {canViewReports && (
+            <Link
+              href="/admin/reports"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-border text-foreground text-sm font-medium hover:bg-muted transition-colors"
+            >
+              Ver reportes
+            </Link>
+          )}
+        </div>
+      )}
+
+      {!hasAnyWidget && !canCreateTimeEntries && !canViewReports && (
+        <Card className="shadow-sm">
+          <CardContent className="py-10 text-center text-muted-foreground text-sm">
+            Usa el menú lateral para acceder a las secciones disponibles según tus permisos.
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

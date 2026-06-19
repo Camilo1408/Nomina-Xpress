@@ -1,10 +1,13 @@
-// Roles disponibles
+// Funciones de permisos — sin dependencias de servidor (Prisma).
+// Compatibles con Server Components, Client Components y API routes.
+// Para resolución de permisos efectivos (con CustomRole y overrides), usar get-permissions.ts.
+
 export type Role = "EMPLOYEE" | "ADMIN" | "SUPERADMIN" | "PROPRIETARY";
 
 // Roles que pueden entrar al portal /admin
 export const ADMIN_PORTAL_ROLES: Role[] = ["ADMIN", "SUPERADMIN", "PROPRIETARY"];
 
-// Roles con privilegios completos sobre la mayoría de módulos (antes solo SUPERADMIN)
+// Roles con privilegios completos sobre la mayoría de módulos
 export const FULL_ADMIN_ROLES: Role[] = ["SUPERADMIN", "PROPRIETARY"];
 
 // Solo PROPRIETARY puede agregar, desactivar o borrar empleados
@@ -28,8 +31,15 @@ export const canAddEmployee = (role: string | undefined | null) => isProprietary
 export const canDeactivateEmployee = (role: string | undefined | null) => isProprietary(role);
 export const canDeleteEmployee = (role: string | undefined | null) => isProprietary(role);
 
-// Gestión de bonos: SUPERADMIN y PROPRIETARY (aunque SUPERADMIN no pueda crear/borrar empleados)
+// Gestión de bonos: SUPERADMIN y PROPRIETARY
 export const canManageBonuses = (role: string | undefined | null) => isFullAdmin(role);
 
-// Gestión de descuentos: mismos roles que bonos (SUPERADMIN y PROPRIETARY)
+// Gestión de descuentos: mismos roles que bonos
 export const canManageDiscounts = (role: string | undefined | null) => isFullAdmin(role);
+
+// Historial de auditoría: exclusivo de PROPRIETARY
+export const canViewAudit = (role: string | undefined | null) => isProprietary(role);
+
+// Gestión de roles y usuarios del portal: exclusivo de PROPRIETARY
+export const canManageRoles = (role: string | undefined | null) => isProprietary(role);
+export const canManageUsers = (role: string | undefined | null) => isProprietary(role);

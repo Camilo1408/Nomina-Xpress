@@ -11,11 +11,15 @@ import { Pencil, UserX, UserCheck, Trash2 } from "lucide-react";
 export function EmployeeActions({
   employeeId,
   active,
+  canEdit,
   canManageLifecycle,
+  canDelete,
 }: {
   employeeId: string;
   active: boolean;
+  canEdit: boolean;
   canManageLifecycle: boolean;
+  canDelete: boolean;
 }) {
   const router = useRouter();
   const [dialog, setDialog] = useState<"deactivate" | "reactivate" | "delete" | null>(null);
@@ -64,11 +68,13 @@ export function EmployeeActions({
   return (
     <>
       <div className="flex items-center justify-end gap-1">
-        <Link href={`/admin/employees/${employeeId}`}>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-[#7A6358] hover:text-[#C1643F]" title="Editar">
-            <Pencil className="w-4 h-4" />
-          </Button>
-        </Link>
+        {canEdit && (
+          <Link href={`/admin/employees/${employeeId}`}>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-[#7A6358] hover:text-[#C1643F]" title="Editar">
+              <Pencil className="w-4 h-4" />
+            </Button>
+          </Link>
+        )}
 
         {canManageLifecycle && (active ? (
           <Button
@@ -92,7 +98,7 @@ export function EmployeeActions({
           </Button>
         ))}
 
-        {canManageLifecycle && (
+        {canDelete && (
           <Button
             variant="ghost"
             size="sm"

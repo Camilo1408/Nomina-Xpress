@@ -1,4 +1,3 @@
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
@@ -8,16 +7,24 @@ import { Plus } from "lucide-react";
 import { EmployeeActions } from "@/components/admin/employees/EmployeeActions";
 import { BonusManager } from "@/components/admin/bonuses/BonusManager";
 import { DiscountManager } from "@/components/admin/discounts/DiscountManager";
-import { canAddEmployee, canDeactivateEmployee, canManageBonuses, canManageDiscounts } from "@/lib/permissions";
+import { requirePagePermission } from "@/lib/require-permission";
+import { PERMISSIONS } from "@/lib/permission-keys";
 
 export default async function EmployeesPage() {
-  const session = await auth();
-  const tenantId = session!.user.tenantId;
-  const role = session!.user.role;
-  const canAdd = canAddEmployee(role);
-  const canManageLifecycle = canDeactivateEmployee(role);
-  const canBonuses = canManageBonuses(role);
-  const canDiscounts = canManageDiscounts(role);
+  const { session, permissions } = await requirePagePermission(PERMISSIONS.EMPLOYEES_VIEW);
+  const tenantId = session.user.tenantId;
+  const canAdd = permissions.has(PERMISSIONS.EMPLOYEES_CREATE);
+  const canEdit = permissions.has(PERMISSIONS.EMPLOYEES_EDIT);
+  const canManageLifecycle = permissions.has(PERMISSIONS.EMPLOYEES_DEACTIVATE);
+  const canDelete = permissions.has(PERMISSIONS.EMPLOYEES_DELETE);
+  const canBonuses = permissions.has(PERMISSIONS.BONUSES_VIEW);
+  const canDiscounts = permissions.has(PERMISSIONS.DISCOUNTS_VIEW);
+  const canBonusCreate = permissions.has(PERMISSIONS.BONUSES_CREATE);
+  const canBonusEdit = permissions.has(PERMISSIONS.BONUSES_EDIT);
+  const canBonusDelete = permissions.has(PERMISSIONS.BONUSES_DELETE);
+  const canDiscountCreate = permissions.has(PERMISSIONS.DISCOUNTS_CREATE);
+  const canDiscountEdit = permissions.has(PERMISSIONS.DISCOUNTS_EDIT);
+  const canDiscountDelete = permissions.has(PERMISSIONS.DISCOUNTS_DELETE);
 
   const employees = await prisma.employee.findMany({
     where: { tenantId },
@@ -40,8 +47,22 @@ export default async function EmployeesPage() {
           <p className="text-sm text-[#7A6358] mt-1">{employees.filter(e => e.active).length} activos</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {canBonuses && <BonusManager employees={bonusEmployees} />}
-          {canDiscounts && <DiscountManager employees={bonusEmployees} />}
+          {canBonuses && (
+            <BonusManager
+              employees={bonusEmployees}
+              canCreate={canBonusCreate}
+              canEdit={canBonusEdit}
+              canDelete={canBonusDelete}
+            />
+          )}
+          {canDiscounts && (
+            <DiscountManager
+              employees={bonusEmployees}
+              canCreate={canDiscountCreate}
+              canEdit={canDiscountEdit}
+              canDelete={canDiscountDelete}
+            />
+          )}
           {canAdd && (
             <Link href="/admin/employees/new">
               <Button className="bg-[#C1643F] hover:bg-[#A8522F] text-[#FAF7F2] gap-2">
@@ -104,7 +125,9 @@ export default async function EmployeesPage() {
                   <EmployeeActions
                     employeeId={emp.id}
                     active={emp.active}
+                    canEdit={canEdit}
                     canManageLifecycle={canManageLifecycle}
+                    canDelete={canDelete}
                   />
                 </td>
               </tr>

@@ -14,7 +14,7 @@ interface Tenant {
   logoUrl: string | null;
 }
 
-export function SettingsClient({ tenant }: { tenant: Tenant }) {
+export function SettingsClient({ tenant, canEdit }: { tenant: Tenant; canEdit: boolean }) {
   const router = useRouter();
   const [name, setName] = useState(tenant.name);
   // savedLogoUrl tracks what's actually in the DB (updates after upload/delete)
@@ -135,14 +135,17 @@ export function SettingsClient({ tenant }: { tenant: Tenant }) {
             onChange={(e) => setName(e.target.value)}
             placeholder="Nombre del restaurante"
             className="flex-1"
+            disabled={!canEdit}
           />
-          <Button
-            onClick={handleSaveName}
-            disabled={saving || name === tenant.name}
-            className="bg-[#C1643F] hover:bg-[#A8522F] text-white w-full sm:w-auto"
-          >
-            {saving ? "Guardando..." : "Guardar"}
-          </Button>
+          {canEdit && (
+            <Button
+              onClick={handleSaveName}
+              disabled={saving || name === tenant.name}
+              className="bg-[#C1643F] hover:bg-[#A8522F] text-white w-full sm:w-auto"
+            >
+              {saving ? "Guardando..." : "Guardar"}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -163,19 +166,21 @@ export function SettingsClient({ tenant }: { tenant: Tenant }) {
               <p className="text-sm font-medium text-foreground">Logo actual</p>
               <p className="text-xs text-muted-foreground">Guardado en el sistema</p>
             </div>
-            <button
-              type="button"
-              onClick={handleDeleteSavedLogo}
-              disabled={removingLogo}
-              className="text-muted-foreground hover:text-red-600 transition-colors disabled:opacity-50"
-              title="Eliminar logo"
-            >
-              {removingLogo ? (
-                <span className="text-xs">...</span>
-              ) : (
-                <Trash2 className="w-4 h-4" />
-              )}
-            </button>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={handleDeleteSavedLogo}
+                disabled={removingLogo}
+                className="text-muted-foreground hover:text-red-600 transition-colors disabled:opacity-50"
+                title="Eliminar logo"
+              >
+                {removingLogo ? (
+                  <span className="text-xs">...</span>
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
+              </button>
+            )}
           </div>
         )}
 
@@ -214,6 +219,7 @@ export function SettingsClient({ tenant }: { tenant: Tenant }) {
         )}
 
         {/* Drag & Drop zone */}
+        {canEdit && (
         <div
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -250,9 +256,10 @@ export function SettingsClient({ tenant }: { tenant: Tenant }) {
             className="hidden"
           />
         </div>
+        )}
 
         {/* Botón de subir — solo visible cuando hay archivo pendiente */}
-        {logoFile && (
+        {canEdit && logoFile && (
           <Button
             onClick={handleLogoUpload}
             disabled={uploadingLogo}

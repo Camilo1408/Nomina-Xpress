@@ -5,10 +5,12 @@ import { calculatePayroll } from "@/lib/payroll";
 import { resolveBonusesForEmployees } from "@/lib/bonus-service";
 import { resolveDiscountsForEmployees } from "@/lib/discount-service";
 import { clampFinalPay } from "@/lib/discounts";
+import { sessionCan } from "@/lib/get-permissions";
+import { PERMISSIONS } from "@/lib/permission-keys";
 
 export async function GET(req: Request) {
   const session = await auth();
-  if (!session || !["ADMIN", "SUPERADMIN", "PROPRIETARY"].includes(session.user.role)) {
+  if (!session || !(await sessionCan(session, PERMISSIONS.PAYROLL_VIEW))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

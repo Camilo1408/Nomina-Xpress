@@ -1,13 +1,15 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
-import { canManageDiscounts } from "@/lib/permissions";
 import { discountInputSchema } from "@/lib/discount-validation";
+import { logAudit } from "@/lib/audit";
+import { sessionCan } from "@/lib/get-permissions";
+import { PERMISSIONS } from "@/lib/permission-keys";
 
-// GET — lista de descuentos del tenant (con asignaciones). Solo full admin.
+// GET — lista de descuentos del tenant (con asignaciones).
 export async function GET() {
   const session = await auth();
-  if (!session || !canManageDiscounts(session.user.role)) {
+  if (!session || !(await sessionCan(session, PERMISSIONS.DISCOUNTS_VIEW))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const discounts = await prisma.discount.findMany({
@@ -22,10 +24,10 @@ export async function GET() {
   return NextResponse.json(discounts);
 }
 
-// POST — crear descuento. Solo full admin (SUPERADMIN / PROPRIETARY).
+// POST — crear descuento.
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session || !canManageDiscounts(session.user.role)) {
+  if (!session || !(await sessionCan(session, PERMISSIONS.DISCOUNTS_CREATE))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -79,6 +81,15 @@ export async function POST(req: Request) {
         : {}),
     },
     include: { assignments: true },
+  });
+
+  await logAudit(req, session, {
+    action: "CREATE",
+    module: "DISCOUNTS",
+    entityId: discount.id,
+    entityLabel: discount.name,
+    description: `Creó el descuento "${discount.name}" (${discount.assignmentType}, ${discount.frequency})`,
+    after: { name: discount.name, amount: discount.amount, valueType: discount.valueType, assignmentType: discount.assignmentType, frequency: discount.frequency },
   });
 
   return NextResponse.json(discount, { status: 201 });

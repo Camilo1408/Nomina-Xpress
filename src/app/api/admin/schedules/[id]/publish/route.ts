@@ -2,13 +2,16 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { sendPushNotification } from "@/lib/push";
+import { logAudit } from "@/lib/audit";
+import { sessionCan } from "@/lib/get-permissions";
+import { PERMISSIONS } from "@/lib/permission-keys";
 
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || !["SUPERADMIN", "PROPRIETARY"].includes(session.user.role)) {
+  if (!session || !(await sessionCan(session, PERMISSIONS.SCHEDULES_PUBLISH))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -63,6 +66,16 @@ export async function POST(
       }
     }
   }
+
+  await logAudit(req, session, {
+    action: newPublished ? "PUBLISH" : "UNPUBLISH",
+    module: "SCHEDULES",
+    entityId: id,
+    entityLabel: schedule.name,
+    description: `${newPublished ? "Publicó" : "Despublicó"} el horario "${schedule.name}"`,
+    before: { published: schedule.published },
+    after: { published: newPublished },
+  });
 
   return NextResponse.json({ success: true, published: newPublished });
 }

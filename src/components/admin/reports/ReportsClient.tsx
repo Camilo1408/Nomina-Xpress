@@ -11,6 +11,7 @@ import type { PayrollResult } from "@/lib/payroll";
 import type { BonusApplied } from "@/lib/bonuses";
 import type { DiscountApplied } from "@/lib/discounts";
 import { AdjustmentModal } from "./AdjustmentModal";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 type PayrollWithTips = PayrollResult & {
   totalTips: number;
@@ -29,7 +30,11 @@ export type ReportType = "payroll" | "shifts";
 
 interface ReportsClientProps {
   employees: Employee[];
-  role: string;
+  canExportPdf: boolean;
+  canExportExcel: boolean;
+  canAddAdjustment: boolean;
+  canEditAdjustment: boolean;
+  canDeleteAdjustment: boolean;
   reportType?: ReportType;
 }
 
@@ -56,8 +61,7 @@ function getCurrentPeriod(): { from: string; to: string } {
   };
 }
 
-export function ReportsClient({ employees, role, reportType = "payroll" }: ReportsClientProps) {
-  const isSuperAdmin = role === "SUPERADMIN" || role === "PROPRIETARY";
+export function ReportsClient({ employees, canExportPdf, canExportExcel, canAddAdjustment, canEditAdjustment, canDeleteAdjustment, reportType = "payroll" }: ReportsClientProps) {
   const labels = REPORT_LABELS[reportType];
   const period = getCurrentPeriod();
   const [from, setFrom] = useState(period.from);
@@ -125,23 +129,30 @@ export function ReportsClient({ employees, role, reportType = "payroll" }: Repor
           </div>
           <div className="space-y-1">
             <label className="text-xs font-medium text-[#7A6358]">Empleado</label>
-            <select value={selectedEmployee} onChange={(e) => setSelectedEmployee(e.target.value)} className="border border-[#E0D5CA] rounded-md px-2 py-1.5 text-sm block w-full">
-              <option value="">Todos</option>
-              {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
-            </select>
+            <SearchableSelect
+              value={selectedEmployee}
+              onValueChange={setSelectedEmployee}
+              placeholder="Buscar empleado…"
+              emptyOption={{ value: "", label: "Todos" }}
+              options={employees.map((e) => ({ value: e.id, label: e.name }))}
+            />
           </div>
           <Button onClick={fetchReport} disabled={loading} className="bg-[#C1643F] hover:bg-[#A8522F] text-[#FAF7F2] w-full sm:w-auto">
             {loading ? "Calculando..." : labels.buttonLabel}
           </Button>
         </div>
-        {results && results.length > 0 && isSuperAdmin && (
+        {results && results.length > 0 && (canExportExcel || canExportPdf) && (
           <div className="flex flex-col sm:flex-row gap-2 pt-1 border-t border-[#F2EDE6]">
-            <Button variant="outline" size="sm" onClick={() => downloadExport("excel")} className="gap-1.5 border-[#6B8E6B] text-[#6B8E6B] w-full sm:w-auto justify-center">
-              <FileSpreadsheet className="w-4 h-4" /> Exportar Excel ({labels.fileSlug})
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => downloadExport("pdf")} className="gap-1.5 border-[#B94040] text-[#B94040] w-full sm:w-auto justify-center">
-              <FileDown className="w-4 h-4" /> Exportar PDF ({labels.fileSlug})
-            </Button>
+            {canExportExcel && (
+              <Button variant="outline" size="sm" onClick={() => downloadExport("excel")} className="gap-1.5 border-[#6B8E6B] text-[#6B8E6B] w-full sm:w-auto justify-center">
+                <FileSpreadsheet className="w-4 h-4" /> Exportar Excel ({labels.fileSlug})
+              </Button>
+            )}
+            {canExportPdf && (
+              <Button variant="outline" size="sm" onClick={() => downloadExport("pdf")} className="gap-1.5 border-[#B94040] text-[#B94040] w-full sm:w-auto justify-center">
+                <FileDown className="w-4 h-4" /> Exportar PDF ({labels.fileSlug})
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -184,7 +195,7 @@ export function ReportsClient({ employees, role, reportType = "payroll" }: Repor
                   <th className="text-right px-4 py-3 font-semibold text-[#6B8E6B]">Bonos</th>
                   <th className="text-right px-4 py-3 font-semibold text-[#B94040]">Descuentos</th>
                   <th className="text-right px-4 py-3 font-semibold text-[#6B8E6B]">Total final</th>
-                  {isSuperAdmin && <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]">Acción</th>}
+                  {canAddAdjustment && <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]">Acción</th>}
                 </tr>
               </thead>
               <tbody>
@@ -200,23 +211,23 @@ export function ReportsClient({ employees, role, reportType = "payroll" }: Repor
                                 {adj.type === "BONUS" ? "+" : "-"}{formatCurrency(adj.amount)}
                               </span>
                               <span className="text-xs text-[#7A6358]">— {adj.description}</span>
-                              {isSuperAdmin && (
-                                <>
-                                  <button
-                                    onClick={() => setEditingAdjustment({ ...adj, type: adj.type as "DISCOUNT" | "BONUS", employeeId: emp.employeeId, name: emp.employeeName })}
-                                    className="ml-1 opacity-0 group-hover:opacity-100 text-[#7A6358] hover:text-[#C1643F] transition-all"
-                                    title="Editar ajuste"
-                                  >
-                                    <Pencil className="w-3 h-3" />
-                                  </button>
-                                  <button
-                                    onClick={() => deleteAdjustment(adj.id)}
-                                    className="opacity-0 group-hover:opacity-100 text-[#7A6358] hover:text-[#B94040] transition-all"
-                                    title="Eliminar ajuste"
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </button>
-                                </>
+                              {canEditAdjustment && (
+                                <button
+                                  onClick={() => setEditingAdjustment({ ...adj, type: adj.type as "DISCOUNT" | "BONUS", employeeId: emp.employeeId, name: emp.employeeName })}
+                                  className="ml-1 opacity-0 group-hover:opacity-100 text-[#7A6358] hover:text-[#C1643F] transition-all"
+                                  title="Editar ajuste"
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                </button>
+                              )}
+                              {canDeleteAdjustment && (
+                                <button
+                                  onClick={() => deleteAdjustment(adj.id)}
+                                  className="opacity-0 group-hover:opacity-100 text-[#7A6358] hover:text-[#B94040] transition-all"
+                                  title="Eliminar ajuste"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
                               )}
                             </div>
                           ))}
@@ -269,7 +280,7 @@ export function ReportsClient({ employees, role, reportType = "payroll" }: Repor
                       {emp.totalDiscounts > 0 ? `−${formatCurrency(emp.totalDiscounts)}` : <span className="text-[#7A6358]">—</span>}
                     </td>
                     <td className="px-4 py-3 text-right font-mono font-bold text-[#6B8E6B]">{formatCurrency(emp.finalPay)}</td>
-                    {isSuperAdmin && (
+                    {canAddAdjustment && (
                     <td className="px-4 py-3 text-right">
                       <Button
                         variant="ghost"

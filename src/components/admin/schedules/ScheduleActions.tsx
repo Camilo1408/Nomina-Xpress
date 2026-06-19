@@ -8,7 +8,19 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Pencil, Globe, Trash2 } from "lucide-react";
 
-export function ScheduleActions({ scheduleId, published }: { scheduleId: string; published: boolean }) {
+export function ScheduleActions({
+  scheduleId,
+  published,
+  canEdit,
+  canPublish,
+  canDelete,
+}: {
+  scheduleId: string;
+  published: boolean;
+  canEdit: boolean;
+  canPublish: boolean;
+  canDelete: boolean;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
@@ -33,27 +45,33 @@ export function ScheduleActions({ scheduleId, published }: { scheduleId: string;
   return (
     <>
       <div className="flex items-center gap-1">
-        <Link href={`/admin/schedules/${scheduleId}`}>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-[#7A6358] hover:text-[#C1643F]">
-            <Pencil className="w-4 h-4" />
+        {canEdit && (
+          <Link href={`/admin/schedules/${scheduleId}`}>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-[#7A6358] hover:text-[#C1643F]">
+              <Pencil className="w-4 h-4" />
+            </Button>
+          </Link>
+        )}
+        {canPublish && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handlePublish}
+            className={`h-8 w-8 p-0 ${published ? "text-[#6B8E6B]" : "text-[#7A6358] hover:text-[#6B8E6B]"}`}
+          >
+            <Globe className="w-4 h-4" />
           </Button>
-        </Link>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handlePublish}
-          className={`h-8 w-8 p-0 ${published ? "text-[#6B8E6B]" : "text-[#7A6358] hover:text-[#6B8E6B]"}`}
-        >
-          <Globe className="w-4 h-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setOpen(true)}
-          className="h-8 w-8 p-0 text-[#7A6358] hover:text-[#B94040]"
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
+        )}
+        {canDelete && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setOpen(true)}
+            className="h-8 w-8 p-0 text-[#7A6358] hover:text-[#B94040]"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        )}
       </div>
 
       <ConfirmDialog

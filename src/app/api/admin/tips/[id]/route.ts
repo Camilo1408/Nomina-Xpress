@@ -4,6 +4,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { calculateTips } from "@/lib/tips";
 import { calculateHours } from "@/lib/payroll";
+import { logAudit } from "@/lib/audit";
+import { sessionCan } from "@/lib/get-permissions";
+import { PERMISSIONS } from "@/lib/permission-keys";
 
 const updateSchema = z.object({
   totalAmount: z.number().positive(),
@@ -12,7 +15,7 @@ const updateSchema = z.object({
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
-  if (!session || !["ADMIN", "SUPERADMIN", "PROPRIETARY"].includes(session.user.role)) {
+  if (!session || !(await sessionCan(session, PERMISSIONS.TIPS_EDIT))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -98,12 +101,22 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     },
   });
 
+  await logAudit(req, session, {
+    action: "UPDATE",
+    module: "TIPS",
+    entityId: id,
+    entityLabel: `Propinas ${existing.date}`,
+    description: `Editó las propinas del ${existing.date}: total ${existing.totalAmount} → ${totalAmount}`,
+    before: { totalAmount: existing.totalAmount, menaje: existing.menaje, netAmount: existing.netAmount, notes: existing.notes },
+    after: { totalAmount, menaje: calc.menaje, netAmount: calc.netAmount, notes },
+  });
+
   return NextResponse.json({ entry: fresh ?? updated });
 }
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
-  if (!session || !["ADMIN", "SUPERADMIN", "PROPRIETARY"].includes(session.user.role)) {
+  if (!session || !(await sessionCan(session, PERMISSIONS.TIPS_DELETE))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -114,5 +127,15 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   await prisma.tipEntry.delete({ where: { id } });
+
+  await logAudit(req, session, {
+    action: "DELETE",
+    module: "TIPS",
+    entityId: id,
+    entityLabel: `Propinas ${existing.date}`,
+    description: `Eliminó las propinas del ${existing.date} (total ${existing.totalAmount})`,
+    before: existing,
+  });
+
   return NextResponse.json({ ok: true });
 }

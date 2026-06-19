@@ -1,10 +1,11 @@
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ReportsClient } from "@/components/admin/reports/ReportsClient";
+import { requirePagePermission } from "@/lib/require-permission";
+import { PERMISSIONS } from "@/lib/permission-keys";
 
 export default async function ReportsPayrollPage() {
-  const session = await auth();
-  const tenantId = session!.user.tenantId;
+  const { session, permissions } = await requirePagePermission(PERMISSIONS.PAYROLL_VIEW);
+  const tenantId = session.user.tenantId;
 
   const employees = await prisma.employee.findMany({
     where: { tenantId, active: true, payType: "PAYROLL" },
@@ -20,7 +21,15 @@ export default async function ReportsPayrollPage() {
           Calcula y exporta el reporte de nómina por período (empleados con pago de nómina)
         </p>
       </div>
-      <ReportsClient employees={employees} role={session!.user.role} reportType="payroll" />
+      <ReportsClient
+        employees={employees}
+        reportType="payroll"
+        canExportPdf={permissions.has(PERMISSIONS.PAYROLL_EXPORT_PDF)}
+        canExportExcel={permissions.has(PERMISSIONS.PAYROLL_EXPORT_EXCEL)}
+        canAddAdjustment={permissions.has(PERMISSIONS.PAY_ADJUSTMENTS_CREATE)}
+        canEditAdjustment={permissions.has(PERMISSIONS.PAY_ADJUSTMENTS_EDIT)}
+        canDeleteAdjustment={permissions.has(PERMISSIONS.PAY_ADJUSTMENTS_DELETE)}
+      />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import { logAudit } from "@/lib/audit";
 
 const schema = z.object({
   currentPassword: z.string().min(1),
@@ -29,6 +30,14 @@ export async function PUT(req: Request) {
 
   const passwordHash = await bcrypt.hash(parsed.data.newPassword, 12);
   await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+
+  await logAudit(req, session, {
+    action: "UPDATE",
+    module: "PROFILE",
+    entityId: user.id,
+    entityLabel: user.username,
+    description: `Cambió su propia contraseña`,
+  });
 
   return NextResponse.json({ success: true });
 }

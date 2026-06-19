@@ -4,6 +4,9 @@ import { NextResponse } from "next/server";
 import { v2 as cloudinary } from "cloudinary";
 import path from "path";
 import fs from "fs/promises";
+import { logAudit } from "@/lib/audit";
+import { sessionCan } from "@/lib/get-permissions";
+import { PERMISSIONS } from "@/lib/permission-keys";
 
 const cloudinaryConfigured =
   !!process.env.CLOUDINARY_CLOUD_NAME &&
@@ -46,7 +49,7 @@ async function deletePreviousLogo(logoUrl: string | null | undefined) {
 
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session || !["SUPERADMIN", "PROPRIETARY"].includes(session.user.role)) {
+  if (!session || !(await sessionCan(session, PERMISSIONS.SETTINGS_EDIT))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -108,12 +111,19 @@ export async function POST(req: Request) {
     data: { logoUrl },
   });
 
+  await logAudit(req, session, {
+    action: "UPDATE",
+    module: "SETTINGS",
+    entityId: session.user.tenantId,
+    description: `Actualizó el logo del restaurante`,
+  });
+
   return NextResponse.json({ logoUrl });
 }
 
-export async function DELETE() {
+export async function DELETE(req: Request) {
   const session = await auth();
-  if (!session || !["SUPERADMIN", "PROPRIETARY"].includes(session.user.role)) {
+  if (!session || !(await sessionCan(session, PERMISSIONS.SETTINGS_EDIT))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -127,6 +137,13 @@ export async function DELETE() {
   await prisma.tenant.update({
     where: { id: session.user.tenantId },
     data: { logoUrl: null },
+  });
+
+  await logAudit(req, session, {
+    action: "DELETE",
+    module: "SETTINGS",
+    entityId: session.user.tenantId,
+    description: `Eliminó el logo del restaurante`,
   });
 
   return NextResponse.json({ success: true });

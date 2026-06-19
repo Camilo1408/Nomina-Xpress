@@ -3,6 +3,9 @@ import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import { logAudit } from "@/lib/audit";
+import { sessionCan } from "@/lib/get-permissions";
+import { PERMISSIONS } from "@/lib/permission-keys";
 
 const createSchema = z.object({
   name: z.string().min(2),
@@ -19,7 +22,7 @@ const createSchema = z.object({
 
 export async function GET() {
   const session = await auth();
-  if (!session || !["SUPERADMIN", "PROPRIETARY"].includes(session.user.role)) {
+  if (!session || !(await sessionCan(session, PERMISSIONS.EMPLOYEES_VIEW))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const employees = await prisma.employee.findMany({
@@ -32,8 +35,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const session = await auth();
-  // Solo PROPRIETARY puede crear empleados
-  if (!session || session.user.role !== "PROPRIETARY") {
+  if (!session || !(await sessionCan(session, PERMISSIONS.EMPLOYEES_CREATE))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const body = await req.json();
@@ -66,6 +68,17 @@ export async function POST(req: Request) {
       },
     });
   }
+
+  await logAudit(req, session, {
+    action: "CREATE",
+    module: "EMPLOYEES",
+    entityId: employee.id,
+    entityLabel: employee.name,
+    description: `Creó el empleado "${employee.name}"${
+      accessRole !== "NONE" && username ? ` con acceso ${accessRole} (@${username})` : ""
+    }`,
+    after: { ...empData, accessRole },
+  });
 
   return NextResponse.json(employee, { status: 201 });
 }

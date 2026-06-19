@@ -32,7 +32,9 @@ interface TipEntry {
 }
 
 interface TipsClientProps {
-  role: string;
+  canCreate: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
 }
 
 function getCurrentPeriod() {
@@ -54,7 +56,7 @@ function getCurrentPeriod() {
   };
 }
 
-export function TipsClient({ role }: TipsClientProps) {
+export function TipsClient({ canCreate, canEdit, canDelete }: TipsClientProps) {
   const period = getCurrentPeriod();
   const [from, setFrom] = useState(period.from);
   const [to, setTo] = useState(period.to);
@@ -63,8 +65,6 @@ export function TipsClient({ role }: TipsClientProps) {
   const [showModal, setShowModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TipEntry | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-
-  const isSuperAdmin = role === "SUPERADMIN" || role === "PROPRIETARY";
 
   const fetchTips = useCallback(async (f = from, t = to) => {
     setLoading(true);
@@ -131,13 +131,15 @@ export function TipsClient({ role }: TipsClientProps) {
             <SlidersHorizontal className="w-4 h-4" />
             {loading ? "Cargando..." : "Filtrar"}
           </Button>
-          <Button
-            onClick={() => setShowModal(true)}
-            variant="outline"
-            className="gap-1.5 border-[#C1643F] text-[#C1643F] hover:bg-[#C1643F]/10 w-full sm:w-auto"
-          >
-            <Plus className="w-4 h-4" /> Registrar propinas
-          </Button>
+          {canCreate && (
+            <Button
+              onClick={() => setShowModal(true)}
+              variant="outline"
+              className="gap-1.5 border-[#C1643F] text-[#C1643F] hover:bg-[#C1643F]/10 w-full sm:w-auto"
+            >
+              <Plus className="w-4 h-4" /> Registrar propinas
+            </Button>
+          )}
         </div>
       </div>
 
@@ -200,14 +202,16 @@ export function TipsClient({ role }: TipsClientProps) {
                       )}
                     </button>
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      <button
-                        onClick={() => { setEditingEntry(entry); setShowModal(true); }}
-                        className="p-1.5 text-[#7A6358] hover:text-[#C1643F] rounded-md hover:bg-[#F2EDE6] transition-colors"
-                        title="Editar"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      {isSuperAdmin && (
+                      {canEdit && (
+                        <button
+                          onClick={() => { setEditingEntry(entry); setShowModal(true); }}
+                          className="p-1.5 text-[#7A6358] hover:text-[#C1643F] rounded-md hover:bg-[#F2EDE6] transition-colors"
+                          title="Editar"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {canDelete && (
                         <button
                           onClick={() => deleteEntry(entry.id, entry.date)}
                           className="p-1.5 text-[#7A6358] hover:text-[#B94040] rounded-md hover:bg-[#F2EDE6] transition-colors"

@@ -2,18 +2,20 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { canManageDiscounts } from "@/lib/permissions";
 import { discountInputSchema } from "@/lib/discount-validation";
+import { logAudit } from "@/lib/audit";
+import { sessionCan } from "@/lib/get-permissions";
+import { PERMISSIONS } from "@/lib/permission-keys";
 
 const patchSchema = z.object({ active: z.boolean() });
 
-// PUT — editar descuento completo. Solo full admin.
+// PUT — editar descuento completo.
 export async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || !canManageDiscounts(session.user.role)) {
+  if (!session || !(await sessionCan(session, PERMISSIONS.DISCOUNTS_EDIT))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const { id } = await params;
@@ -74,16 +76,26 @@ export async function PUT(
       : []),
   ]);
 
+  await logAudit(req, session, {
+    action: "UPDATE",
+    module: "DISCOUNTS",
+    entityId: id,
+    entityLabel: data.name,
+    description: `Editó el descuento "${existing.name}"`,
+    before: { name: existing.name, amount: existing.amount, valueType: existing.valueType, assignmentType: existing.assignmentType, frequency: existing.frequency, active: existing.active },
+    after: { name: data.name, amount: data.amount, valueType: data.valueType, assignmentType: data.assignmentType, frequency: data.frequency },
+  });
+
   return NextResponse.json({ success: true });
 }
 
-// PATCH — activar/desactivar descuento. Solo full admin.
+// PATCH — activar/desactivar descuento.
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || !canManageDiscounts(session.user.role)) {
+  if (!session || !(await sessionCan(session, PERMISSIONS.DISCOUNTS_EDIT))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const { id } = await params;
@@ -95,6 +107,7 @@ export async function PATCH(
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
+  const existing = await prisma.discount.findFirst({ where: { id, tenantId } });
   const updated = await prisma.discount.updateMany({
     where: { id, tenantId },
     data: { active: parsed.data.active },
@@ -102,6 +115,17 @@ export async function PATCH(
   if (updated.count === 0) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+
+  await logAudit(req, session, {
+    action: parsed.data.active ? "ACTIVATE" : "DEACTIVATE",
+    module: "DISCOUNTS",
+    entityId: id,
+    entityLabel: existing?.name ?? id,
+    description: `${parsed.data.active ? "Activó" : "Desactivó"} el descuento "${existing?.name ?? id}"`,
+    before: { active: existing?.active },
+    after: { active: parsed.data.active },
+  });
+
   return NextResponse.json({ success: true });
 }
 
@@ -109,19 +133,30 @@ export async function PATCH(
 // Seguro: cálculo stateless, sin filas históricas que lo referencien.
 // Asignaciones se borran en cascada.
 export async function DELETE(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || !canManageDiscounts(session.user.role)) {
+  if (!session || !(await sessionCan(session, PERMISSIONS.DISCOUNTS_DELETE))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const { id } = await params;
   const tenantId = session.user.tenantId;
 
+  const existing = await prisma.discount.findFirst({ where: { id, tenantId } });
   const deleted = await prisma.discount.deleteMany({ where: { id, tenantId } });
   if (deleted.count === 0) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+
+  await logAudit(req, session, {
+    action: "DELETE",
+    module: "DISCOUNTS",
+    entityId: id,
+    entityLabel: existing?.name ?? id,
+    description: `Eliminó el descuento "${existing?.name ?? id}"`,
+    before: existing ?? undefined,
+  });
+
   return NextResponse.json({ success: true });
 }

@@ -6,10 +6,13 @@ import { resolveDiscountsForEmployees } from "@/lib/discount-service";
 import { clampFinalPay } from "@/lib/discounts";
 import { loadTenantLogo } from "@/lib/logo-loader";
 import { NextResponse } from "next/server";
+import { logAudit } from "@/lib/audit";
+import { sessionCan } from "@/lib/get-permissions";
+import { PERMISSIONS } from "@/lib/permission-keys";
 
 export async function GET(req: Request) {
   const session = await auth();
-  if (!session || !["SUPERADMIN", "PROPRIETARY"].includes(session.user.role)) {
+  if (!session || !(await sessionCan(session, PERMISSIONS.PAYROLL_EXPORT_PDF))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -75,6 +78,14 @@ export async function GET(req: Request) {
   );
 
   const fileSlug = reportType === "shifts" ? "turnos" : "nomina";
+
+  await logAudit(req, session, {
+    action: "EXPORT",
+    module: "PAYROLL",
+    description: `Exportó el reporte de ${reportType === "shifts" ? "turnos" : "nómina"} en PDF (${from} a ${to})`,
+    after: { format: "PDF", reportType, from, to },
+  });
+
   return new Response(buffer as unknown as BodyInit, {
     headers: {
       "Content-Type": "application/pdf",

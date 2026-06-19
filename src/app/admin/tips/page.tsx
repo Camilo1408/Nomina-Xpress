@@ -1,13 +1,10 @@
-import { auth } from "@/lib/auth";
-import { redirect } from "next/navigation";
 import { TipsClient } from "@/components/admin/tips/TipsClient";
 import { Coins } from "lucide-react";
+import { requirePagePermission } from "@/lib/require-permission";
+import { PERMISSIONS } from "@/lib/permission-keys";
 
 export default async function TipsPage() {
-  const session = await auth();
-  if (!session || !["ADMIN", "SUPERADMIN", "PROPRIETARY"].includes(session.user.role)) {
-    redirect("/login");
-  }
+  const { permissions } = await requirePagePermission(PERMISSIONS.TIPS_VIEW);
 
   return (
     <div className="space-y-6">
@@ -22,7 +19,11 @@ export default async function TipsPage() {
           </p>
         </div>
       </div>
-      <TipsClient role={session.user.role} />
+      <TipsClient
+        canCreate={permissions.has(PERMISSIONS.TIPS_CREATE)}
+        canEdit={permissions.has(PERMISSIONS.TIPS_EDIT)}
+        canDelete={permissions.has(PERMISSIONS.TIPS_DELETE)}
+      />
     </div>
   );
 }

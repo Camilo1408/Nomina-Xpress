@@ -47,6 +47,9 @@ interface DiscountRow {
 
 interface DiscountManagerProps {
   employees: EmployeeLite[];
+  canCreate: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
 }
 
 function digitsOnly(raw: string): string {
@@ -57,7 +60,7 @@ function displayThousands(raw: string): string {
   return Number(raw).toLocaleString("es-CO");
 }
 
-export function DiscountManager({ employees }: DiscountManagerProps) {
+export function DiscountManager({ employees, canCreate, canEdit, canDelete }: DiscountManagerProps) {
   const [open, setOpen] = useState(false);
   const [discounts, setDiscounts] = useState<DiscountRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -160,9 +163,11 @@ export function DiscountManager({ employees }: DiscountManagerProps) {
                     <p className="text-sm text-[#7A6358]">
                       {discounts.length} descuento{discounts.length !== 1 ? "s" : ""} configurado{discounts.length !== 1 ? "s" : ""}
                     </p>
-                    <Button onClick={openCreate} className="bg-[#B94040] hover:bg-[#9E3636] text-[#FAF7F2] gap-1.5">
-                      <Plus className="w-4 h-4" /> Nuevo descuento
-                    </Button>
+                    {canCreate && (
+                      <Button onClick={openCreate} className="bg-[#B94040] hover:bg-[#9E3636] text-[#FAF7F2] gap-1.5">
+                        <Plus className="w-4 h-4" /> Nuevo descuento
+                      </Button>
+                    )}
                   </div>
 
                   {loading ? (
@@ -177,6 +182,8 @@ export function DiscountManager({ employees }: DiscountManagerProps) {
                         <DiscountCard
                           key={d.id}
                           discount={d}
+                          canEdit={canEdit}
+                          canDelete={canDelete}
                           onEdit={() => openEdit(d)}
                           onToggle={() => toggleActive(d)}
                           onDelete={() => deleteDiscount(d)}
@@ -196,11 +203,15 @@ export function DiscountManager({ employees }: DiscountManagerProps) {
 
 function DiscountCard({
   discount,
+  canEdit,
+  canDelete,
   onEdit,
   onToggle,
   onDelete,
 }: {
   discount: DiscountRow;
+  canEdit: boolean;
+  canDelete: boolean;
   onEdit: () => void;
   onToggle: () => void;
   onDelete: () => void;
@@ -233,18 +244,24 @@ function DiscountCard({
           </div>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
-          <button onClick={onToggle} title={discount.active ? "Desactivar" : "Activar"}
-            className="p-1.5 rounded-md text-[#7A6358] hover:text-[#B94040] hover:bg-[#F2EDE6]">
-            <Power className="w-4 h-4" />
-          </button>
-          <button onClick={onEdit} title="Editar"
-            className="p-1.5 rounded-md text-[#7A6358] hover:text-[#B94040] hover:bg-[#F2EDE6]">
-            <Pencil className="w-4 h-4" />
-          </button>
-          <button onClick={onDelete} title="Eliminar"
-            className="p-1.5 rounded-md text-[#7A6358] hover:text-[#B94040] hover:bg-[#F2EDE6]">
-            <Trash2 className="w-4 h-4" />
-          </button>
+          {canEdit && (
+            <button onClick={onToggle} title={discount.active ? "Desactivar" : "Activar"}
+              className="p-1.5 rounded-md text-[#7A6358] hover:text-[#B94040] hover:bg-[#F2EDE6]">
+              <Power className="w-4 h-4" />
+            </button>
+          )}
+          {canEdit && (
+            <button onClick={onEdit} title="Editar"
+              className="p-1.5 rounded-md text-[#7A6358] hover:text-[#B94040] hover:bg-[#F2EDE6]">
+              <Pencil className="w-4 h-4" />
+            </button>
+          )}
+          {canDelete && (
+            <button onClick={onDelete} title="Eliminar"
+              className="p-1.5 rounded-md text-[#7A6358] hover:text-[#B94040] hover:bg-[#F2EDE6]">
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
     </div>

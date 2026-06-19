@@ -1,14 +1,19 @@
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus } from "lucide-react";
 import { ScheduleActions } from "@/components/admin/schedules/ScheduleActions";
+import { requirePagePermission } from "@/lib/require-permission";
+import { PERMISSIONS } from "@/lib/permission-keys";
 
 export default async function SchedulesPage() {
-  const session = await auth();
-  const tenantId = session!.user.tenantId;
+  const { session, permissions } = await requirePagePermission(PERMISSIONS.SCHEDULES_VIEW);
+  const tenantId = session.user.tenantId;
+  const canCreate = permissions.has(PERMISSIONS.SCHEDULES_CREATE);
+  const canEdit = permissions.has(PERMISSIONS.SCHEDULES_EDIT);
+  const canPublish = permissions.has(PERMISSIONS.SCHEDULES_PUBLISH);
+  const canDelete = permissions.has(PERMISSIONS.SCHEDULES_DELETE);
 
   const schedules = await prisma.schedule.findMany({
     where: { tenantId },
@@ -23,11 +28,13 @@ export default async function SchedulesPage() {
           <h1 className="text-2xl font-heading font-bold text-[#2C1F15]">Horarios</h1>
           <p className="text-sm text-[#7A6358] mt-1">{schedules.length} horarios creados</p>
         </div>
-        <Link href="/admin/schedules/new">
-          <Button className="bg-[#C1643F] hover:bg-[#A8522F] text-[#FAF7F2] gap-2">
-            <Plus className="w-4 h-4" /> Nuevo horario
-          </Button>
-        </Link>
+        {canCreate && (
+          <Link href="/admin/schedules/new">
+            <Button className="bg-[#C1643F] hover:bg-[#A8522F] text-[#FAF7F2] gap-2">
+              <Plus className="w-4 h-4" /> Nuevo horario
+            </Button>
+          </Link>
+        )}
       </div>
 
       <div className="space-y-3">
@@ -48,7 +55,13 @@ export default async function SchedulesPage() {
                 </p>
               </Link>
               <div className="px-4 pb-4 sm:pb-0 sm:pr-4 flex-shrink-0">
-                <ScheduleActions scheduleId={sched.id} published={sched.published} />
+                <ScheduleActions
+                  scheduleId={sched.id}
+                  published={sched.published}
+                  canEdit={canEdit}
+                  canPublish={canPublish}
+                  canDelete={canDelete}
+                />
               </div>
             </div>
           );
@@ -56,7 +69,9 @@ export default async function SchedulesPage() {
         {schedules.length === 0 && (
           <div className="text-center py-12 text-[#7A6358]">
             No hay horarios.{" "}
-            <Link href="/admin/schedules/new" className="text-[#C1643F] hover:underline">Crear el primero</Link>
+            {canCreate && (
+              <Link href="/admin/schedules/new" className="text-[#C1643F] hover:underline">Crear el primero</Link>
+            )}
           </div>
         )}
       </div>

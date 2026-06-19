@@ -4,6 +4,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { calculateTips, getPeriodForDate } from "@/lib/tips";
 import { calculateHours } from "@/lib/payroll";
+import { logAudit } from "@/lib/audit";
+import { sessionCan } from "@/lib/get-permissions";
+import { PERMISSIONS } from "@/lib/permission-keys";
 
 const createSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -13,7 +16,7 @@ const createSchema = z.object({
 
 export async function GET(req: Request) {
   const session = await auth();
-  if (!session || !["ADMIN", "SUPERADMIN", "PROPRIETARY"].includes(session.user.role)) {
+  if (!session || !(await sessionCan(session, PERMISSIONS.TIPS_VIEW))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -42,7 +45,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session || !["ADMIN", "SUPERADMIN", "PROPRIETARY"].includes(session.user.role)) {
+  if (!session || !(await sessionCan(session, PERMISSIONS.TIPS_CREATE))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -115,6 +118,15 @@ export async function POST(req: Request) {
         orderBy: { amount: "desc" },
       },
     },
+  });
+
+  await logAudit(req, session, {
+    action: "CREATE",
+    module: "TIPS",
+    entityId: entry.id,
+    entityLabel: `Propinas ${date}`,
+    description: `Registró propinas del ${date} por un total de ${totalAmount}, distribuidas a ${entry.distributions.length} empleado(s)`,
+    after: { date, totalAmount, menaje: calc.menaje, netAmount: calc.netAmount, notes },
   });
 
   return NextResponse.json({ entry }, { status: 201 });

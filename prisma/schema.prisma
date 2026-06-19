@@ -27,6 +27,9 @@ model Tenant {
   bonusAssignments  BonusAssignment[]
   discounts            Discount[]
   discountAssignments  DiscountAssignment[]
+  auditLogs            AuditLog[]
+  customRoles          CustomRole[]
+  userPermissions      UserPermission[]
 }
 
 model User {
@@ -38,10 +41,16 @@ model User {
   role         String    @default("EMPLOYEE")
   employeeId   String?   @unique
   employee     Employee? @relation(fields: [employeeId], references: [id])
+  // Rol personalizado creado por PROPRIETARY (complementa o reemplaza los permisos del role base)
+  customRoleId String?
+  customRole   CustomRole? @relation(fields: [customRoleId], references: [id], onDelete: SetNull)
+  // Si false, es usuario solo del sistema (no aparece en nómina ni en listas de empleados pagables)
+  active       Boolean   @default(true)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
   pushSubscriptions PushSubscription[]
+  userPermissions   UserPermission[]
 
   @@index([tenantId])
 }
@@ -290,4 +299,81 @@ model DiscountAssignment {
   @@index([tenantId])
   @@index([discountId])
   @@index([employeeId])
+}
+
+// Roles personalizados creados por PROPRIETARY. Permiten definir conjuntos de
+// permisos granulares sin tocar el código. Los permisos se almacenan como JSON.
+model CustomRole {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  slug        String
+  description String?
+  // JSON: string[] con claves de permiso (ej. ["time_entries:view","time_entries:create"])
+  permissions String   @default("[]")
+  // true = rol del sistema (no editable por PROPRIETARY, solo visible)
+  isSystem    Boolean  @default(false)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users User[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+}
+
+// Permisos individuales asignados o denegados directamente a un usuario,
+// independientemente del rol que tenga. Permite ajustes finos sin crear roles nuevos.
+model UserPermission {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permissionKey String
+  // true = permiso adicional concedido | false = permiso denegado explícitamente
+  granted       Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  @@unique([userId, permissionKey])
+  @@index([tenantId, userId])
+}
+
+// Bitácora de auditoría — historial inmutable de acciones del sistema.
+// Append-only: nunca se edita ni borra desde la app. Solo el rol PROPRIETARY
+// puede consultarla. Los campos username/role son snapshots: persisten el valor
+// al momento de la acción aunque el usuario se elimine después.
+model AuditLog {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  // Nullable: en un login fallido el userId puede no aplicar
+  userId      String?
+  username    String
+  role        String
+  // CREATE | UPDATE | DELETE | ACTIVATE | DEACTIVATE | PUBLISH | UNPUBLISH |
+  // EXPORT | PAYMENT | LOGIN | LOGOUT | LOGIN_FAILED
+  action      String
+  // AUTH | EMPLOYEES | TIME_ENTRIES | SCHEDULES | TIPS | PAYROLL |
+  // PAY_ADJUSTMENTS | BONUSES | DISCOUNTS | CREDENTIALS | SETTINGS | PROFILE | INVENTORY
+  module      String
+  entityId    String?
+  // Descripción legible del registro afectado (ej. nombre del empleado)
+  entityLabel String?
+  description String
+  // Snapshots JSON serializados (string) del estado previo/nuevo en ediciones
+  before      String?
+  after       String?
+  ip          String?
+  userAgent   String?
+  // SUCCESS | FAILURE
+  result      String   @default("SUCCESS")
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, action])
+  @@index([tenantId, module])
+  @@index([tenantId, userId])
 }

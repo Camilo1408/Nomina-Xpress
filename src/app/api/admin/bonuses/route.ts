@@ -1,13 +1,15 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
-import { canManageBonuses } from "@/lib/permissions";
 import { bonusInputSchema } from "@/lib/bonus-validation";
+import { logAudit } from "@/lib/audit";
+import { sessionCan } from "@/lib/get-permissions";
+import { PERMISSIONS } from "@/lib/permission-keys";
 
-// GET — lista de bonos del tenant (con asignaciones). Solo full admin.
+// GET — lista de bonos del tenant (con asignaciones).
 export async function GET() {
   const session = await auth();
-  if (!session || !canManageBonuses(session.user.role)) {
+  if (!session || !(await sessionCan(session, PERMISSIONS.BONUSES_VIEW))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const bonuses = await prisma.bonus.findMany({
@@ -22,10 +24,10 @@ export async function GET() {
   return NextResponse.json(bonuses);
 }
 
-// POST — crear bono. Solo full admin (SUPERADMIN / PROPRIETARY).
+// POST — crear bono.
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session || !canManageBonuses(session.user.role)) {
+  if (!session || !(await sessionCan(session, PERMISSIONS.BONUSES_CREATE))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -82,6 +84,15 @@ export async function POST(req: Request) {
         : {}),
     },
     include: { assignments: true },
+  });
+
+  await logAudit(req, session, {
+    action: "CREATE",
+    module: "BONUSES",
+    entityId: bonus.id,
+    entityLabel: bonus.name,
+    description: `Creó el bono "${bonus.name}" (${bonus.assignmentType}, ${bonus.frequency})`,
+    after: { name: bonus.name, amount: bonus.amount, valueType: bonus.valueType, assignmentType: bonus.assignmentType, frequency: bonus.frequency },
   });
 
   return NextResponse.json(bonus, { status: 201 });

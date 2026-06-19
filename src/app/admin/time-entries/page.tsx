@@ -1,4 +1,3 @@
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -6,6 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { formatDate, formatTime, formatHours } from "@/lib/utils";
 import { TimeEntryActions } from "@/components/admin/time-entries/TimeEntryActions";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { requirePagePermission } from "@/lib/require-permission";
+import { PERMISSIONS } from "@/lib/permission-keys";
 
 function calculateHours(checkIn: Date, checkOut: Date | null): string {
   if (!checkOut) return "—";
@@ -18,8 +20,11 @@ export default async function TimeEntriesPage({
 }: {
   searchParams: Promise<{ from?: string; to?: string; employeeId?: string }>;
 }) {
-  const session = await auth();
-  const tenantId = session!.user.tenantId;
+  const { session, permissions } = await requirePagePermission(PERMISSIONS.TIME_ENTRIES_VIEW);
+  const tenantId = session.user.tenantId;
+  const canCreate = permissions.has(PERMISSIONS.TIME_ENTRIES_CREATE);
+  const canEdit = permissions.has(PERMISSIONS.TIME_ENTRIES_EDIT);
+  const canDelete = permissions.has(PERMISSIONS.TIME_ENTRIES_DELETE);
   const sp = await searchParams;
 
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" }).format(new Date());
@@ -51,11 +56,13 @@ export default async function TimeEntriesPage({
           <h1 className="text-2xl font-heading font-bold text-[#2C1F15]">Registro de Horas</h1>
           <p className="text-sm text-[#7A6358] mt-1">{entries.length} registros</p>
         </div>
-        <Link href="/admin/time-entries/new">
-          <Button className="bg-[#C1643F] hover:bg-[#A8522F] text-[#FAF7F2] gap-2">
-            <Plus className="w-4 h-4" /> Registrar horas
-          </Button>
-        </Link>
+        {canCreate && (
+          <Link href="/admin/time-entries/new">
+            <Button className="bg-[#C1643F] hover:bg-[#A8522F] text-[#FAF7F2] gap-2">
+              <Plus className="w-4 h-4" /> Registrar horas
+            </Button>
+          </Link>
+        )}
       </div>
 
       <form method="GET" className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap gap-3 bg-white rounded-lg border border-[#E0D5CA] p-4">
@@ -69,12 +76,14 @@ export default async function TimeEntriesPage({
         </div>
         <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
           <label className="text-sm text-[#7A6358] font-medium">Empleado</label>
-          <select name="employeeId" defaultValue={sp.employeeId ?? ""} className="border border-[#E0D5CA] rounded-md px-2 py-1.5 text-sm text-[#2C1F15] w-full sm:w-auto">
-            <option value="">Todos</option>
-            {employees.map((e) => (
-              <option key={e.id} value={e.id}>{e.name}</option>
-            ))}
-          </select>
+          <SearchableSelect
+            name="employeeId"
+            defaultValue={sp.employeeId ?? ""}
+            placeholder="Buscar empleado…"
+            emptyOption={{ value: "", label: "Todos" }}
+            options={employees.map((e) => ({ value: e.id, label: e.name }))}
+            className="w-full sm:w-56"
+          />
         </div>
         <Button type="submit" size="sm" variant="outline" className="border-[#C1643F] text-[#C1643F] sm:self-end">
           Filtrar
@@ -108,7 +117,7 @@ export default async function TimeEntriesPage({
                   </Badge>
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <TimeEntryActions entryId={entry.id} />
+                  <TimeEntryActions entryId={entry.id} canEdit={canEdit} canDelete={canDelete} />
                 </td>
               </tr>
             ))}

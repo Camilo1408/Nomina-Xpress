@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import { logAudit } from "@/lib/audit";
 
 const schema = z.object({
   username: z.string().min(3).optional(),
@@ -49,6 +50,19 @@ export async function PUT(req: Request) {
   if (parsed.data.password) updateData.passwordHash = await bcrypt.hash(parsed.data.password, 12);
 
   await prisma.user.update({ where: { id: user.id }, data: updateData });
+
+  const changes: string[] = [];
+  if (parsed.data.username) changes.push("usuario");
+  if (parsed.data.password) changes.push("contraseña");
+  await logAudit(req, session, {
+    action: "UPDATE",
+    module: "PROFILE",
+    entityId: user.id,
+    entityLabel: user.username,
+    description: `Actualizó su propio perfil (${changes.join(", ")})`,
+    before: { username: user.username },
+    after: { username: parsed.data.username ?? user.username },
+  });
 
   return NextResponse.json({ success: true });
 }
