@@ -1,0 +1,54 @@
+name: Weekly DB Backup
+
+on:
+  schedule:
+    # Cada domingo a las 03:00 UTC
+    - cron: "0 3 * * 0"
+  workflow_dispatch: # permite ejecución manual desde GitHub
+
+jobs:
+  backup:
+    name: Dump y cifrar Turso DB
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Instalar Turso CLI
+        run: curl -sSfL https://get.tur.so/install.sh | bash
+        env:
+          TURSO_INSTALL_SKIP_SIGNUP: "true"
+
+      - name: Autenticar con Turso
+        run: echo "${{ secrets.TURSO_AUTH_TOKEN }}" | ~/.turso/bin/turso auth token --stdin 2>/dev/null || true
+        # La autenticación se pasa por la variable de entorno TURSO_TOKEN en el dump
+
+      - name: Volcar la base de datos
+        env:
+          TURSO_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+        run: |
+          export PATH="$HOME/.turso/bin:$PATH"
+          DUMP_FILE="backup-$(date -u '+%Y-%m-%d').sql"
+          turso db shell "${{ secrets.TURSO_DATABASE_URL }}" ".dump" > "$DUMP_FILE"
+          echo "DUMP_FILE=$DUMP_FILE" >> $GITHUB_ENV
+          echo "Tamaño del dump: $(du -sh $DUMP_FILE)"
+
+      - name: Cifrar con GPG (AES-256)
+        env:
+          PASSPHRASE: ${{ secrets.BACKUP_GPG_PASSPHRASE }}
+        run: |
+          ENCRYPTED_FILE="${DUMP_FILE}.gpg"
+          gpg --batch --yes --passphrase "$PASSPHRASE" \
+              --symmetric --cipher-algo AES256 \
+              --output "$ENCRYPTED_FILE" "$DUMP_FILE"
+          # Eliminar dump en claro antes de subirlo
+          rm "$DUMP_FILE"
+          echo "ENCRYPTED_FILE=$ENCRYPTED_FILE" >> $GITHUB_ENV
+          echo "Tamaño cifrado: $(du -sh $ENCRYPTED_FILE)"
+
+      - name: Subir como artefacto (retención 56 días = 8 semanas)
+        uses: actions/upload-artifact@v4
+        with:
+          name: turso-backup-${{ github.run_id }}
+          path: ${{ env.ENCRYPTED_FILE }}
+          retention-days: 56
+          if-no-files-found: error
