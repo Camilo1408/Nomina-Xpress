@@ -17,6 +17,7 @@ import {
   type DiscountMonthlyMode,
   type DiscountValueType,
 } from "@/lib/discounts";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
 interface EmployeeLite {
   id: string;
@@ -66,6 +67,7 @@ export function DiscountManager({ employees, canCreate, canEdit, canDelete }: Di
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState<DiscountRow | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [confirmDiscount, setConfirmDiscount] = useState<DiscountRow | null>(null);
 
   const activeEmployees = useMemo(() => employees.filter((e) => e.active), [employees]);
 
@@ -100,9 +102,10 @@ export function DiscountManager({ employees, canCreate, canEdit, canDelete }: Di
     }
   }
 
-  async function deleteDiscount(d: DiscountRow) {
-    if (!confirm(`¿Eliminar el descuento "${d.name}"? Esta acción no afecta reportes ya descargados.`)) return;
-    const res = await fetch(`/api/admin/discounts/${d.id}`, { method: "DELETE" });
+  async function deleteDiscount() {
+    if (!confirmDiscount) return;
+    const res = await fetch(`/api/admin/discounts/${confirmDiscount.id}`, { method: "DELETE" });
+    setConfirmDiscount(null);
     if (res.ok) {
       toast.success("Descuento eliminado");
       fetchDiscounts();
@@ -186,7 +189,7 @@ export function DiscountManager({ employees, canCreate, canEdit, canDelete }: Di
                           canDelete={canDelete}
                           onEdit={() => openEdit(d)}
                           onToggle={() => toggleActive(d)}
-                          onDelete={() => deleteDiscount(d)}
+                          onDelete={() => setConfirmDiscount(d)}
                         />
                       ))}
                     </div>
@@ -197,6 +200,16 @@ export function DiscountManager({ employees, canCreate, canEdit, canDelete }: Di
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!confirmDiscount}
+        title="Eliminar descuento"
+        description={confirmDiscount ? `¿Eliminar el descuento "${confirmDiscount.name}"? Esta acción no afecta reportes ya descargados.` : ""}
+        confirmLabel="Eliminar"
+        variant="danger"
+        onConfirm={deleteDiscount}
+        onCancel={() => setConfirmDiscount(null)}
+      />
     </>
   );
 }

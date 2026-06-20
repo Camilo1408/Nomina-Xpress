@@ -8,6 +8,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { Plus, Pencil, Trash2, ChevronDown, ChevronRight, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { TipEntryModal } from "./TipEntryModal";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
 interface Distribution {
   id: string;
@@ -65,6 +66,7 @@ export function TipsClient({ canCreate, canEdit, canDelete }: TipsClientProps) {
   const [showModal, setShowModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TipEntry | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [confirmEntry, setConfirmEntry] = useState<{ id: string; date: string } | null>(null);
 
   const fetchTips = useCallback(async (f = from, t = to) => {
     setLoading(true);
@@ -85,9 +87,10 @@ export function TipsClient({ canCreate, canEdit, canDelete }: TipsClientProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function deleteEntry(id: string, date: string) {
-    if (!confirm(`¿Eliminar el registro de propinas del ${formatDate(date)}?`)) return;
-    const res = await fetch(`/api/admin/tips/${id}`, { method: "DELETE" });
+  async function deleteEntry() {
+    if (!confirmEntry) return;
+    const res = await fetch(`/api/admin/tips/${confirmEntry.id}`, { method: "DELETE" });
+    setConfirmEntry(null);
     if (res.ok) {
       toast.success("Registro eliminado");
       fetchTips();
@@ -213,7 +216,7 @@ export function TipsClient({ canCreate, canEdit, canDelete }: TipsClientProps) {
                       )}
                       {canDelete && (
                         <button
-                          onClick={() => deleteEntry(entry.id, entry.date)}
+                          onClick={() => setConfirmEntry({ id: entry.id, date: entry.date })}
                           className="p-1.5 text-[#7A6358] hover:text-[#B94040] rounded-md hover:bg-[#F2EDE6] transition-colors"
                           title="Eliminar"
                         >
@@ -274,6 +277,16 @@ export function TipsClient({ canCreate, canEdit, canDelete }: TipsClientProps) {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!confirmEntry}
+        title="Eliminar registro de propinas"
+        description={confirmEntry ? `¿Eliminar el registro de propinas del ${formatDate(confirmEntry.date)}? Esta acción no se puede deshacer.` : ""}
+        confirmLabel="Eliminar"
+        variant="danger"
+        onConfirm={deleteEntry}
+        onCancel={() => setConfirmEntry(null)}
+      />
 
       {showModal && (
         <TipEntryModal

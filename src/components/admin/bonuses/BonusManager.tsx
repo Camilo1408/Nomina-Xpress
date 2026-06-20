@@ -25,6 +25,7 @@ import {
   type BonusMonthlyMode,
   type BonusValueType,
 } from "@/lib/bonuses";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
 interface EmployeeLite {
   id: string;
@@ -74,6 +75,7 @@ export function BonusManager({ employees, canCreate, canEdit, canDelete }: Bonus
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState<BonusRow | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [confirmBonus, setConfirmBonus] = useState<BonusRow | null>(null);
 
   const activeEmployees = useMemo(() => employees.filter((e) => e.active), [employees]);
 
@@ -108,9 +110,10 @@ export function BonusManager({ employees, canCreate, canEdit, canDelete }: Bonus
     }
   }
 
-  async function deleteBonus(b: BonusRow) {
-    if (!confirm(`¿Eliminar el bono "${b.name}"? Esta acción no afecta reportes ya descargados.`)) return;
-    const res = await fetch(`/api/admin/bonuses/${b.id}`, { method: "DELETE" });
+  async function deleteBonus() {
+    if (!confirmBonus) return;
+    const res = await fetch(`/api/admin/bonuses/${confirmBonus.id}`, { method: "DELETE" });
+    setConfirmBonus(null);
     if (res.ok) {
       toast.success("Bono eliminado");
       fetchBonuses();
@@ -196,7 +199,7 @@ export function BonusManager({ employees, canCreate, canEdit, canDelete }: Bonus
                           canDelete={canDelete}
                           onEdit={() => openEdit(b)}
                           onToggle={() => toggleActive(b)}
-                          onDelete={() => deleteBonus(b)}
+                          onDelete={() => setConfirmBonus(b)}
                         />
                       ))}
                     </div>
@@ -207,6 +210,16 @@ export function BonusManager({ employees, canCreate, canEdit, canDelete }: Bonus
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!confirmBonus}
+        title="Eliminar bono"
+        description={confirmBonus ? `¿Eliminar el bono "${confirmBonus.name}"? Esta acción no afecta reportes ya descargados.` : ""}
+        confirmLabel="Eliminar"
+        variant="danger"
+        onConfirm={deleteBonus}
+        onCancel={() => setConfirmBonus(null)}
+      />
     </>
   );
 }
