@@ -2,6 +2,9 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { logAudit } from "@/lib/audit";
+import { sessionCan } from "@/lib/get-permissions";
+import { PERMISSIONS } from "@/lib/permission-keys";
 
 const shiftSchema = z.object({
   employeeId: z.string(),
@@ -20,7 +23,7 @@ const createSchema = z.object({
 
 export async function GET() {
   const session = await auth();
-  if (!session || session.user.role !== "SUPERADMIN") {
+  if (!session || !(await sessionCan(session, PERMISSIONS.SCHEDULES_VIEW))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const schedules = await prisma.schedule.findMany({
@@ -33,7 +36,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session || session.user.role !== "SUPERADMIN") {
+  if (!session || !(await sessionCan(session, PERMISSIONS.SCHEDULES_CREATE))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const body = await req.json();
@@ -42,6 +45,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
   const { name, weekStart, shifts } = parsed.data;
+
+  // Validar que todos los empleados referenciados pertenezcan al tenant
+  const shiftEmployeeIds = [...new Set(shifts.map((s) => s.employeeId))];
+  if (shiftEmployeeIds.length > 0) {
+    const validCount = await prisma.employee.count({
+      where: { id: { in: shiftEmployeeIds }, tenantId: session.user.tenantId },
+    });
+    if (validCount !== shiftEmployeeIds.length) {
+      return NextResponse.json(
+        { error: "Uno o más empleados no pertenecen a este restaurante" },
+        { status: 400 }
+      );
+    }
+  }
+
   const schedule = await prisma.schedule.create({
     data: {
       tenantId: session.user.tenantId,
@@ -60,5 +78,15 @@ export async function POST(req: Request) {
     },
     include: { shifts: true },
   });
+
+  await logAudit(req, session, {
+    action: "CREATE",
+    module: "SCHEDULES",
+    entityId: schedule.id,
+    entityLabel: schedule.name,
+    description: `Creó el horario "${schedule.name}" (semana ${weekStart}) con ${schedule.shifts.length} turno(s)`,
+    after: { name, weekStart, shiftsCount: schedule.shifts.length },
+  });
+
   return NextResponse.json(schedule, { status: 201 });
 }

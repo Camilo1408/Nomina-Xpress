@@ -1,4 +1,3 @@
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -6,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { ScheduleDetailActions } from "@/components/admin/schedules/ScheduleDetailActions";
+import { requirePagePermission } from "@/lib/require-permission";
+import { PERMISSIONS } from "@/lib/permission-keys";
 
 const DAY_LABELS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const DAY_NAMES = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
@@ -35,11 +36,11 @@ export default async function ScheduleViewPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await auth();
+  const { session, permissions } = await requirePagePermission(PERMISSIONS.SCHEDULES_VIEW);
   const { id } = await params;
 
   const schedule = await prisma.schedule.findFirst({
-    where: { id, tenantId: session!.user.tenantId },
+    where: { id, tenantId: session.user.tenantId },
     include: {
       shifts: {
         include: { employee: { select: { id: true, name: true } } },
@@ -91,7 +92,13 @@ export default async function ScheduleViewPage({
             </p>
           </div>
         </div>
-        <ScheduleDetailActions scheduleId={schedule.id} published={schedule.published} />
+        <ScheduleDetailActions
+          scheduleId={schedule.id}
+          published={schedule.published}
+          canEdit={permissions.has(PERMISSIONS.SCHEDULES_EDIT)}
+          canPublish={permissions.has(PERMISSIONS.SCHEDULES_PUBLISH)}
+          canDelete={permissions.has(PERMISSIONS.SCHEDULES_DELETE)}
+        />
       </div>
 
       {/* Schedule grid */}

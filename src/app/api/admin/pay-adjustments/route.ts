@@ -2,6 +2,9 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { logAudit } from "@/lib/audit";
+import { sessionCan } from "@/lib/get-permissions";
+import { PERMISSIONS } from "@/lib/permission-keys";
 
 const schema = z.object({
   employeeId: z.string(),
@@ -14,7 +17,7 @@ const schema = z.object({
 
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session || session.user.role !== "SUPERADMIN") {
+  if (!session || !(await sessionCan(session, PERMISSIONS.PAY_ADJUSTMENTS_CREATE))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const body = await req.json();
@@ -25,5 +28,22 @@ export async function POST(req: Request) {
   const adjustment = await prisma.payAdjustment.create({
     data: { ...parsed.data, tenantId: session.user.tenantId },
   });
+
+  const employee = await prisma.employee.findFirst({
+    where: { id: parsed.data.employeeId, tenantId: session.user.tenantId },
+    select: { name: true },
+  });
+
+  await logAudit(req, session, {
+    action: "PAYMENT",
+    module: "PAY_ADJUSTMENTS",
+    entityId: adjustment.id,
+    entityLabel: employee?.name ?? parsed.data.employeeId,
+    description: `Registró un ${
+      parsed.data.type === "BONUS" ? "bono" : "descuento"
+    } de ${parsed.data.amount} a "${employee?.name ?? "empleado"}" (${parsed.data.description})`,
+    after: parsed.data,
+  });
+
   return NextResponse.json(adjustment, { status: 201 });
 }

@@ -1,19 +1,20 @@
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { EmployeeForm } from "@/components/admin/employees/EmployeeForm";
+import { requirePagePermission } from "@/lib/require-permission";
+import { PERMISSIONS } from "@/lib/permission-keys";
 
 export default async function EditEmployeePage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await auth();
+  const { session } = await requirePagePermission(PERMISSIONS.EMPLOYEES_EDIT);
   const { id } = await params;
 
   const employee = await prisma.employee.findFirst({
-    where: { id, tenantId: session!.user.tenantId },
-    include: { user: { select: { username: true, role: true, inventoryAccess: true } } },
+    where: { id, tenantId: session.user.tenantId },
+    include: { user: { select: { username: true, role: true } } },
   });
 
   if (!employee) notFound();
@@ -27,9 +28,7 @@ export default async function EditEmployeePage({
       <div className="bg-white rounded-lg border border-[#E0D5CA] shadow-[0_1px_3px_rgba(44,31,21,0.08)] p-6">
         <EmployeeForm
           employee={employee}
-          existingUser={employee.user
-            ? { username: employee.user.username, role: employee.user.role, inventoryAccess: employee.user.inventoryAccess }
-            : null}
+          existingUser={employee.user ? { username: employee.user.username, role: employee.user.role } : null}
         />
       </div>
     </div>

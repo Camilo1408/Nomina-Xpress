@@ -3,6 +3,9 @@ import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import { logAudit } from "@/lib/audit";
+import { sessionCan } from "@/lib/get-permissions";
+import { PERMISSIONS } from "@/lib/permission-keys";
 
 const createSchema = z.object({
   username: z.string().min(3),
@@ -22,7 +25,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || session.user.role !== "SUPERADMIN") {
+  if (!session || !(await sessionCan(session, PERMISSIONS.EMPLOYEES_CREDENTIALS))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const { id: employeeId } = await params;
@@ -52,6 +55,15 @@ export async function POST(
     },
   });
 
+  await logAudit(req, session, {
+    action: "CREATE",
+    module: "CREDENTIALS",
+    entityId: employeeId,
+    entityLabel: employee.name,
+    description: `Creó credenciales de acceso (@${parsed.data.username}, rol ${parsed.data.role}) para "${employee.name}"`,
+    after: { username: parsed.data.username, role: parsed.data.role },
+  });
+
   return NextResponse.json({ success: true }, { status: 201 });
 }
 
@@ -61,7 +73,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || session.user.role !== "SUPERADMIN") {
+  if (!session || !(await sessionCan(session, PERMISSIONS.EMPLOYEES_CREDENTIALS))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const { id: employeeId } = await params;
@@ -92,6 +104,20 @@ export async function PUT(
   if (parsed.data.role) updateData.role = parsed.data.role;
 
   await prisma.user.update({ where: { id: employee.user.id }, data: updateData });
+
+  const changes: string[] = [];
+  if (parsed.data.username) changes.push("usuario");
+  if (parsed.data.password) changes.push("contraseña");
+  if (parsed.data.role) changes.push("rol");
+  await logAudit(req, session, {
+    action: "UPDATE",
+    module: "CREDENTIALS",
+    entityId: employeeId,
+    entityLabel: employee.name,
+    description: `Actualizó credenciales (${changes.join(", ")}) de "${employee.name}"`,
+    before: { username: employee.user.username, role: employee.user.role },
+    after: { username: parsed.data.username ?? employee.user.username, role: parsed.data.role ?? employee.user.role },
+  });
 
   return NextResponse.json({ success: true });
 }

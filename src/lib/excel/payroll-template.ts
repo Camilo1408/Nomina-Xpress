@@ -1,14 +1,27 @@
 import ExcelJS from "exceljs";
-import type { PayrollResult } from "@/lib/payroll";
-import { formatCurrency, formatHours } from "@/lib/utils";
+import { formatHours, formatCurrency } from "@/lib/utils";
+import type { LoadedLogo } from "@/lib/logo-loader";
+import type { PayrollWithExtras } from "@/lib/report-types";
+
+type PayrollWithTips = PayrollWithExtras;
+
+export type ExcelReportType = "payroll" | "shifts";
+
+const REPORT_TITLES: Record<ExcelReportType, string> = {
+  payroll: "Reporte de Nómina",
+  shifts: "Reporte de Turnos",
+};
 
 export async function generatePayrollExcel(
-  data: { period: { from: string; to: string }; employees: PayrollResult[] },
+  data: { period: { from: string; to: string }; employees: PayrollWithTips[] },
   tenantName: string,
-  primaryColor: string
+  primaryColor: string,
+  reportType: ExcelReportType = "payroll",
+  logo?: LoadedLogo | null
 ): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   const hex = primaryColor.replace("#", "");
+  const reportTitle = REPORT_TITLES[reportType];
 
   // Summary sheet
   const summary = workbook.addWorksheet("Resumen");
@@ -19,18 +32,37 @@ export async function generatePayrollExcel(
     { key: "gross", width: 18 },
     { key: "adjustments", width: 18 },
     { key: "net", width: 18 },
+    { key: "tips", width: 18 },
+    { key: "bonuses", width: 16 },
+    { key: "discounts", width: 16 },
+    { key: "total", width: 18 },
   ];
 
-  summary.mergeCells("A1:F1");
+  // Altura fila 1 = encabezado con logo. Logo cuadrado 64x64 para mantener simetría.
+  const LOGO_SIZE = 64;
+  summary.getRow(1).height = 56;
+
+  // Logo (esquina sup. derecha del encabezado): cuadrado fijo, posicionado en última columna (J).
+  if (logo) {
+    const ext = logo.format === "jpg" ? "jpeg" : "png";
+    // ExcelJS espera Buffer pero define tipo restringido; cast seguro.
+    const imageId = workbook.addImage({ buffer: logo.data as unknown as ExcelJS.Buffer, extension: ext });
+    summary.addImage(imageId, {
+      tl: { col: 9.05, row: 0.05 }, // col 9 = J (base 0); offset pequeño para no pegarse al borde
+      ext: { width: LOGO_SIZE, height: LOGO_SIZE },
+      editAs: "oneCell",
+    });
+  }
+
+  // Título (merge sobre las primeras 9 columnas para no tapar logo)
+  summary.mergeCells("A1:I1");
   const titleCell = summary.getCell("A1");
-  titleCell.value = `${tenantName} — Nómina ${data.period.from} al ${data.period.to}`;
-  titleCell.font = { bold: true, size: 14 };
+  titleCell.value = `${tenantName} — ${reportTitle} ${data.period.from} al ${data.period.to}`;
   titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + hex } };
   titleCell.font = { bold: true, size: 14, color: { argb: "FFFAF7F2" } };
-  titleCell.alignment = { horizontal: "center" };
-  summary.getRow(1).height = 28;
+  titleCell.alignment = { horizontal: "center", vertical: "middle" };
 
-  const headers = ["Empleado", "Horas Normales", "Horas Especiales", "Bruto", "Ajustes", "Neto"];
+  const headers = ["Empleado", "Horas Normales", "Horas Especiales", "Bruto", "Ajustes", "Neto", "Propinas", "Bonos", "Descuentos", "Total Final"];
   const headerRow = summary.addRow(headers);
   headerRow.eachCell((cell) => {
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF2EDE6" } };
@@ -47,17 +79,51 @@ export async function generatePayrollExcel(
       emp.grossPay,
       emp.totalAdjustments,
       emp.netPay,
+      emp.totalTips,
+      emp.totalBonuses,
+      emp.totalDiscounts,
+      emp.finalPay,
     ]);
     if (i % 2 === 1) {
       row.eachCell((cell) => {
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF9F5F0" } };
       });
     }
-    // Currency format
-    ["D", "E", "F"].forEach((col) => {
+    ["D", "E", "F", "G", "H", "I", "J"].forEach((col) => {
       const cell = row.getCell(col);
       cell.numFmt = '"$"#,##0';
     });
+
+    // Detalle de bonos aplicados (una fila por bono): solo concepto + valor
+    emp.bonuses.forEach((b) => {
+      const detailText = `   • Bono: ${b.name}: +${formatCurrency(b.appliedAmount)}`;
+      const bRow = summary.addRow([detailText, "", "", "", "", "", "", "", "", ""]);
+      summary.mergeCells(`A${bRow.number}:J${bRow.number}`);
+      const bCell = bRow.getCell(1);
+      bCell.font = { color: { argb: "FF6B8E6B" }, size: 9 };
+      bCell.alignment = { horizontal: "left", vertical: "middle" };
+    });
+
+    // Detalle de descuentos aplicados (una fila por descuento): solo concepto + valor
+    emp.discounts.forEach((d) => {
+      const detailText = `   • Descuento: ${d.name}: −${formatCurrency(d.appliedAmount)}`;
+      const dRow = summary.addRow([detailText, "", "", "", "", "", "", "", "", ""]);
+      summary.mergeCells(`A${dRow.number}:J${dRow.number}`);
+      const dCell = dRow.getCell(1);
+      dCell.font = { color: { argb: "FFB94040" }, size: 9 };
+      dCell.alignment = { horizontal: "left", vertical: "middle" };
+    });
+
+    // Fila de firma debajo del empleado
+    const sigRow = summary.addRow([
+      `Firma del empleado: ______________________________`,
+      "", "", "", "", "", "", "", "", "",
+    ]);
+    summary.mergeCells(`A${sigRow.number}:J${sigRow.number}`);
+    const sigCell = sigRow.getCell(1);
+    sigCell.font = { italic: true, color: { argb: "FF7A6358" }, size: 10 };
+    sigCell.alignment = { horizontal: "left", vertical: "middle" };
+    sigRow.height = 22;
   });
 
   // Totals
@@ -66,15 +132,19 @@ export async function generatePayrollExcel(
       gross: acc.gross + e.grossPay,
       adj: acc.adj + e.totalAdjustments,
       net: acc.net + e.netPay,
+      tips: acc.tips + e.totalTips,
+      bonuses: acc.bonuses + e.totalBonuses,
+      discounts: acc.discounts + e.totalDiscounts,
+      total: acc.total + e.finalPay,
     }),
-    { gross: 0, adj: 0, net: 0 }
+    { gross: 0, adj: 0, net: 0, tips: 0, bonuses: 0, discounts: 0, total: 0 }
   );
-  const totalRow = summary.addRow(["TOTAL", "", "", totals.gross, totals.adj, totals.net]);
+  const totalRow = summary.addRow(["TOTAL", "", "", totals.gross, totals.adj, totals.net, totals.tips, totals.bonuses, totals.discounts, totals.total]);
   totalRow.eachCell((cell) => {
     cell.font = { bold: true };
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF2EDE6" } };
   });
-  ["D", "E", "F"].forEach((col) => {
+  ["D", "E", "F", "G", "H", "I", "J"].forEach((col) => {
     totalRow.getCell(col).numFmt = '"$"#,##0';
   });
 

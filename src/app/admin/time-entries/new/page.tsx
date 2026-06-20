@@ -1,11 +1,12 @@
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { TimeEntryForm } from "@/components/admin/time-entries/TimeEntryForm";
+import { requirePagePermission } from "@/lib/require-permission";
+import { PERMISSIONS } from "@/lib/permission-keys";
 
 export default async function NewTimeEntryPage() {
-  const session = await auth();
+  const { session } = await requirePagePermission(PERMISSIONS.TIME_ENTRIES_CREATE);
   const employees = await prisma.employee.findMany({
-    where: { tenantId: session!.user.tenantId, active: true },
+    where: { tenantId: session.user.tenantId, active: true },
     select: { id: true, name: true },
     orderBy: { name: "asc" },
   });

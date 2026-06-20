@@ -8,7 +8,19 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Pencil, UserX, UserCheck, Trash2 } from "lucide-react";
 
-export function EmployeeActions({ employeeId, active }: { employeeId: string; active: boolean }) {
+export function EmployeeActions({
+  employeeId,
+  active,
+  canEdit,
+  canManageLifecycle,
+  canDelete,
+}: {
+  employeeId: string;
+  active: boolean;
+  canEdit: boolean;
+  canManageLifecycle: boolean;
+  canDelete: boolean;
+}) {
   const router = useRouter();
   const [dialog, setDialog] = useState<"deactivate" | "reactivate" | "delete" | null>(null);
 
@@ -56,13 +68,15 @@ export function EmployeeActions({ employeeId, active }: { employeeId: string; ac
   return (
     <>
       <div className="flex items-center justify-end gap-1">
-        <Link href={`/admin/employees/${employeeId}`}>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-[#7A6358] hover:text-[#C1643F]" title="Editar">
-            <Pencil className="w-4 h-4" />
-          </Button>
-        </Link>
+        {canEdit && (
+          <Link href={`/admin/employees/${employeeId}`}>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-[#7A6358] hover:text-[#C1643F]" title="Editar">
+              <Pencil className="w-4 h-4" />
+            </Button>
+          </Link>
+        )}
 
-        {active ? (
+        {canManageLifecycle && (active ? (
           <Button
             variant="ghost"
             size="sm"
@@ -82,17 +96,19 @@ export function EmployeeActions({ employeeId, active }: { employeeId: string; ac
           >
             <UserCheck className="w-4 h-4" />
           </Button>
-        )}
+        ))}
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setDialog("delete")}
-          className="h-8 w-8 p-0 text-[#7A6358] hover:text-[#B94040]"
-          title="Eliminar permanentemente"
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
+        {canDelete && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setDialog("delete")}
+            className="h-8 w-8 p-0 text-[#7A6358] hover:text-[#B94040]"
+            title="Eliminar permanentemente"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        )}
       </div>
 
       <ConfirmDialog

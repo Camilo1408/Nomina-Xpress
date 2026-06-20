@@ -5,33 +5,53 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
+import { PERMISSIONS, type PermissionKey } from "@/lib/permission-keys";
 import {
   LayoutDashboard,
   Users,
   Clock,
   Calendar,
   BarChart3,
+  CalendarClock,
   Settings,
   LogOut,
   Menu,
   X,
   UserCircle,
   Wallet,
+  Coins,
+  ScrollText,
+  ShieldCheck,
+  UserCog,
   Package,
   ExternalLink,
 } from "lucide-react";
 
-const allNavItems = [
-  { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard, superadminOnly: false },
-  { href: "/admin/employees", label: "Empleados", icon: Users, superadminOnly: true },
-  { href: "/admin/time-entries", label: "Registro de Horas", icon: Clock, superadminOnly: false },
-  { href: "/admin/schedules", label: "Horarios", icon: Calendar, superadminOnly: true },
-  { href: "/admin/reports", label: "Reportes", icon: BarChart3, superadminOnly: false },
-  { href: "/admin/settings", label: "Configuración", icon: Settings, superadminOnly: true },
+const ADMIN_ROLES = ["SUPERADMIN", "ADMIN", "PROPRIETARY"];
+
+// Cada item del menú declara el permiso que lo habilita.
+// `null` = visible para cualquier usuario del portal admin (Dashboard).
+const allNavItems: Array<{
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  permission: PermissionKey | null;
+}> = [
+  { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard, permission: null },
+  { href: "/admin/employees", label: "Empleados", icon: Users, permission: PERMISSIONS.EMPLOYEES_VIEW },
+  { href: "/admin/time-entries", label: "Registro de Horas", icon: Clock, permission: PERMISSIONS.TIME_ENTRIES_VIEW },
+  { href: "/admin/schedules", label: "Horarios", icon: Calendar, permission: PERMISSIONS.SCHEDULES_VIEW },
+  { href: "/admin/tips", label: "Propinas", icon: Coins, permission: PERMISSIONS.TIPS_VIEW },
+  { href: "/admin/reports/payroll", label: "Reportes Nómina", icon: BarChart3, permission: PERMISSIONS.PAYROLL_VIEW },
+  { href: "/admin/reports/shifts", label: "Reportes Turnos", icon: CalendarClock, permission: PERMISSIONS.PAYROLL_VIEW },
+  { href: "/admin/audit", label: "Auditoría", icon: ScrollText, permission: PERMISSIONS.AUDIT_VIEW },
+  { href: "/admin/roles", label: "Roles", icon: ShieldCheck, permission: PERMISSIONS.ROLES_VIEW },
+  { href: "/admin/usuarios", label: "Usuarios", icon: UserCog, permission: PERMISSIONS.USERS_VIEW },
+  { href: "/admin/settings", label: "Configuración", icon: Settings, permission: PERMISSIONS.SETTINGS_VIEW },
 ];
 
-// Links that only appear for ADMIN (not SUPERADMIN — they have employees section)
-const adminOnlyNavItems = [
+// Links de "Mi cuenta" — solo para usuarios vinculados a un empleado pagable.
+const myAccountNavItems = [
   { href: "/admin/my-quincena", label: "Mi Quincena", icon: Wallet },
   { href: "/admin/my-horario", label: "Mi Horario", icon: Calendar },
 ];
@@ -40,11 +60,21 @@ interface AdminSidebarProps {
   tenantName: string;
   logoUrl?: string | null;
   role: string;
-  inventarioUrl?: string;
   userName: string;
+  permissions: string[];
+  hasEmployee: boolean;
+  inventarioUrl?: string;
 }
 
-export function AdminSidebar({ tenantName, logoUrl, role, inventarioUrl, userName }: AdminSidebarProps) {
+export function AdminSidebar({
+  tenantName,
+  logoUrl,
+  role,
+  userName,
+  permissions,
+  hasEmployee,
+  inventarioUrl,
+}: AdminSidebarProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -52,8 +82,16 @@ export function AdminSidebar({ tenantName, logoUrl, role, inventarioUrl, userNam
     setMobileOpen(false);
   }, [pathname]);
 
-  const isSuperAdmin = role === "SUPERADMIN";
-  const navItems = allNavItems.filter((item) => isSuperAdmin || !item.superadminOnly);
+  const permSet = new Set(permissions);
+  const navItems = allNavItems.filter(
+    (item) => item.permission === null || permSet.has(item.permission)
+  );
+
+  // "Mi cuenta" se muestra a usuarios con empleado vinculado que NO tienen
+  // acceso completo de gestión (ADMIN operativo). PROPRIETARY/SUPERADMIN puro
+  // sin empleado no lo ve.
+  const showMyAccount = hasEmployee && role === "ADMIN";
+  const showInventario = inventarioUrl && ADMIN_ROLES.includes(role);
 
   return (
     <>
@@ -152,8 +190,8 @@ export function AdminSidebar({ tenantName, logoUrl, role, inventarioUrl, userNam
             );
           })}
 
-          {/* Acceso a Inventario — SUPERADMIN y ADMIN */}
-          {(isSuperAdmin || role === "ADMIN") && inventarioUrl && (
+          {/* Acceso a Inventario — PROPRIETARY, SUPERADMIN y ADMIN */}
+          {showInventario && (
             <>
               <div className="pt-2 pb-1 px-3">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">Módulos</p>
@@ -172,12 +210,12 @@ export function AdminSidebar({ tenantName, logoUrl, role, inventarioUrl, userNam
           )}
 
           {/* Mi Quincena y Mi Horario — solo para ADMIN con empleado vinculado */}
-          {!isSuperAdmin && (
+          {showMyAccount && (
             <>
               <div className="pt-2 pb-1 px-3">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">Mi cuenta</p>
               </div>
-              {adminOnlyNavItems.map(({ href, label, icon: Icon }) => {
+              {myAccountNavItems.map(({ href, label, icon: Icon }) => {
                 const active = pathname === href;
                 return (
                   <Link
