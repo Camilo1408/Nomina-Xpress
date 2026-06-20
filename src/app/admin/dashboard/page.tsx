@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Clock, AlertCircle } from "lucide-react";
+import { Users, Clock, AlertCircle, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { formatTime } from "@/lib/utils";
 import { getSessionPermissions } from "@/lib/get-permissions";
@@ -25,7 +25,7 @@ export default async function DashboardPage() {
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" }).format(new Date());
 
   // Solo se consulta lo que el usuario tiene permiso de ver
-  const [totalEmployees, todayEntries, pendingCheckout] = await Promise.all([
+  const [totalEmployees, todayEntries, pendingCheckout, historicalPending] = await Promise.all([
     canViewEmployees
       ? prisma.employee.count({ where: { tenantId, active: true } })
       : Promise.resolve(0),
@@ -40,6 +40,21 @@ export default async function DashboardPage() {
       ? prisma.timeEntry.findMany({
           where: { tenantId, date: today, checkOut: null },
           include: { employee: true },
+        })
+      : Promise.resolve([]),
+    // Registros de días ANTERIORES que nunca tuvieron salida registrada
+    canViewTimeEntries
+      ? prisma.timeEntry.findMany({
+          where: {
+            tenantId,
+            date: { lt: today },
+            OR: [
+              { checkOut: null },
+              { checkIn2: { not: null }, checkOut2: null },
+            ],
+          },
+          include: { employee: true },
+          orderBy: [{ date: "desc" }, { checkIn: "desc" }],
         })
       : Promise.resolve([]),
   ]);
@@ -60,6 +75,52 @@ export default async function DashboardPage() {
           })}
         </p>
       </div>
+
+      {/* Alerta de registros históricos sin salida — aparece siempre que existan */}
+      {canViewTimeEntries && historicalPending.length > 0 && (
+        <Card className="border border-red-300 bg-red-50 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold text-red-700 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0" />
+              {historicalPending.length === 1
+                ? "1 registro de días anteriores sin salida registrada"
+                : `${historicalPending.length} registros de días anteriores sin salida registrada`}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {historicalPending.map((entry) => {
+                const [year, month, day] = entry.date.split("-");
+                const dateLabel = `${day}/${month}/${year}`;
+                const isSecondShiftOpen = entry.checkIn2 && !entry.checkOut2;
+                return (
+                  <div key={entry.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm py-1.5 border-b border-red-200 last:border-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-medium text-red-900 truncate">{entry.employee.name}</span>
+                      <span className="text-red-500 font-mono text-xs flex-shrink-0">{dateLabel}</span>
+                      {isSecondShiftOpen && (
+                        <span className="text-xs text-red-500 flex-shrink-0">(2.º turno)</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className="text-red-600 text-xs">
+                        Entrada: {formatTime(isSecondShiftOpen ? entry.checkIn2! : entry.checkIn)}
+                      </span>
+                      {canEditTimeEntries && (
+                        <Link href={`/admin/time-entries/${entry.id}`}>
+                          <Badge className="bg-red-600 hover:bg-red-700 text-white border-0 cursor-pointer text-xs">
+                            Registrar salida
+                          </Badge>
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {hasAnyWidget && (
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -90,14 +151,21 @@ export default async function DashboardPage() {
         )}
 
         {canViewTimeEntries && (
-          <Card className="border-l-4 border-l-[var(--warning)] shadow-sm">
+          <Card className={`border-l-4 shadow-sm ${historicalPending.length > 0 ? "border-l-red-500" : "border-l-[var(--warning)]"}`}>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <AlertCircle className="w-4 h-4" /> Sin salida registrada
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-foreground font-mono">{pendingCheckout.length}</p>
+              <p className={`text-3xl font-bold font-mono ${historicalPending.length > 0 ? "text-red-600" : "text-foreground"}`}>
+                {pendingCheckout.length + historicalPending.length}
+              </p>
+              {historicalPending.length > 0 && (
+                <p className="text-xs text-red-500 mt-1">
+                  {historicalPending.length} de días anteriores
+                </p>
+              )}
             </CardContent>
           </Card>
         )}
