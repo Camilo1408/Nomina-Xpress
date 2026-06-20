@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Clock, AlertCircle, AlertTriangle } from "lucide-react";
+import { Users, Clock, AlertCircle, AlertTriangle, Coins } from "lucide-react";
 import Link from "next/link";
 import { formatTime } from "@/lib/utils";
 import { getSessionPermissions } from "@/lib/get-permissions";
@@ -20,12 +20,23 @@ export default async function DashboardPage() {
   const canEditTimeEntries = permissions.has(PERMISSIONS.TIME_ENTRIES_EDIT);
   const canCreateTimeEntries = permissions.has(PERMISSIONS.TIME_ENTRIES_CREATE);
   const canViewReports = permissions.has(PERMISSIONS.PAYROLL_VIEW);
+  const canCreateTips = permissions.has(PERMISSIONS.TIPS_CREATE);
 
   // Use Colombia timezone (UTC-5, no DST) so "today" matches the date users enter in forms
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" }).format(new Date());
 
+  // Hora actual en Colombia para la alerta de propinas después de las 10 PM
+  const nowColombia = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Bogota" }));
+  const hourColombia = nowColombia.getHours();
+  const isPast10PM = hourColombia >= 22;
+
+  // Fecha de ayer en Colombia
+  const yesterdayDate = new Date(nowColombia);
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterday = `${yesterdayDate.getFullYear()}-${String(yesterdayDate.getMonth() + 1).padStart(2, "0")}-${String(yesterdayDate.getDate()).padStart(2, "0")}`;
+
   // Solo se consulta lo que el usuario tiene permiso de ver
-  const [totalEmployees, todayEntries, pendingCheckout, historicalPending] = await Promise.all([
+  const [totalEmployees, todayEntries, pendingCheckout, historicalPending, tipToday, tipYesterday] = await Promise.all([
     canViewEmployees
       ? prisma.employee.count({ where: { tenantId, active: true } })
       : Promise.resolve(0),
@@ -57,6 +68,13 @@ export default async function DashboardPage() {
           orderBy: [{ date: "desc" }, { checkIn: "desc" }],
         })
       : Promise.resolve([]),
+    // Verificar si existen propinas registradas hoy y ayer
+    canCreateTips
+      ? prisma.tipEntry.findFirst({ where: { tenantId, date: today }, select: { id: true } })
+      : Promise.resolve(null),
+    canCreateTips
+      ? prisma.tipEntry.findFirst({ where: { tenantId, date: yesterday }, select: { id: true } })
+      : Promise.resolve(null),
   ]);
 
   const hasAnyWidget = canViewEmployees || canViewTimeEntries;
@@ -75,6 +93,52 @@ export default async function DashboardPage() {
           })}
         </p>
       </div>
+
+      {/* Alerta de propinas de ayer no registradas */}
+      {canCreateTips && !tipYesterday && (
+        <Card className="border border-amber-300 bg-amber-50 shadow-sm">
+          <CardContent className="py-3 px-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Coins className="w-4 h-4 text-amber-600 flex-shrink-0" />
+              <span className="text-sm font-medium text-amber-800">
+                No se registraron las propinas del{" "}
+                <span className="font-mono">
+                  {(() => { const [y, m, d] = yesterday.split("-"); return `${d}/${m}/${y}`; })()}
+                </span>
+              </span>
+            </div>
+            <Link
+              href="/admin/tips"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium transition-colors flex-shrink-0"
+            >
+              <Coins className="w-3.5 h-3.5" /> Registrar propinas
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Alerta de propinas de hoy — solo después de las 10 PM */}
+      {canCreateTips && !tipToday && isPast10PM && (
+        <Card className="border border-orange-300 bg-orange-50 shadow-sm">
+          <CardContent className="py-3 px-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Coins className="w-4 h-4 text-orange-600 flex-shrink-0" />
+              <span className="text-sm font-medium text-orange-800">
+                No se han registrado las propinas de hoy —{" "}
+                <span className="font-mono">
+                  {(() => { const [y, m, d] = today.split("-"); return `${d}/${m}/${y}`; })()}
+                </span>
+              </span>
+            </div>
+            <Link
+              href="/admin/tips"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-orange-600 hover:bg-orange-700 text-white text-xs font-medium transition-colors flex-shrink-0"
+            >
+              <Coins className="w-3.5 h-3.5" /> Registrar propinas
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Alerta de registros históricos sin salida — aparece siempre que existan */}
       {canViewTimeEntries && historicalPending.length > 0 && (
