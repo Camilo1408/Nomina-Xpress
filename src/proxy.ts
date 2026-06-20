@@ -17,6 +17,14 @@ export default auth((req) => {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
+  // Session exists but role is unrecognized — force re-login to avoid redirect loops
+  if (session && role !== "ADMIN" && role !== "SUPERADMIN" && role !== "EMPLOYEE") {
+    if (pathname !== "/login") {
+      return NextResponse.redirect(new URL("/login", req.url));
+    }
+    return;
+  }
+
   if (pathname.startsWith("/admin")) {
     if (role !== "ADMIN" && role !== "SUPERADMIN") {
       return NextResponse.redirect(new URL("/portal/report", req.url));
