@@ -19,6 +19,41 @@ function hoursFromNoon(date: string, startHour: number, endHour: number) {
   };
 }
 
+function ymd(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+// Calcula la quincena actual igual que getCurrentPeriod() en ReportsClient:
+// día <= 15 → [1, 15]; si no → [16, fin de mes].
+function getCurrentPeriod(): { from: string; to: string; fromDate: Date; toDate: Date } {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  if (today.getDate() <= 15) {
+    const fromDate = new Date(year, month, 1);
+    const toDate = new Date(year, month, 15);
+    return { from: ymd(fromDate), to: ymd(toDate), fromDate, toDate };
+  }
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  const fromDate = new Date(year, month, 16);
+  const toDate = new Date(year, month, lastDay);
+  return { from: ymd(fromDate), to: ymd(toDate), fromDate, toDate };
+}
+
+// Genera las fechas de la quincena actual desde el inicio del período hasta hoy
+// (inclusive). Los domingos se marcan como especiales (tarifa dominical).
+function workDatesUpToToday(): { date: string; isSpecial: boolean }[] {
+  const { fromDate } = getCurrentPeriod();
+  const today = new Date();
+  const result: { date: string; isSpecial: boolean }[] = [];
+  const cursor = new Date(fromDate);
+  while (cursor <= today) {
+    result.push({ date: ymd(cursor), isSpecial: cursor.getDay() === 0 }); // 0 = domingo
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return result;
+}
+
 async function main() {
   console.log("🧹 Limpiando BD...");
   await prisma.auditLog.deleteMany({});
@@ -155,15 +190,17 @@ async function main() {
   });
 
   console.log("⏱️  Creando registros de horas de prueba...");
-  // Quincena de prueba: 2026-06-01 a 2026-06-15
   const payableEmployees = [empCesar, empVanessa, empCarlos, empAna];
-  const workDays = ["2026-06-02", "2026-06-03", "2026-06-04", "2026-06-05", "2026-06-06"];
-  // Domingo 2026-06-07 = especial
-  const specialDay = "2026-06-07";
+  const period = getCurrentPeriod();
+  const workDays = workDatesUpToToday();
+  console.log(`   Período actual: ${period.from} a ${period.to} (${workDays.length} días)`);
 
   for (const emp of payableEmployees) {
-    for (const date of workDays) {
-      const { checkIn, checkOut } = hoursFromNoon(date, 8, 16);
+    for (const { date, isSpecial } of workDays) {
+      // Normal: 08:00–16:00 (8h). Especial (domingo): 10:00–16:00 (6h).
+      const { checkIn, checkOut } = isSpecial
+        ? hoursFromNoon(date, 10, 16)
+        : hoursFromNoon(date, 8, 16);
       await prisma.timeEntry.create({
         data: {
           tenantId: tenant.id,
@@ -171,34 +208,24 @@ async function main() {
           date,
           checkIn,
           checkOut,
-          isSpecial: false,
+          isSpecial,
         },
       });
     }
-    // Día especial (domingo)
-    const { checkIn, checkOut } = hoursFromNoon(specialDay, 10, 16);
-    await prisma.timeEntry.create({
-      data: {
-        tenantId: tenant.id,
-        employeeId: emp.id,
-        date: specialDay,
-        checkIn,
-        checkOut,
-        isSpecial: true,
-      },
-    });
   }
 
   console.log("💰 Creando propina de prueba...");
+  // Propina dentro de la quincena actual, en el primer día laborado del período.
+  const tipDate = workDays[0]?.date ?? period.from;
   const tipEntry = await prisma.tipEntry.create({
     data: {
       tenantId: tenant.id,
-      date: "2026-06-06",
+      date: tipDate,
       totalAmount: 500000,
       menaje: 50000,
       netAmount: 450000,
-      periodStart: "2026-06-01",
-      periodEnd: "2026-06-15",
+      periodStart: period.from,
+      periodEnd: period.to,
       notes: "Propina de prueba (seed)",
     },
   });
