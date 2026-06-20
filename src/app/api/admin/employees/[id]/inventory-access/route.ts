@@ -10,7 +10,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || session.user.role !== "SUPERADMIN") {
+  if (!session || !["SUPERADMIN", "PROPRIETARY"].includes(session.user.role)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
@@ -32,9 +32,9 @@ export async function PATCH(
     );
   }
 
-  if (user.role === "SUPERADMIN") {
+  if (user.role === "SUPERADMIN" || user.role === "PROPRIETARY") {
     return NextResponse.json(
-      { error: "No se puede modificar el acceso de un SUPERADMIN" },
+      { error: "No se puede modificar el acceso de este rol" },
       { status: 400 }
     );
   }

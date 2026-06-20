@@ -14,7 +14,7 @@ export default async function EditEmployeePage({
 
   const employee = await prisma.employee.findFirst({
     where: { id, tenantId: session.user.tenantId },
-    include: { user: { select: { username: true, role: true } } },
+    include: { user: { select: { username: true, role: true, inventoryAccess: true } } },
   });
 
   if (!employee) notFound();
@@ -28,7 +28,7 @@ export default async function EditEmployeePage({
       <div className="bg-white rounded-lg border border-[#E0D5CA] shadow-[0_1px_3px_rgba(44,31,21,0.08)] p-6">
         <EmployeeForm
           employee={employee}
-          existingUser={employee.user ? { username: employee.user.username, role: employee.user.role } : null}
+          existingUser={employee.user ? { username: employee.user.username, role: employee.user.role, inventoryAccess: employee.user.inventoryAccess } : null}
         />
       </div>
     </div>

@@ -5,7 +5,7 @@ const url = "libsql://nominaxpress-fiori-camilo1408.aws-us-east-1.turso.io";
 const authToken = "***REMOVED***";
 
 const adapter = new PrismaLibSql({ url, authToken });
-const prisma = new PrismaClient({ adapter } as Parameters<typeof PrismaClient>[0]);
+const prisma = new PrismaClient({ adapter });
 
 const TENANT_ID = "9a66e00a-cde9-4fe5-b951-712931163a72";
 

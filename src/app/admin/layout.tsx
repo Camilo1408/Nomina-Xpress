@@ -26,6 +26,7 @@ export default async function AdminLayout({
         userName={session.user.name ?? "Usuario"}
         permissions={[...permissions]}
         hasEmployee={!!session.user.employeeId}
+        inventarioUrl={process.env.NEXT_PUBLIC_INVENTARIO_APP_URL}
       />
       <main className="flex-1 overflow-y-auto bg-background min-w-0">
         {/*

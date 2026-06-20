@@ -1,0 +1,236 @@
+import "dotenv/config";
+import { PrismaClient } from "../src/generated/prisma";
+import { PrismaLibSql } from "@prisma/adapter-libsql";
+import bcrypt from "bcryptjs";
+
+// Seed LOCAL — usa la misma config que la app (TURSO_DATABASE_URL apunta a file:./dev.db).
+// Ejecutar con: npx tsx prisma/seed-local.ts
+
+const adapter = new PrismaLibSql({
+  url: process.env.TURSO_DATABASE_URL ?? "file:./dev.db",
+  authToken: process.env.TURSO_AUTH_TOKEN,
+});
+const prisma = new PrismaClient({ adapter });
+
+function hoursFromNoon(date: string, startHour: number, endHour: number) {
+  return {
+    checkIn: new Date(`${date}T${String(startHour).padStart(2, "0")}:00:00`),
+    checkOut: new Date(`${date}T${String(endHour).padStart(2, "0")}:00:00`),
+  };
+}
+
+async function main() {
+  console.log("🧹 Limpiando BD...");
+  await prisma.auditLog.deleteMany({});
+  await prisma.userPermission.deleteMany({});
+  await prisma.tipDistribution.deleteMany({});
+  await prisma.tipEntry.deleteMany({});
+  await prisma.bonusAssignment.deleteMany({});
+  await prisma.bonus.deleteMany({});
+  await prisma.discountAssignment.deleteMany({});
+  await prisma.discount.deleteMany({});
+  await prisma.payAdjustment.deleteMany({});
+  await prisma.scheduleShift.deleteMany({});
+  await prisma.schedule.deleteMany({});
+  await prisma.timeEntry.deleteMany({});
+  await prisma.pushSubscription.deleteMany({});
+  await prisma.user.deleteMany({});
+  await prisma.employee.deleteMany({});
+  await prisma.customRole.deleteMany({});
+  await prisma.tenant.deleteMany({});
+
+  console.log("🏗️  Creando tenant...");
+  const tenant = await prisma.tenant.create({
+    data: {
+      name: "Restaurante Demo",
+      primaryColor: "#C1643F",
+      secondaryColor: "#8B6355",
+    },
+  });
+
+  console.log("👥 Creando usuarios y empleados...");
+
+  // PROPRIETARY — acceso total al sistema
+  await prisma.user.create({
+    data: {
+      tenantId: tenant.id,
+      username: "SadminJavier",
+      passwordHash: await bcrypt.hash("Javier123", 12),
+      role: "PROPRIETARY",
+    },
+  });
+
+  // SUPERADMIN
+  await prisma.user.create({
+    data: {
+      tenantId: tenant.id,
+      username: "SadminMajo",
+      passwordHash: await bcrypt.hash("Majo123", 12),
+      role: "SUPERADMIN",
+    },
+  });
+
+  // ADMIN
+  await prisma.user.create({
+    data: {
+      tenantId: tenant.id,
+      username: "AdminValen",
+      passwordHash: await bcrypt.hash("Valen123", 12),
+      role: "ADMIN",
+    },
+  });
+
+  // EMPLOYEE — Cesar con acceso a Inventario
+  const empCesar = await prisma.employee.create({
+    data: {
+      tenantId: tenant.id,
+      name: "Cesar Hernández",
+      documentId: "1001234567",
+      phone: "3001112233",
+      hourlyRateNormal: 6900,
+      hourlyRateSpecial: 11400,
+      tipPercent: 100,
+      payType: "PAYROLL",
+    },
+  });
+  await prisma.user.create({
+    data: {
+      tenantId: tenant.id,
+      username: "CesarH",
+      passwordHash: await bcrypt.hash("CesarH123", 12),
+      role: "EMPLOYEE",
+      employeeId: empCesar.id,
+      inventoryAccess: true,
+    },
+  });
+
+  // EMPLOYEE — Vanessa sin acceso a inventario
+  const empVanessa = await prisma.employee.create({
+    data: {
+      tenantId: tenant.id,
+      name: "Vanessa Ríos",
+      documentId: "1002345678",
+      phone: "3004445566",
+      hourlyRateNormal: 6900,
+      hourlyRateSpecial: 11400,
+      tipPercent: 100,
+      payType: "PAYROLL",
+    },
+  });
+  await prisma.user.create({
+    data: {
+      tenantId: tenant.id,
+      username: "Vanessa",
+      passwordHash: await bcrypt.hash("Vanessa123", 12),
+      role: "EMPLOYEE",
+      employeeId: empVanessa.id,
+      inventoryAccess: false,
+    },
+  });
+
+  // Empleados adicionales sin acceso al sistema (datos de prueba para nómina)
+  const empCarlos = await prisma.employee.create({
+    data: {
+      tenantId: tenant.id,
+      name: "Carlos López",
+      documentId: "87654321",
+      phone: "3109876543",
+      hourlyRateNormal: 7200,
+      hourlyRateSpecial: 12500,
+      tipPercent: 100,
+      payType: "PAYROLL",
+    },
+  });
+  const empAna = await prisma.employee.create({
+    data: {
+      tenantId: tenant.id,
+      name: "Ana Martínez",
+      documentId: "11223344",
+      phone: "3151234567",
+      hourlyRateNormal: 6800,
+      hourlyRateSpecial: 11800,
+      tipPercent: 100,
+      payType: "SHIFT",
+    },
+  });
+
+  console.log("⏱️  Creando registros de horas de prueba...");
+  // Quincena de prueba: 2026-06-01 a 2026-06-15
+  const payableEmployees = [empCesar, empVanessa, empCarlos, empAna];
+  const workDays = ["2026-06-02", "2026-06-03", "2026-06-04", "2026-06-05", "2026-06-06"];
+  // Domingo 2026-06-07 = especial
+  const specialDay = "2026-06-07";
+
+  for (const emp of payableEmployees) {
+    for (const date of workDays) {
+      const { checkIn, checkOut } = hoursFromNoon(date, 8, 16);
+      await prisma.timeEntry.create({
+        data: {
+          tenantId: tenant.id,
+          employeeId: emp.id,
+          date,
+          checkIn,
+          checkOut,
+          isSpecial: false,
+        },
+      });
+    }
+    // Día especial (domingo)
+    const { checkIn, checkOut } = hoursFromNoon(specialDay, 10, 16);
+    await prisma.timeEntry.create({
+      data: {
+        tenantId: tenant.id,
+        employeeId: emp.id,
+        date: specialDay,
+        checkIn,
+        checkOut,
+        isSpecial: true,
+      },
+    });
+  }
+
+  console.log("💰 Creando propina de prueba...");
+  const tipEntry = await prisma.tipEntry.create({
+    data: {
+      tenantId: tenant.id,
+      date: "2026-06-06",
+      totalAmount: 500000,
+      menaje: 50000,
+      netAmount: 450000,
+      periodStart: "2026-06-01",
+      periodEnd: "2026-06-15",
+      notes: "Propina de prueba (seed)",
+    },
+  });
+  // Distribución simple equitativa entre los 4 empleados pagables
+  const perEmployee = 450000 / payableEmployees.length;
+  for (const emp of payableEmployees) {
+    await prisma.tipDistribution.create({
+      data: {
+        tenantId: tenant.id,
+        tipEntryId: tipEntry.id,
+        employeeId: emp.id,
+        hoursWorked: 40,
+        tipPercent: 100,
+        effectiveHours: 40,
+        amount: perEmployee,
+      },
+    });
+  }
+
+  console.log("\n✅ Seed completado.");
+  console.log("─────────────────────────────────────────────");
+  console.log("   SadminJavier / Javier123  → PROPRIETARY");
+  console.log("   SadminMajo   / Majo123    → SUPERADMIN");
+  console.log("   AdminValen   / Valen123   → ADMIN");
+  console.log("   CesarH       / CesarH123  → EMPLOYEE (inventoryAccess=true)");
+  console.log("   Vanessa      / Vanessa123 → EMPLOYEE");
+  console.log("─────────────────────────────────────────────");
+}
+
+main()
+  .catch((e) => {
+    console.error("❌ Error en seed:", e);
+    process.exit(1);
+  })
+  .finally(() => prisma.$disconnect());
