@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { SplitSquareHorizontal } from "lucide-react";
 import { todayColombia } from "@/lib/utils";
 
@@ -152,16 +153,12 @@ export function TimeEntryForm({ employees, entry }: TimeEntryFormProps) {
         {/* Empleado */}
         <div className="sm:col-span-2 space-y-1.5">
           <Label>Empleado *</Label>
-          <select
+          <SearchableSelect
             value={form.employeeId}
-            onChange={(e) => set("employeeId", e.target.value)}
-            required
-            className="w-full border border-[#E0D5CA] rounded-md px-3 py-2 text-sm text-[#2C1F15] bg-white focus:outline-none focus:ring-2 focus:ring-[#C1643F]/30"
-          >
-            {employees.map((emp) => (
-              <option key={emp.id} value={emp.id}>{emp.name}</option>
-            ))}
-          </select>
+            onValueChange={(v) => set("employeeId", v)}
+            placeholder="Buscar empleado…"
+            options={employees.map((emp) => ({ value: emp.id, label: emp.name }))}
+          />
         </div>
 
         {/* Fecha */}

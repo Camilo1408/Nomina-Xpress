@@ -1,12 +1,12 @@
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
-// Routes that the restricted ADMIN role cannot access
-const SUPERADMIN_ONLY_PATHS = [
-  "/admin/employees",
-  "/admin/schedules",
-  "/admin/settings",
-];
+// El control fino de permisos se hace a nivel de página (Server Components con
+// acceso a Prisma), porque el middleware corre en edge runtime y no puede
+// resolver permisos efectivos desde la base de datos. Aquí solo se controla el
+// acceso por portal según el rol base.
+
+const ADMIN_PORTAL_ROLES = ["ADMIN", "SUPERADMIN", "PROPRIETARY"];
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
@@ -18,11 +18,8 @@ export default auth((req) => {
   }
 
   if (pathname.startsWith("/admin")) {
-    if (role !== "ADMIN" && role !== "SUPERADMIN") {
+    if (!ADMIN_PORTAL_ROLES.includes(role ?? "")) {
       return NextResponse.redirect(new URL("/portal/report", req.url));
-    }
-    if (role === "ADMIN" && SUPERADMIN_ONLY_PATHS.some((p) => pathname.startsWith(p))) {
-      return NextResponse.redirect(new URL("/admin/time-entries", req.url));
     }
   }
 
@@ -34,11 +31,11 @@ export default auth((req) => {
 
   if (pathname === "/login" && session) {
     let redirect = "/portal/report";
-    if (role === "SUPERADMIN" || role === "ADMIN") redirect = "/admin/dashboard";
+    if (ADMIN_PORTAL_ROLES.includes(role ?? "")) redirect = "/admin/dashboard";
     return NextResponse.redirect(new URL(redirect, req.url));
   }
 });
 
 export const config = {
-  matcher: ["/((?!_next|api/auth|favicon.ico|uploads).*)"],
+  matcher: ["/((?!_next|api/auth|api/cron|favicon\\.ico|uploads|sw\\.js|manifest\\.json|icon-).*)" ],
 };

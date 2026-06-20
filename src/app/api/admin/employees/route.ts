@@ -3,21 +3,26 @@ import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import { logAudit } from "@/lib/audit";
+import { sessionCan } from "@/lib/get-permissions";
+import { PERMISSIONS } from "@/lib/permission-keys";
 
 const createSchema = z.object({
   name: z.string().min(2),
   documentId: z.string().optional(),
   phone: z.string().optional(),
-  hourlyRateNormal: z.number().positive().default(6400),
-  hourlyRateSpecial: z.number().positive().default(11500),
+  hourlyRateNormal: z.number().positive().default(6900),
+  hourlyRateSpecial: z.number().positive().default(11400),
+  tipPercent: z.number().min(0).max(100).default(100),
+  payType: z.enum(["PAYROLL", "SHIFT"]).default("PAYROLL"),
   accessRole: z.enum(["NONE", "EMPLOYEE", "ADMIN"]).default("NONE"),
-  username: z.string().min(3).optional(),
-  password: z.string().min(6).optional(),
+  username: z.preprocess((v) => (v === "" ? undefined : v), z.string().min(3).optional()),
+  password: z.preprocess((v) => (v === "" ? undefined : v), z.string().min(6).optional()),
 });
 
 export async function GET() {
   const session = await auth();
-  if (!session || session.user.role !== "SUPERADMIN") {
+  if (!session || !(await sessionCan(session, PERMISSIONS.EMPLOYEES_VIEW))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const employees = await prisma.employee.findMany({
@@ -30,7 +35,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session || session.user.role !== "SUPERADMIN") {
+  if (!session || !(await sessionCan(session, PERMISSIONS.EMPLOYEES_CREATE))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const body = await req.json();
@@ -63,6 +68,17 @@ export async function POST(req: Request) {
       },
     });
   }
+
+  await logAudit(req, session, {
+    action: "CREATE",
+    module: "EMPLOYEES",
+    entityId: employee.id,
+    entityLabel: employee.name,
+    description: `Creó el empleado "${employee.name}"${
+      accessRole !== "NONE" && username ? ` con acceso ${accessRole} (@${username})` : ""
+    }`,
+    after: { ...empData, accessRole },
+  });
 
   return NextResponse.json(employee, { status: 201 });
 }

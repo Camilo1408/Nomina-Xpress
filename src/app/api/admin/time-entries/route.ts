@@ -3,6 +3,10 @@ import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isSpecialDay } from "@/lib/holidays";
+import { recalculateTipForDate } from "@/lib/recalculate-tips";
+import { logAudit } from "@/lib/audit";
+import { sessionCan } from "@/lib/get-permissions";
+import { PERMISSIONS } from "@/lib/permission-keys";
 
 const createSchema = z.object({
   employeeId: z.string(),
@@ -29,7 +33,7 @@ function rangesOverlap(
 
 export async function GET(req: Request) {
   const session = await auth();
-  if (!session || !["ADMIN", "SUPERADMIN"].includes(session.user.role)) {
+  if (!session || !(await sessionCan(session, PERMISSIONS.TIME_ENTRIES_VIEW))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const url = new URL(req.url);
@@ -51,7 +55,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session || !["ADMIN", "SUPERADMIN"].includes(session.user.role)) {
+  if (!session || !(await sessionCan(session, PERMISSIONS.TIME_ENTRIES_CREATE))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const body = await req.json();
@@ -61,6 +65,15 @@ export async function POST(req: Request) {
   }
 
   const { date, checkIn, checkOut, checkIn2, checkOut2, employeeId, notes } = parsed.data;
+
+  // Validar que el empleado pertenezca al tenant antes de escribir
+  const employee = await prisma.employee.findFirst({
+    where: { id: employeeId, tenantId: session.user.tenantId },
+    select: { id: true, name: true },
+  });
+  if (!employee) {
+    return NextResponse.json({ error: "Empleado no encontrado" }, { status: 404 });
+  }
 
   const existingEntries = await prisma.timeEntry.findMany({
     where: { tenantId: session.user.tenantId, employeeId, date },
@@ -113,6 +126,18 @@ export async function POST(req: Request) {
       isSpecial: special,
       notes: notes ?? null,
     },
+  });
+
+  // Si hay propinas registradas para este día, recalcular distribuciones
+  await recalculateTipForDate(session.user.tenantId, date);
+
+  await logAudit(req, session, {
+    action: "CREATE",
+    module: "TIME_ENTRIES",
+    entityId: entry.id,
+    entityLabel: `${employee.name} — ${date}`,
+    description: `Registró horas de "${employee.name}" el ${date}`,
+    after: { date, checkIn, checkOut, checkIn2, checkOut2, isSpecial: special, notes },
   });
 
   return NextResponse.json(entry, { status: 201 });

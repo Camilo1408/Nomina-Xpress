@@ -2,6 +2,9 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { logAudit } from "@/lib/audit";
+import { sessionCan } from "@/lib/get-permissions";
+import { PERMISSIONS } from "@/lib/permission-keys";
 
 const updateSchema = z.object({
   name: z.string().optional(),
@@ -20,7 +23,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || session.user.role !== "SUPERADMIN") {
+  if (!session || !(await sessionCan(session, PERMISSIONS.SCHEDULES_EDIT))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const { id } = await params;
@@ -35,6 +38,19 @@ export async function PUT(
 
   const { name, shifts } = parsed.data;
   if (shifts) {
+    // Validar que todos los empleados referenciados pertenezcan al tenant
+    const shiftEmployeeIds = [...new Set(shifts.map((s) => s.employeeId))];
+    if (shiftEmployeeIds.length > 0) {
+      const validCount = await prisma.employee.count({
+        where: { id: { in: shiftEmployeeIds }, tenantId: session.user.tenantId },
+      });
+      if (validCount !== shiftEmployeeIds.length) {
+        return NextResponse.json(
+          { error: "Uno o más empleados no pertenecen a este restaurante" },
+          { status: 400 }
+        );
+      }
+    }
     await prisma.scheduleShift.deleteMany({ where: { scheduleId: id } });
     await prisma.scheduleShift.createMany({
       data: shifts.map((s) => ({
@@ -52,18 +68,45 @@ export async function PUT(
     await prisma.schedule.update({ where: { id }, data: { name } });
   }
 
+  await logAudit(req, session, {
+    action: "UPDATE",
+    module: "SCHEDULES",
+    entityId: id,
+    entityLabel: name ?? existing.name,
+    description: `Editó el horario "${existing.name}"${
+      shifts ? ` (${shifts.length} turno(s))` : ""
+    }`,
+    before: { name: existing.name },
+    after: { name: name ?? existing.name, shiftsCount: shifts?.length },
+  });
+
   return NextResponse.json({ success: true });
 }
 
 export async function DELETE(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || session.user.role !== "SUPERADMIN") {
+  if (!session || !(await sessionCan(session, PERMISSIONS.SCHEDULES_DELETE))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const { id } = await params;
+  const existing = await prisma.schedule.findFirst({
+    where: { id, tenantId: session.user.tenantId },
+  });
   await prisma.schedule.deleteMany({ where: { id, tenantId: session.user.tenantId } });
+
+  if (existing) {
+    await logAudit(req, session, {
+      action: "DELETE",
+      module: "SCHEDULES",
+      entityId: id,
+      entityLabel: existing.name,
+      description: `Eliminó el horario "${existing.name}" (semana ${existing.weekStart})`,
+      before: existing,
+    });
+  }
+
   return NextResponse.json({ success: true });
 }

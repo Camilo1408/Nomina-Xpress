@@ -9,6 +9,14 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Eye, EyeOff, KeyRound, UserPlus, ShieldCheck, User } from "lucide-react";
 
+function digitsOnly(raw: string): string {
+  return raw.replace(/\D/g, "").slice(0, 9);
+}
+function displayThousands(raw: string): string {
+  if (!raw) return "";
+  return Number(raw).toLocaleString("es-CO");
+}
+
 type AccessRole = "NONE" | "EMPLOYEE" | "ADMIN";
 
 interface EmployeeFormProps {
@@ -19,10 +27,14 @@ interface EmployeeFormProps {
     phone: string | null;
     hourlyRateNormal: number;
     hourlyRateSpecial: number;
+    tipPercent: number;
+    payType: string;
     active: boolean;
   };
   existingUser?: { username: string; role: string } | null;
 }
+
+type PayType = "PAYROLL" | "SHIFT";
 
 const roleLabels: Record<string, string> = {
   EMPLOYEE: "Empleado",
@@ -44,8 +56,10 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
     name: employee?.name ?? "",
     documentId: employee?.documentId ?? "",
     phone: employee?.phone ?? "",
-    hourlyRateNormal: employee?.hourlyRateNormal ?? 6400,
-    hourlyRateSpecial: employee?.hourlyRateSpecial ?? 11500,
+    hourlyRateNormal: String(employee?.hourlyRateNormal ?? 6900),
+    hourlyRateSpecial: String(employee?.hourlyRateSpecial ?? 11400),
+    tipPercent: employee?.tipPercent ?? 100,
+    payType: (employee?.payType ?? "PAYROLL") as PayType,
     accessRole: "NONE" as AccessRole,
     username: "",
     password: "",
@@ -85,6 +99,7 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
         ...form,
         hourlyRateNormal: Number(form.hourlyRateNormal),
         hourlyRateSpecial: Number(form.hourlyRateSpecial),
+        tipPercent: Number(form.tipPercent),
       }),
     });
     setLoading(false);
@@ -166,19 +181,67 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
           <div className="space-y-1.5">
             <Label>Tarifa hora normal (COP) *</Label>
             <Input
-              type="number" value={form.hourlyRateNormal}
-              onChange={(e) => set("hourlyRateNormal", e.target.value)}
-              min="0" step="100" required
+              type="text"
+              inputMode="numeric"
+              value={displayThousands(form.hourlyRateNormal)}
+              onChange={(e) => set("hourlyRateNormal", digitsOnly(e.target.value))}
+              placeholder="Ej: 6.400"
+              required
             />
           </div>
           <div className="space-y-1.5">
             <Label>Tarifa hora especial (COP) *</Label>
             <Input
-              type="number" value={form.hourlyRateSpecial}
-              onChange={(e) => set("hourlyRateSpecial", e.target.value)}
-              min="0" step="100" required
+              type="text"
+              inputMode="numeric"
+              value={displayThousands(form.hourlyRateSpecial)}
+              onChange={(e) => set("hourlyRateSpecial", digitsOnly(e.target.value))}
+              placeholder="Ej: 11.500"
+              required
             />
             <p className="text-xs text-[#7A6358]">Aplica para domingos y festivos colombianos</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label>% Participación en propinas *</Label>
+            <Input
+              type="number" value={form.tipPercent}
+              onChange={(e) => set("tipPercent", e.target.value)}
+              min="0" max="100" step="1" required
+            />
+            <p className="text-xs text-[#7A6358]">
+              0 = no participa · 50 = media participación · 100 = participación completa
+            </p>
+          </div>
+          <div className="sm:col-span-2 space-y-1.5">
+            <Label>Tipo de pago *</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {([
+                { value: "PAYROLL", label: "Pago de nómina", desc: "Empleado fijo bajo nómina" },
+                { value: "SHIFT", label: "Pago por turnos", desc: "Empleado pagado por turnos" },
+              ] as const).map(({ value, label, desc }) => (
+                <label
+                  key={value}
+                  className={`flex items-start gap-3 p-3 rounded-md border cursor-pointer transition-colors ${
+                    form.payType === value
+                      ? "border-[#C1643F] bg-[#C1643F]/5"
+                      : "border-[#E0D5CA] hover:border-[#C1643F]/40"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="payType"
+                    value={value}
+                    checked={form.payType === value}
+                    onChange={() => set("payType", value)}
+                    className="accent-[#C1643F] mt-0.5"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-medium text-[#2C1F15]">{label}</span>
+                    <p className="text-xs text-[#7A6358] mt-0.5">{desc}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -290,7 +353,7 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
                 </p>
 
                 {/* Role selector */}
-                {existingUser.role !== "SUPERADMIN" && (
+                {existingUser.role !== "SUPERADMIN" && existingUser.role !== "PROPRIETARY" && (
                   <div className="space-y-1.5">
                     <Label>Rol de acceso</Label>
                     <div className="flex gap-3">
@@ -319,7 +382,7 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
                       onChange={(e) => setCredUsername(e.target.value.toLowerCase().replace(/\s/g, ""))}
                       minLength={3} placeholder={existingUser.username}
                       autoComplete="off"
-                      disabled={existingUser.role === "SUPERADMIN"}
+                      disabled={existingUser.role === "SUPERADMIN" || existingUser.role === "PROPRIETARY"}
                     />
                   </div>
                   <div className="space-y-1.5">

@@ -1,22 +1,23 @@
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { TimeEntryForm } from "@/components/admin/time-entries/TimeEntryForm";
+import { requirePagePermission } from "@/lib/require-permission";
+import { PERMISSIONS } from "@/lib/permission-keys";
 
 export default async function EditTimeEntryPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await auth();
+  const { session } = await requirePagePermission(PERMISSIONS.TIME_ENTRIES_EDIT);
   const { id } = await params;
 
   const [entry, employees] = await Promise.all([
     prisma.timeEntry.findFirst({
-      where: { id, tenantId: session!.user.tenantId },
+      where: { id, tenantId: session.user.tenantId },
     }),
     prisma.employee.findMany({
-      where: { tenantId: session!.user.tenantId, active: true },
+      where: { tenantId: session.user.tenantId, active: true },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),

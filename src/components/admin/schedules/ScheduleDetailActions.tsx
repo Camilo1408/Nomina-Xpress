@@ -11,9 +11,12 @@ import { Pencil, Globe, Trash2, GlobeLock } from "lucide-react";
 interface Props {
   scheduleId: string;
   published: boolean;
+  canEdit: boolean;
+  canPublish: boolean;
+  canDelete: boolean;
 }
 
-export function ScheduleDetailActions({ scheduleId, published }: Props) {
+export function ScheduleDetailActions({ scheduleId, published, canEdit, canPublish, canDelete }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pubLoading, setPubLoading] = useState(false);
@@ -45,36 +48,42 @@ export function ScheduleDetailActions({ scheduleId, published }: Props) {
   return (
     <>
       <div className="flex items-center gap-2">
-        <Link href={`/admin/schedules/${scheduleId}`}>
-          <Button variant="outline" size="sm" className="gap-1.5 border-[#E0D5CA] text-[#2C1F15]">
-            <Pencil className="w-4 h-4" /> Editar
+        {canEdit && (
+          <Link href={`/admin/schedules/${scheduleId}`}>
+            <Button variant="outline" size="sm" className="gap-1.5 border-[#E0D5CA] text-[#2C1F15]">
+              <Pencil className="w-4 h-4" /> Editar
+            </Button>
+          </Link>
+        )}
+        {canPublish && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handlePublish}
+            disabled={pubLoading}
+            className={`gap-1.5 ${
+              published
+                ? "border-[#6B8E6B] text-[#6B8E6B] hover:bg-[#6B8E6B]/5"
+                : "border-[#6B8E6B] text-[#6B8E6B] hover:bg-[#6B8E6B]/5"
+            }`}
+          >
+            {published ? (
+              <><GlobeLock className="w-4 h-4" /> Despublicar</>
+            ) : (
+              <><Globe className="w-4 h-4" /> Publicar</>
+            )}
           </Button>
-        </Link>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handlePublish}
-          disabled={pubLoading}
-          className={`gap-1.5 ${
-            published
-              ? "border-[#6B8E6B] text-[#6B8E6B] hover:bg-[#6B8E6B]/5"
-              : "border-[#6B8E6B] text-[#6B8E6B] hover:bg-[#6B8E6B]/5"
-          }`}
-        >
-          {published ? (
-            <><GlobeLock className="w-4 h-4" /> Despublicar</>
-          ) : (
-            <><Globe className="w-4 h-4" /> Publicar</>
-          )}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setOpen(true)}
-          className="gap-1.5 border-[#B94040] text-[#B94040] hover:bg-[#B94040]/5"
-        >
-          <Trash2 className="w-4 h-4" /> Eliminar
-        </Button>
+        )}
+        {canDelete && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setOpen(true)}
+            className="gap-1.5 border-[#B94040] text-[#B94040] hover:bg-[#B94040]/5"
+          >
+            <Trash2 className="w-4 h-4" /> Eliminar
+          </Button>
+        )}
       </div>
 
       <ConfirmDialog

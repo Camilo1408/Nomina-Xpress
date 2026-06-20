@@ -8,7 +8,15 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Pencil, Trash2 } from "lucide-react";
 
-export function TimeEntryActions({ entryId }: { entryId: string }) {
+export function TimeEntryActions({
+  entryId,
+  canEdit,
+  canDelete,
+}: {
+  entryId: string;
+  canEdit: boolean;
+  canDelete: boolean;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
@@ -26,19 +34,23 @@ export function TimeEntryActions({ entryId }: { entryId: string }) {
   return (
     <>
       <div className="flex items-center justify-end gap-1">
-        <Link href={`/admin/time-entries/${entryId}`}>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-[#7A6358] hover:text-[#C1643F]">
-            <Pencil className="w-4 h-4" />
+        {canEdit && (
+          <Link href={`/admin/time-entries/${entryId}`}>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-[#7A6358] hover:text-[#C1643F]">
+              <Pencil className="w-4 h-4" />
+            </Button>
+          </Link>
+        )}
+        {canDelete && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setOpen(true)}
+            className="h-8 w-8 p-0 text-[#7A6358] hover:text-[#B94040]"
+          >
+            <Trash2 className="w-4 h-4" />
           </Button>
-        </Link>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setOpen(true)}
-          className="h-8 w-8 p-0 text-[#7A6358] hover:text-[#B94040]"
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
+        )}
       </div>
 
       <ConfirmDialog

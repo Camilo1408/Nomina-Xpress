@@ -1,18 +1,19 @@
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { EmployeeForm } from "@/components/admin/employees/EmployeeForm";
+import { requirePagePermission } from "@/lib/require-permission";
+import { PERMISSIONS } from "@/lib/permission-keys";
 
 export default async function EditEmployeePage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await auth();
+  const { session } = await requirePagePermission(PERMISSIONS.EMPLOYEES_EDIT);
   const { id } = await params;
 
   const employee = await prisma.employee.findFirst({
-    where: { id, tenantId: session!.user.tenantId },
+    where: { id, tenantId: session.user.tenantId },
     include: { user: { select: { username: true, role: true } } },
   });
 

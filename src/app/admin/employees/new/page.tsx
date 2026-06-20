@@ -1,6 +1,10 @@
 import { EmployeeForm } from "@/components/admin/employees/EmployeeForm";
+import { requirePagePermission } from "@/lib/require-permission";
+import { PERMISSIONS } from "@/lib/permission-keys";
 
-export default function NewEmployeePage() {
+export default async function NewEmployeePage() {
+  await requirePagePermission(PERMISSIONS.EMPLOYEES_CREATE);
+
   return (
     <div className="space-y-6">
       <div>

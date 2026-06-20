@@ -1,6 +1,7 @@
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ScheduleGrid } from "@/components/admin/schedules/ScheduleGrid";
+import { requirePagePermission } from "@/lib/require-permission";
+import { PERMISSIONS } from "@/lib/permission-keys";
 
 function getMonday(todayStr: string): string {
   const [y, m, d] = todayStr.split("-").map(Number);
@@ -15,9 +16,9 @@ function getMonday(todayStr: string): string {
 }
 
 export default async function NewSchedulePage() {
-  const session = await auth();
+  const { session } = await requirePagePermission(PERMISSIONS.SCHEDULES_CREATE);
   const employees = await prisma.employee.findMany({
-    where: { tenantId: session!.user.tenantId, active: true },
+    where: { tenantId: session.user.tenantId, active: true },
     select: { id: true, name: true },
     orderBy: { name: "asc" },
   });
