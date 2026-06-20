@@ -44,6 +44,8 @@ model User {
   // Rol personalizado creado por PROPRIETARY (complementa o reemplaza los permisos del role base)
   customRoleId String?
   customRole   CustomRole? @relation(fields: [customRoleId], references: [id], onDelete: SetNull)
+  // Acceso al módulo de inventario (columna heredada, no usada en nómina)
+  inventoryAccess Boolean @default(false)
   // Si false, es usuario solo del sistema (no aparece en nómina ni en listas de empleados pagables)
   active       Boolean   @default(true)
   createdAt    DateTime  @default(now())
