@@ -106,7 +106,7 @@ async function main() {
   });
 
   // ADMIN
-  await prisma.user.create({
+  const userValen = await prisma.user.create({
     data: {
       tenantId: tenant.id,
       username: "AdminValen",
@@ -244,6 +244,149 @@ async function main() {
       },
     });
   }
+
+  console.log("📅 Creando horario publicado de prueba...");
+  const schedule = await prisma.schedule.create({
+    data: {
+      tenantId: tenant.id,
+      name: `Horario ${period.from} a ${period.to}`,
+      weekStart: period.from,
+      published: true,
+      shifts: {
+        create: payableEmployees.flatMap((emp) =>
+          workDays.map(({ date }) => ({
+            employeeId: emp.id,
+            date,
+            startTime: "08:00",
+            endTime: "16:00",
+          }))
+        ),
+      },
+    },
+  });
+  console.log(`   Horario "${schedule.name}" con turnos para ${payableEmployees.length} empleados`);
+
+  console.log("🎁 Creando bonos de prueba...");
+  // Bono STANDARD para todos los empleados de nómina (quincenal)
+  await prisma.bonus.create({
+    data: {
+      tenantId: tenant.id,
+      name: "Bono de transporte",
+      description: "Auxilio de transporte quincenal",
+      valueType: "STANDARD",
+      amount: 50000,
+      assignmentType: "PAYROLL",
+      frequency: "BIWEEKLY",
+      active: true,
+    },
+  });
+  // Bono PER_EMPLOYEE con asignaciones específicas (mensual, primera quincena)
+  await prisma.bonus.create({
+    data: {
+      tenantId: tenant.id,
+      name: "Bono de productividad",
+      description: "Bono variable por desempeño",
+      valueType: "PER_EMPLOYEE",
+      amount: 0,
+      assignmentType: "SPECIFIC",
+      frequency: "MONTHLY",
+      monthlyMode: "FIRST",
+      active: true,
+      assignments: {
+        create: [
+          { tenantId: tenant.id, employeeId: empCesar.id, amount: 80000, active: true },
+          { tenantId: tenant.id, employeeId: empVanessa.id, amount: 60000, active: true },
+        ],
+      },
+    },
+  });
+
+  console.log("➖ Creando descuentos de prueba...");
+  // Descuento STANDARD para todos (quincenal)
+  await prisma.discount.create({
+    data: {
+      tenantId: tenant.id,
+      name: "Préstamo interno",
+      description: "Cuota quincenal de préstamo",
+      valueType: "STANDARD",
+      amount: 30000,
+      assignmentType: "ALL",
+      frequency: "BIWEEKLY",
+      active: true,
+    },
+  });
+  // Descuento PER_EMPLOYEE específico (mensual, segunda quincena)
+  await prisma.discount.create({
+    data: {
+      tenantId: tenant.id,
+      name: "Uniforme",
+      description: "Descuento por uniforme",
+      valueType: "PER_EMPLOYEE",
+      amount: 0,
+      assignmentType: "SPECIFIC",
+      frequency: "MONTHLY",
+      monthlyMode: "SECOND",
+      active: true,
+      assignments: {
+        create: [{ tenantId: tenant.id, employeeId: empCarlos.id, amount: 25000, active: true }],
+      },
+    },
+  });
+
+  console.log("💵 Creando ajustes de pago de prueba...");
+  await prisma.payAdjustment.create({
+    data: {
+      tenantId: tenant.id,
+      employeeId: empCesar.id,
+      type: "BONUS",
+      amount: 40000,
+      description: "Bonificación extraordinaria",
+      periodStart: period.from,
+      periodEnd: period.to,
+    },
+  });
+  await prisma.payAdjustment.create({
+    data: {
+      tenantId: tenant.id,
+      employeeId: empAna.id,
+      type: "DISCOUNT",
+      amount: 15000,
+      description: "Anticipo de quincena",
+      periodStart: period.from,
+      periodEnd: period.to,
+    },
+  });
+
+  console.log("🛡️  Creando rol personalizado de prueba...");
+  await prisma.customRole.create({
+    data: {
+      tenantId: tenant.id,
+      name: "Supervisor de turno",
+      slug: "supervisor-turno",
+      description: "Puede registrar horas y ver reportes, sin gestión de personal",
+      permissions: JSON.stringify([
+        "time_entries:view",
+        "time_entries:create",
+        "time_entries:edit",
+        "schedules:view",
+        "tips:view",
+        "payroll:view",
+      ]),
+      isSystem: false,
+      active: true,
+    },
+  });
+
+  console.log("🔑 Creando permiso individual de prueba (override)...");
+  // A AdminValen se le concede explícitamente ver la auditoría (permiso extra)
+  await prisma.userPermission.create({
+    data: {
+      tenantId: tenant.id,
+      userId: userValen.id,
+      permissionKey: "audit:view",
+      granted: true,
+    },
+  });
 
   console.log("\n✅ Seed completado.");
   console.log("─────────────────────────────────────────────");
