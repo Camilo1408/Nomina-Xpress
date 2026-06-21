@@ -6,6 +6,7 @@ declare module "next-auth" {
     tenantId: string;
     employeeId?: string | null;
     inventoryAccess: boolean;
+    inventoryPermissions?: string[];
   }
   interface Session {
     user: {
@@ -13,6 +14,7 @@ declare module "next-auth" {
       tenantId: string;
       employeeId?: string | null;
       inventoryAccess: boolean;
+      inventoryPermissions: string[];
     } & DefaultSession["user"];
   }
 }
@@ -23,5 +25,6 @@ declare module "next-auth/jwt" {
     tenantId: string;
     employeeId?: string | null;
     inventoryAccess: boolean;
+    inventoryPermissions?: string[];
   }
 }

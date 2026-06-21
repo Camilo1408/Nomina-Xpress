@@ -7,6 +7,7 @@ import { PrismaLibSql } from "@prisma/adapter-libsql";
 import {
   BASE_ROLE_PERMISSIONS,
   ALL_PERMISSION_KEYS,
+  INVENTORY_PERMISSION_KEYS,
   PERMISSIONS,
   PERMISSION_GROUPS,
   PERMISSION_LABELS,
@@ -57,24 +58,26 @@ async function main() {
   const INV = PERMISSIONS.INVENTORY_VIEW;
   console.log(`\n═══ PERMISOS EFECTIVOS POR USUARIO (tenant: ${tenant.name}) ═══\n`);
   let allGood = true;
+  const invCount = (perms: Set<string>) => INVENTORY_PERMISSION_KEYS.filter((k) => perms.has(k)).length;
+  const totalInv = INVENTORY_PERMISSION_KEYS.length;
   for (const u of users) {
     const perms = resolve(u, tenantId);
-    const hasInv = perms.has(INV);
+    // El empleado con toggle inventoryAccess recibe baseline operativo (view + stock:count)
+    const empBaseline = u.role === "EMPLOYEE" && u.inventoryAccess ? 2 : 0;
+    const ic = Math.max(invCount(perms), empBaseline);
     const roleLabel = u.customRole?.active ? `${u.role} + rol "${u.customRole.name}"` : u.role;
-    const expectInv = ["ADMIN", "SUPERADMIN", "PROPRIETARY"].includes(u.role) && !u.customRole?.active;
-    const invStatus = hasInv ? "✅ inventario" : "—  sin inventario";
-    // Validar la regla: admin/superadmin/proprietary base DEBEN tener inventario
-    const ruleOk = expectInv ? hasInv : true;
+    const expectFullInv = ["ADMIN", "SUPERADMIN", "PROPRIETARY"].includes(u.role) && !u.customRole?.active;
+    const invStatus = ic > 0 ? `✅ inventario (${ic}/${totalInv})` : "—  sin inventario";
+    const ruleOk = expectFullInv ? ic === totalInv : true;
     if (!ruleOk) allGood = false;
     console.log(`  @${u.username.padEnd(14)} [${roleLabel}]`);
-    console.log(`     permisos: ${perms.size}/${ALL_PERMISSION_KEYS.length}  |  ${invStatus}${expectInv && !hasInv ? "  ❌ DEBERÍA tener inventario" : ""}`);
+    console.log(`     permisos: ${perms.size}/${ALL_PERMISSION_KEYS.length}  |  ${invStatus}${expectFullInv && ic !== totalInv ? "  ❌ DEBERÍA tener inventario completo" : ""}`);
   }
 
   console.log(`\n═══ PERMISOS POR ROL BASE ═══\n`);
   for (const role of ["EMPLOYEE", "ADMIN", "SUPERADMIN", "PROPRIETARY"]) {
-    const perms = role === "PROPRIETARY" ? new Set(ALL_PERMISSION_KEYS) : new Set(BASE_ROLE_PERMISSIONS[role] ?? []);
-    const hasInv = perms.has(INV);
-    console.log(`  ${role.padEnd(12)} → ${perms.size} permisos  |  inventario: ${hasInv ? "✅" : "—"}`);
+    const perms = role === "PROPRIETARY" ? new Set<string>(ALL_PERMISSION_KEYS) : new Set<string>(BASE_ROLE_PERMISSIONS[role] ?? []);
+    console.log(`  ${role.padEnd(12)} → ${perms.size} permisos  |  inventario: ${invCount(perms)}/${totalInv}`);
   }
 
   console.log(`\n═══ VERIFICACIÓN: inventory:view en la matriz de roles ═══`);

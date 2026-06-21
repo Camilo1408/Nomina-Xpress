@@ -3,6 +3,31 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { recordAudit, getClientInfo } from "@/lib/audit";
+import { getEffectivePermissions } from "@/lib/get-permissions";
+import { PERMISSIONS } from "@/lib/permission-keys";
+
+/**
+ * Calcula los permisos de inventario efectivos del usuario para transmitirlos
+ * en el JWT (el app de inventario los lee y hace enforcing granular).
+ *
+ * - Roles PROPRIETARY/SUPERADMIN/ADMIN traen todos los permisos de inventario
+ *   por su rol base; un CustomRole puede acotarlos.
+ * - Empleados con el toggle `inventoryAccess` reciben el baseline operativo
+ *   (acceder + registrar conteo), aunque su rol base no tenga permisos.
+ */
+async function resolveInventoryPermissions(
+  userId: string,
+  tenantId: string,
+  inventoryAccessFlag: boolean
+): Promise<string[]> {
+  const effective = await getEffectivePermissions(userId, tenantId);
+  const inv = new Set<string>([...effective].filter((k) => k.startsWith("inventory:")));
+  if (inventoryAccessFlag) {
+    inv.add(PERMISSIONS.INVENTORY_VIEW);
+    inv.add(PERMISSIONS.INVENTORY_STOCK_COUNT);
+  }
+  return [...inv];
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
@@ -68,6 +93,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           ip,
           userAgent,
         });
+        const inventoryPermissions = await resolveInventoryPermissions(
+          user.id,
+          user.tenantId,
+          user.inventoryAccess
+        );
         return {
           id: user.id,
           name: user.username,
@@ -75,7 +105,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           role: user.role,
           tenantId: user.tenantId,
           employeeId: user.employeeId,
-          inventoryAccess: user.inventoryAccess,
+          // Acceso efectivo: tiene al menos un permiso de inventario
+          inventoryAccess: inventoryPermissions.length > 0,
+          inventoryPermissions,
         };
       },
     }),
@@ -104,6 +136,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.tenantId = user.tenantId;
         token.employeeId = user.employeeId;
         token.inventoryAccess = user.inventoryAccess ?? false;
+        token.inventoryPermissions = user.inventoryPermissions ?? [];
       }
       return token;
     },
@@ -113,6 +146,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.user.tenantId = token.tenantId as string;
       session.user.employeeId = token.employeeId as string | null | undefined;
       session.user.inventoryAccess = (token.inventoryAccess as boolean) ?? false;
+      session.user.inventoryPermissions = (token.inventoryPermissions as string[]) ?? [];
       return session;
     },
   },
