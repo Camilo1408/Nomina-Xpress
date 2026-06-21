@@ -27,8 +27,6 @@ import {
   ExternalLink,
 } from "lucide-react";
 
-const ADMIN_ROLES = ["SUPERADMIN", "ADMIN", "PROPRIETARY"];
-
 // Cada item del menú declara el permiso que lo habilita.
 // `null` = visible para cualquier usuario del portal admin (Dashboard).
 const allNavItems: Array<{
@@ -91,7 +89,10 @@ export function AdminSidebar({
   // acceso completo de gestión (ADMIN operativo). PROPRIETARY/SUPERADMIN puro
   // sin empleado no lo ve.
   const showMyAccount = hasEmployee && role === "ADMIN";
-  const showInventario = inventarioUrl && ADMIN_ROLES.includes(role);
+  // El acceso a inventario se controla por el permiso granular `inventory:view`.
+  // Los roles base ADMIN/SUPERADMIN lo incluyen y PROPRIETARY lo tiene por acceso
+  // total, así que esos tres siempre lo ven; además es asignable/removible por rol.
+  const showInventario = Boolean(inventarioUrl) && permSet.has(PERMISSIONS.INVENTORY_VIEW);
 
   return (
     <>

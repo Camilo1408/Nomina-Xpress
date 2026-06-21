@@ -76,6 +76,9 @@ export const PERMISSIONS = {
   // ── Auditoría ─────────────────────────────────────────────────────────────
   AUDIT_VIEW:               "audit:view",
 
+  // ── Inventario (módulo externo) ───────────────────────────────────────────
+  INVENTORY_VIEW:           "inventory:view",
+
   // ── Perfil propio ─────────────────────────────────────────────────────────
   PROFILE_EDIT:             "profile:edit",
 } as const;
@@ -103,6 +106,7 @@ export const BASE_ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
     PERMISSIONS.PAYROLL_GENERATE,
     PERMISSIONS.PAYROLL_EXPORT_PDF,
     PERMISSIONS.PAYROLL_EXPORT_EXCEL,
+    PERMISSIONS.INVENTORY_VIEW,
     PERMISSIONS.PROFILE_EDIT,
   ],
 
@@ -145,6 +149,7 @@ export const BASE_ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
     PERMISSIONS.DISCOUNTS_ASSIGN,
     PERMISSIONS.SETTINGS_VIEW,
     PERMISSIONS.SETTINGS_EDIT,
+    PERMISSIONS.INVENTORY_VIEW,
     PERMISSIONS.PROFILE_EDIT,
   ],
 
@@ -276,6 +281,11 @@ export const PERMISSION_GROUPS: Array<{
     keys: [PERMISSIONS.AUDIT_VIEW],
   },
   {
+    module: "inventory",
+    label: "Inventario",
+    keys: [PERMISSIONS.INVENTORY_VIEW],
+  },
+  {
     module: "profile",
     label: "Perfil propio",
     keys: [PERMISSIONS.PROFILE_EDIT],
@@ -334,5 +344,6 @@ export const PERMISSION_LABELS: Record<string, string> = {
   "settings:view":            "Ver configuración",
   "settings:edit":            "Editar configuración",
   "audit:view":               "Ver auditoría",
+  "inventory:view":           "Acceder al inventario",
   "profile:edit":             "Editar perfil propio",
 };
