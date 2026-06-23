@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { logAudit } from "@/lib/audit";
-import { ALL_PERMISSION_KEYS, PERMISSIONS } from "@/lib/permission-keys";
+import { isValidPermissionKey, PERMISSIONS } from "@/lib/permission-keys";
 import { sessionCan } from "@/lib/get-permissions";
 
 const updateSchema = z.object({
@@ -63,7 +63,7 @@ export async function PUT(
   if (parsed.data.description !== undefined) data.description = parsed.data.description;
   if (parsed.data.permissions !== undefined) {
     data.permissions = JSON.stringify(
-      parsed.data.permissions.filter((p) => ALL_PERMISSION_KEYS.includes(p as never))
+      parsed.data.permissions.filter((p) => isValidPermissionKey(p))
     );
   }
   if (parsed.data.active !== undefined) data.active = parsed.data.active;

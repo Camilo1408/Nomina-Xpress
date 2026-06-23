@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { UserPermissionsForm } from "@/components/admin/usuarios/UserPermissionsForm";
 import { requirePagePermission } from "@/lib/require-permission";
 import { PERMISSIONS } from "@/lib/permission-keys";
+import { getDailyCategoriesForUI } from "@/lib/inventory-sync";
 
 export default async function EditUsuarioPage({
   params,
@@ -14,6 +15,7 @@ export default async function EditUsuarioPage({
 
   const { id } = await params;
   const { tenantId } = session.user;
+  const dailyCategories = await getDailyCategoriesForUI(tenantId);
 
   const [user, customRoles] = await Promise.all([
     prisma.user.findFirst({
@@ -67,6 +69,7 @@ export default async function EditUsuarioPage({
         currentOverrides={user.userPermissions}
         customRoles={customRoles}
         currentCustomRoleId={user.customRoleId}
+        dailyCategories={dailyCategories}
       />
     </div>
   );

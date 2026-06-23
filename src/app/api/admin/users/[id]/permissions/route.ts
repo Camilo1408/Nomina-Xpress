@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { logAudit } from "@/lib/audit";
-import { ALL_PERMISSION_KEYS, PERMISSIONS } from "@/lib/permission-keys";
+import { isValidPermissionKey, PERMISSIONS } from "@/lib/permission-keys";
 import { sessionCan } from "@/lib/get-permissions";
 
 const upsertSchema = z.object({
@@ -69,7 +69,7 @@ export async function PUT(
   }
 
   const validOverrides = parsed.data.overrides.filter(
-    (o) => ALL_PERMISSION_KEYS.includes(o.permissionKey as never)
+    (o) => isValidPermissionKey(o.permissionKey)
   );
 
   // Upsert cada override

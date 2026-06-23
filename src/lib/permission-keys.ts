@@ -102,6 +102,60 @@ export const INVENTORY_PERMISSION_KEYS = ALL_PERMISSION_KEYS.filter((k) =>
   k.startsWith("inventory:")
 ) as PermissionKey[];
 
+// ─── Permisos DINÁMICOS de inventario diario POR CATEGORÍA ───────────────────
+// Contrato con el inventario: por cada categoría raíz (identificada por su slug)
+// existen 5 claves. No son estáticas (dependen de las categorías), por eso viven
+// fuera de PERMISSIONS y se validan por patrón.
+//   inventory:daily:<slug>:view | open | close | edit | history
+export type DailyAction = "view" | "open" | "close" | "edit" | "history";
+export const DAILY_ACTIONS: DailyAction[] = ["view", "open", "close", "edit", "history"];
+
+export const DAILY_ACTION_LABELS: Record<DailyAction, string> = {
+  view: "Ver",
+  open: "Abrir jornada",
+  close: "Cerrar jornada",
+  edit: "Reabrir/editar",
+  history: "Historial",
+};
+
+export function dailyCategoryKey(slug: string, action: DailyAction): string {
+  return `inventory:daily:${slug}:${action}`;
+}
+
+export function dailyCategoryKeys(slug: string): string[] {
+  return DAILY_ACTIONS.map((a) => dailyCategoryKey(slug, a));
+}
+
+// Valida que una clave sea del formato dinámico de inventario diario por categoría.
+const DAILY_KEY_RE = /^inventory:daily:([a-z0-9-]+):(view|open|close|edit|history)$/;
+export function isDailyCategoryKey(key: string): boolean {
+  return DAILY_KEY_RE.test(key);
+}
+
+export function parseDailyCategoryKey(key: string): { slug: string; action: DailyAction } | null {
+  const m = key.match(DAILY_KEY_RE);
+  if (!m) return null;
+  return { slug: m[1], action: m[2] as DailyAction };
+}
+
+// Etiqueta legible para cualquier clave (estática o dinámica por categoría).
+// `nameBySlug` mapea slug → nombre de categoría para las claves dinámicas.
+export function permissionLabel(key: string, nameBySlug?: Map<string, string>): string {
+  if (PERMISSION_LABELS[key]) return PERMISSION_LABELS[key];
+  const parsed = parseDailyCategoryKey(key);
+  if (parsed) {
+    const name = nameBySlug?.get(parsed.slug) ?? parsed.slug;
+    return `${name} · ${DAILY_ACTION_LABELS[parsed.action]}`;
+  }
+  return key;
+}
+
+// Una clave de permiso es válida si está en el catálogo estático o es una clave
+// dinámica de inventario diario por categoría.
+export function isValidPermissionKey(key: string): boolean {
+  return ALL_PERMISSION_KEYS.includes(key as PermissionKey) || isDailyCategoryKey(key);
+}
+
 // ─── Permisos por rol base del sistema ────────────────────────────────────────
 // Cuando un usuario NO tiene un rol personalizado, estos son sus permisos efectivos.
 // PROPRIETARY siempre tiene TODOS los permisos (se calcula dinámicamente).

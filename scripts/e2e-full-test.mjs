@@ -126,8 +126,8 @@ async function main() {
   let timeEntryId;
   if (seedEmp) {
     const r = await call("POST", "/api/admin/time-entries", {
-      employeeId: seedEmp.id, date: "2026-06-22",
-      checkIn: "2026-06-22T08:00:00", checkOut: "2026-06-22T16:00:00",
+      employeeId: seedEmp.id, date: "2026-06-28",
+      checkIn: "2026-06-28T08:00:00", checkOut: "2026-06-28T16:00:00",
     });
     check("Crear registro de horas", ok(r.status) && r.data?.id, `status=${r.status} ${JSON.stringify(r.data).slice(0,120)}`);
     timeEntryId = r.data?.id;
@@ -137,21 +137,21 @@ async function main() {
   // Validación: salida antes de entrada → debe fallar (400)
   if (seedEmp) {
     const r = await call("POST", "/api/admin/time-entries", {
-      employeeId: seedEmp.id, date: "2026-06-23",
-      checkIn: "2026-06-23T16:00:00", checkOut: "2026-06-23T08:00:00",
+      employeeId: seedEmp.id, date: "2026-06-29",
+      checkIn: "2026-06-29T16:00:00", checkOut: "2026-06-29T08:00:00",
     });
     check("Rechazar salida anterior a entrada (validación)", r.status === 400, `status=${r.status} (esperado 400)`);
   }
   // Validación: solapamiento → debe fallar
   if (seedEmp && timeEntryId) {
     const r = await call("POST", "/api/admin/time-entries", {
-      employeeId: seedEmp.id, date: "2026-06-22",
-      checkIn: "2026-06-22T10:00:00", checkOut: "2026-06-22T12:00:00",
+      employeeId: seedEmp.id, date: "2026-06-28",
+      checkIn: "2026-06-28T10:00:00", checkOut: "2026-06-28T12:00:00",
     });
     check("Rechazar solapamiento de horarios (validación)", r.status === 400 || r.status === 409, `status=${r.status} (esperado 400/409)`);
   }
   if (timeEntryId) {
-    const r = await call("PUT", `/api/admin/time-entries/${timeEntryId}`, { checkOut: "2026-06-22T17:00:00" });
+    const r = await call("PUT", `/api/admin/time-entries/${timeEntryId}`, { checkOut: "2026-06-28T17:00:00" });
     check("Editar registro de horas", r.status === 200, `status=${r.status} ${JSON.stringify(r.data).slice(0,120)}`);
   }
   if (timeEntryId) {
@@ -164,8 +164,8 @@ async function main() {
   let scheduleId;
   if (seedEmp) {
     const r = await call("POST", "/api/admin/schedules", {
-      name: "Horario E2E", weekStart: "2026-06-22",
-      shifts: [{ employeeId: seedEmp.id, date: "2026-06-22", startTime: "08:00", endTime: "16:00" }],
+      name: "Horario E2E", weekStart: "2026-06-28",
+      shifts: [{ employeeId: seedEmp.id, date: "2026-06-28", startTime: "08:00", endTime: "16:00" }],
     });
     check("Crear horario", ok(r.status) && r.data?.id, `status=${r.status} ${JSON.stringify(r.data).slice(0,120)}`);
     scheduleId = r.data?.id;
@@ -176,8 +176,8 @@ async function main() {
   }
   if (scheduleId) {
     const r = await call("PUT", `/api/admin/schedules/${scheduleId}`, {
-      name: "Horario E2E Editado", weekStart: "2026-06-22",
-      shifts: [{ employeeId: seedEmp.id, date: "2026-06-23", startTime: "09:00", endTime: "17:00" }],
+      name: "Horario E2E Editado", weekStart: "2026-06-28",
+      shifts: [{ employeeId: seedEmp.id, date: "2026-06-29", startTime: "09:00", endTime: "17:00" }],
     });
     check("Editar horario", r.status === 200, `status=${r.status} ${JSON.stringify(r.data).slice(0,120)}`);
   }
