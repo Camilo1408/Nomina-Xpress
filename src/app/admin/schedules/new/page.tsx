@@ -31,7 +31,7 @@ export default async function NewSchedulePage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-heading font-bold text-[#2C1F15]">Nuevo Horario</h1>
-        <p className="text-sm text-[#7A6358] mt-1">Asigna turnos por empleado y día</p>
+        <p className="text-sm text-[#7A6358] mt-1">Asigna turnos por personal y día</p>
       </div>
       <div className="bg-white rounded-lg border border-[#E0D5CA] shadow-[0_1px_3px_rgba(44,31,21,0.08)] p-6">
         <ScheduleGrid employees={employees} weekStart={weekStart} />

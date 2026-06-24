@@ -62,7 +62,7 @@ export async function generatePayrollExcel(
   titleCell.font = { bold: true, size: 14, color: { argb: "FFFAF7F2" } };
   titleCell.alignment = { horizontal: "center", vertical: "middle" };
 
-  const headers = ["Empleado", "Horas Normales", "Horas Especiales", "Bruto", "Ajustes", "Neto", "Propinas", "Bonos", "Descuentos", "Total Final"];
+  const headers = ["Personal", "Horas Normales", "Horas Especiales", "Bruto", "Ajustes", "Neto", "Propinas *", "Bonos", "Descuentos", "Total Final"];
   const headerRow = summary.addRow(headers);
   headerRow.eachCell((cell) => {
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF2EDE6" } };
@@ -114,9 +114,10 @@ export async function generatePayrollExcel(
       dCell.alignment = { horizontal: "left", vertical: "middle" };
     });
 
-    // Fila de firma debajo del empleado
+    // Fila de firma debajo del personal
+    const sigLabel = reportType === "shifts" ? "Firma del contratista" : "Firma del personal";
     const sigRow = summary.addRow([
-      `Firma del empleado: ______________________________`,
+      `${sigLabel}: ______________________________`,
       "", "", "", "", "", "", "", "", "",
     ]);
     summary.mergeCells(`A${sigRow.number}:J${sigRow.number}`);
@@ -148,6 +149,12 @@ export async function generatePayrollExcel(
     totalRow.getCell(col).numFmt = '"$"#,##0';
   });
 
+  // Nota informativa sobre propinas
+  const noteRow = summary.addRow(["* Las propinas se muestran como valor informativo y no se suman al Total Final.", "", "", "", "", "", "", "", "", ""]);
+  summary.mergeCells(`A${noteRow.number}:J${noteRow.number}`);
+  noteRow.getCell(1).font = { italic: true, color: { argb: "FF7A6358" }, size: 9 };
+  noteRow.getCell(1).alignment = { horizontal: "left", vertical: "middle" };
+
   // Detail sheet
   const detail = workbook.addWorksheet("Detalle");
   detail.columns = [
@@ -160,7 +167,7 @@ export async function generatePayrollExcel(
     { key: "notes", width: 28 },
   ];
 
-  const detailHeaders = ["Empleado", "Fecha", "Entrada", "Salida", "Horas", "Tipo", "Notas"];
+  const detailHeaders = ["Personal", "Fecha", "Entrada", "Salida", "Horas", "Tipo", "Notas"];
   const dHeaderRow = detail.addRow(detailHeaders);
   dHeaderRow.eachCell((cell) => {
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF2EDE6" } };

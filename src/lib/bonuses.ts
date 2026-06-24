@@ -25,10 +25,10 @@ export const MONTHLY_MODE_LABELS: Record<BonusMonthlyMode, string> = {
 };
 
 export const ASSIGNMENT_TYPE_LABELS: Record<BonusAssignmentType, string> = {
-  ALL: "Todos los empleados",
+  ALL: "Todo el personal",
   PAYROLL: "Solo nómina",
   SHIFT: "Solo turnos",
-  SPECIFIC: "Empleados específicos",
+  SPECIFIC: "Personal específico",
 };
 
 // Detalle de un bono aplicado a un empleado en un período concreto

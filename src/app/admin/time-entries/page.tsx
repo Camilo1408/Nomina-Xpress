@@ -75,11 +75,11 @@ export default async function TimeEntriesPage({
           <input type="date" name="to" defaultValue={to} className="border border-[#E0D5CA] rounded-md px-2 py-1.5 text-sm text-[#2C1F15] w-full sm:w-auto" />
         </div>
         <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-          <label className="text-sm text-[#7A6358] font-medium">Empleado</label>
+          <label className="text-sm text-[#7A6358] font-medium">Personal</label>
           <SearchableSelect
             name="employeeId"
             defaultValue={sp.employeeId ?? ""}
-            placeholder="Buscar empleado…"
+            placeholder="Buscar personal…"
             emptyOption={{ value: "", label: "Todos" }}
             options={employees.map((e) => ({ value: e.id, label: e.name }))}
             className="w-full sm:w-56"
@@ -94,7 +94,7 @@ export default async function TimeEntriesPage({
         <table className="w-full min-w-[640px] text-sm">
           <thead>
             <tr className="border-b border-[#E0D5CA] bg-[#C1643F]/8">
-              <th className="text-left px-4 py-3 font-semibold text-[#2C1F15]">Empleado</th>
+              <th className="text-left px-4 py-3 font-semibold text-[#2C1F15]">Personal</th>
               <th className="text-left px-4 py-3 font-semibold text-[#2C1F15]">Fecha</th>
               <th className="text-left px-4 py-3 font-semibold text-[#2C1F15]">Entrada</th>
               <th className="text-left px-4 py-3 font-semibold text-[#2C1F15]">Salida</th>

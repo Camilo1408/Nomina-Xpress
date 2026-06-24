@@ -215,35 +215,40 @@ async function main() {
   }
 
   console.log("💰 Creando propina de prueba...");
-  // Propina dentro de la quincena actual, en el primer día laborado del período.
-  const tipDate = workDays[0]?.date ?? period.from;
-  const tipEntry = await prisma.tipEntry.create({
+  // Propina en el primer día laborado del período — usa las horas reales de ese día.
+  const tipDay = workDays[0];
+  const tipDate = tipDay?.date ?? period.from;
+  // Horas reales por empleado ese día: normal=8h, especial (domingo/festivo)=6h.
+  const tipDayHours = tipDay?.isSpecial ? 6 : 8;
+  const totalTipAmount = 500000;
+  const menaje = Math.round(totalTipAmount * 0.1);
+  const netAmount = totalTipAmount - menaje;
+  // Distribución proporcional a horas efectivas (todos 100% → misma proporción)
+  const totalEffective = payableEmployees.length * tipDayHours;
+  const ratePerHour = totalEffective > 0 ? netAmount / totalEffective : 0;
+  await prisma.tipEntry.create({
     data: {
       tenantId: tenant.id,
       date: tipDate,
-      totalAmount: 500000,
-      menaje: 50000,
-      netAmount: 450000,
+      totalAmount: totalTipAmount,
+      menaje,
+      netAmount,
       periodStart: period.from,
       periodEnd: period.to,
       notes: "Propina de prueba (seed)",
+      distributions: {
+        create: payableEmployees.map((emp) => ({
+          tenantId: tenant.id,
+          employeeId: emp.id,
+          hoursWorked: tipDayHours,
+          tipPercent: 100,
+          effectiveHours: tipDayHours,
+          amount: Math.round(tipDayHours * ratePerHour),
+        })),
+      },
     },
   });
-  // Distribución simple equitativa entre los 4 empleados pagables
-  const perEmployee = 450000 / payableEmployees.length;
-  for (const emp of payableEmployees) {
-    await prisma.tipDistribution.create({
-      data: {
-        tenantId: tenant.id,
-        tipEntryId: tipEntry.id,
-        employeeId: emp.id,
-        hoursWorked: 40,
-        tipPercent: 100,
-        effectiveHours: 40,
-        amount: perEmployee,
-      },
-    });
-  }
+  console.log(`   Propina del ${tipDate}: ${tipDayHours}h × ${payableEmployees.length} personas → ~${Math.round(netAmount / payableEmployees.length).toLocaleString("es-CO")} c/u`);
 
   console.log("📅 Creando horario publicado de prueba...");
   const schedule = await prisma.schedule.create({

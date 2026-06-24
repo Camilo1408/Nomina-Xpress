@@ -43,7 +43,7 @@ export default async function EmployeesPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-heading font-bold text-[#2C1F15]">Empleados</h1>
+          <h1 className="text-2xl font-heading font-bold text-[#2C1F15]">Personal</h1>
           <p className="text-sm text-[#7A6358] mt-1">{employees.filter(e => e.active).length} activos</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -66,7 +66,7 @@ export default async function EmployeesPage() {
           {canAdd && (
             <Link href="/admin/employees/new">
               <Button className="bg-[#C1643F] hover:bg-[#A8522F] text-[#FAF7F2] gap-2">
-                <Plus className="w-4 h-4" /> Nuevo empleado
+                <Plus className="w-4 h-4" /> Nuevo personal
               </Button>
             </Link>
           )}
@@ -143,7 +143,7 @@ export default async function EmployeesPage() {
             {employees.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-4 py-12 text-center text-[#7A6358]">
-                  No hay empleados registrados.{" "}
+                  No hay personal registrado.{" "}
                   {canAdd && (
                     <Link href="/admin/employees/new" className="text-[#C1643F] hover:underline">
                       Crear el primero

@@ -36,7 +36,7 @@ const allNavItems: Array<{
   permission: PermissionKey | null;
 }> = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard, permission: null },
-  { href: "/admin/employees", label: "Empleados", icon: Users, permission: PERMISSIONS.EMPLOYEES_VIEW },
+  { href: "/admin/employees", label: "Personal", icon: Users, permission: PERMISSIONS.EMPLOYEES_VIEW },
   { href: "/admin/time-entries", label: "Registro de Horas", icon: Clock, permission: PERMISSIONS.TIME_ENTRIES_VIEW },
   { href: "/admin/schedules", label: "Horarios", icon: Calendar, permission: PERMISSIONS.SCHEDULES_VIEW },
   { href: "/admin/tips", label: "Propinas", icon: Coins, permission: PERMISSIONS.TIPS_VIEW },

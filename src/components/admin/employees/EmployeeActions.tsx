@@ -32,7 +32,7 @@ export function EmployeeActions({
       body: JSON.stringify({ active: false }),
     });
     if (res.ok) {
-      toast.success("Empleado desactivado");
+      toast.success("Personal desactivado");
       router.refresh();
     } else {
       toast.error("Error al desactivar");
@@ -47,7 +47,7 @@ export function EmployeeActions({
       body: JSON.stringify({ active: true }),
     });
     if (res.ok) {
-      toast.success("Empleado reactivado");
+      toast.success("Personal reactivado");
       router.refresh();
     } else {
       toast.error("Error al reactivar");
@@ -58,7 +58,7 @@ export function EmployeeActions({
     setDialog(null);
     const res = await fetch(`/api/admin/employees/${employeeId}`, { method: "DELETE" });
     if (res.ok) {
-      toast.success("Empleado eliminado");
+      toast.success("Personal eliminado");
       router.refresh();
     } else {
       toast.error("Error al eliminar");

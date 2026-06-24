@@ -487,10 +487,10 @@ function BonusForm({
       {/* Selector de empleados específicos */}
       {showSpecificPicker && (
         <div className="space-y-1.5">
-          <Label>Empleados {valueType === "PER_EMPLOYEE" ? "y su valor" : "asignados"}</Label>
+          <Label>Personal {valueType === "PER_EMPLOYEE" ? "y su valor" : "asignado"}</Label>
           <div className="border border-[#E0D5CA] rounded-md divide-y divide-[#F2EDE6] max-h-56 overflow-y-auto">
             {groupEmployees.length === 0 && (
-              <p className="text-xs text-[#7A6358] p-3">No hay empleados activos.</p>
+              <p className="text-xs text-[#7A6358] p-3">No hay personal activo.</p>
             )}
             {groupEmployees.map((e) => (
               <label key={e.id} className="flex items-center gap-3 p-2.5 cursor-pointer hover:bg-[#FAF7F2]">

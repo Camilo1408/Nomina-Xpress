@@ -179,7 +179,7 @@ export function ScheduleGrid({ employees, weekStart, existingSchedule }: Schedul
           <thead>
             <tr>
               <th className="text-left px-3 py-2 font-semibold text-[#2C1F15] bg-[#F2EDE6] border border-[#E0D5CA] min-w-32">
-                Empleado
+                Personal
               </th>
               {weekDates.map((date, i) => (
                 <th key={date} className="px-3 py-2 font-semibold text-[#2C1F15] bg-[#F2EDE6] border border-[#E0D5CA] min-w-36 text-center">

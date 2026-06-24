@@ -18,7 +18,7 @@ export default async function ReportsShiftsPage() {
       <div>
         <h1 className="text-2xl font-heading font-bold text-[#2C1F15]">Reportes de Turnos</h1>
         <p className="text-sm text-[#7A6358] mt-1">
-          Calcula y exporta el reporte de pago por turnos por período (empleados con pago por turnos)
+          Calcula y exporta el reporte de pago por turnos por período (personal con pago por turnos)
         </p>
       </div>
       <ReportsClient

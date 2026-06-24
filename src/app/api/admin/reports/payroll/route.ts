@@ -79,7 +79,8 @@ export async function GET(req: Request) {
         totalBonuses: empBonuses.totalBonuses,
         discounts: empDiscounts.discounts,
         totalDiscounts: empDiscounts.totalDiscounts,
-        finalPay: clampFinalPay(netPayWithTips, empBonuses.totalBonuses, empDiscounts.totalDiscounts),
+        // Las propinas son informativas y NO se suman al total final a pagar.
+        finalPay: clampFinalPay(payroll.netPay, empBonuses.totalBonuses, empDiscounts.totalDiscounts),
         tipDistributions: tipDists.map((d) => ({
           date: d.tipEntry.date,
           amount: Number(d.amount),

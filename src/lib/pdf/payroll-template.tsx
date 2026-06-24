@@ -125,14 +125,6 @@ export function PayrollPDF({
                   </Text>
                 </View>
               ))}
-              {emp.totalTips > 0 && (
-                <View style={styles.tableRow}>
-                  <Text style={styles.col1}>Propinas del período</Text>
-                  <Text style={styles.col2}></Text>
-                  <Text style={styles.col3}></Text>
-                  <Text style={[styles.col4, { color: "#C1643F" }]}>+{formatCurrency(emp.totalTips)}</Text>
-                </View>
-              )}
               {emp.bonuses.map((b, i) => (
                 <View key={b.bonusId} style={(emp.adjustments.length + i) % 2 === 0 ? styles.tableRow : styles.tableRowAlt}>
                   <Text style={styles.col1}>Bono: {b.name}</Text>
@@ -166,13 +158,23 @@ export function PayrollPDF({
                 </View>
               )}
               <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>TOTAL FINAL</Text>
+                <Text style={styles.totalLabel}>TOTAL FINAL A PAGAR</Text>
                 <Text style={[styles.totalValue, styles.netPay]}>{formatCurrency(emp.finalPay)}</Text>
               </View>
+              {emp.totalTips > 0 && (
+                <View style={[styles.tableRow, { backgroundColor: "#FFF8F4" }]}>
+                  <Text style={[styles.col1, { color: "#7A6358", fontSize: 9 }]}>Propinas acumuladas del período (informativo)</Text>
+                  <Text style={styles.col2}></Text>
+                  <Text style={styles.col3}></Text>
+                  <Text style={[styles.col4, { color: "#C1643F", fontSize: 9 }]}>{formatCurrency(emp.totalTips)}</Text>
+                </View>
+              )}
             </View>
             <View style={styles.signatureBlock}>
               <View style={styles.signatureLine} />
-              <Text style={styles.signatureLabel}>Firma del empleado: {emp.employeeName}</Text>
+              <Text style={styles.signatureLabel}>
+                {reportType === "shifts" ? "Firma del contratista" : "Firma del personal"}: {emp.employeeName}
+              </Text>
             </View>
           </View>
         ))}
@@ -182,12 +184,6 @@ export function PayrollPDF({
           <Text style={{ fontFamily: "Helvetica-Bold" }}>Total bruto del período</Text>
           <Text style={{ fontFamily: "Helvetica-Bold" }}>{formatCurrency(totalGross)}</Text>
         </View>
-        {totalTips > 0 && (
-          <View style={styles.summaryLine}>
-            <Text style={{ color: "#C1643F", fontFamily: "Helvetica-Bold" }}>Total propinas del período</Text>
-            <Text style={{ color: "#C1643F", fontFamily: "Helvetica-Bold" }}>{formatCurrency(totalTips)}</Text>
-          </View>
-        )}
         {totalBonuses > 0 && (
           <View style={styles.summaryLine}>
             <Text style={{ color: "#6B8E6B", fontFamily: "Helvetica-Bold" }}>Total bonos del período</Text>
@@ -201,9 +197,22 @@ export function PayrollPDF({
           </View>
         )}
         <View style={styles.summaryLine}>
-          <Text style={[{ fontFamily: "Helvetica-Bold" }, styles.netPay]}>Total final del período</Text>
+          <Text style={[{ fontFamily: "Helvetica-Bold" }, styles.netPay]}>Total final a pagar</Text>
           <Text style={[{ fontFamily: "Helvetica-Bold", fontSize: 13 }, styles.netPay]}>{formatCurrency(totalNet)}</Text>
         </View>
+        {totalTips > 0 && (
+          <>
+            <View style={styles.summaryLine}>
+              <Text style={{ color: "#C1643F", fontSize: 9 }}>Propinas acumuladas del período (valor informativo)</Text>
+              <Text style={{ color: "#C1643F", fontSize: 9 }}>{formatCurrency(totalTips)}</Text>
+            </View>
+            <View style={[styles.summaryLine, { marginTop: 2 }]}>
+              <Text style={{ color: "#A08878", fontSize: 8, fontStyle: "italic" }}>
+                Las propinas se muestran como valor informativo y no se suman al total final.
+              </Text>
+            </View>
+          </>
+        )}
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
