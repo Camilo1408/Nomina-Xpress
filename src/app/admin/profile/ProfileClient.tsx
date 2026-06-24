@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { signOut } from "next-auth/react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,11 +54,20 @@ export function ProfileClient({ role, employee }: ProfileClientProps) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    setLoading(false);
     if (res.ok) {
+      // Cambiar credenciales propias (usuario o contraseña) invalida la sesión:
+      // se cierra y se obliga a iniciar sesión de nuevo con las nuevas credenciales.
+      const changedCredentials = !!body.password || !!body.username;
+      if (changedCredentials) {
+        toast.success("Credenciales actualizadas. Inicia sesión de nuevo.");
+        await signOut({ callbackUrl: "/login" });
+        return;
+      }
+      setLoading(false);
       toast.success("Perfil actualizado");
       setForm({ currentPassword: "", username: "", newPassword: "" });
     } else {
+      setLoading(false);
       const data = await res.json();
       toast.error(typeof data.error === "string" ? data.error : "Error al actualizar");
     }
