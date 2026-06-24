@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { signOut } from "next-auth/react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,14 +37,15 @@ export function PortalProfileClient() {
         newPassword: form.newPassword,
       }),
     });
-    setLoading(false);
     if (res.ok) {
-      toast.success("Contraseña actualizada");
-      setForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-    } else {
-      const data = await res.json();
-      toast.error(typeof data.error === "string" ? data.error : "Error al actualizar");
+      // Cambiar la contraseña propia cierra la sesión y obliga a re-loguear.
+      toast.success("Contraseña actualizada. Inicia sesión de nuevo.");
+      await signOut({ callbackUrl: "/login" });
+      return;
     }
+    setLoading(false);
+    const data = await res.json();
+    toast.error(typeof data.error === "string" ? data.error : "Error al actualizar");
   }
 
   return (
