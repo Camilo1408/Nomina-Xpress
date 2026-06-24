@@ -28,7 +28,7 @@ export default async function NewUsuarioPage() {
       <div>
         <h1 className="text-2xl font-heading font-bold text-[#2C1F15]">Nuevo usuario del portal</h1>
         <p className="text-sm text-[#7A6358] mt-1">
-          Crea un usuario solo del sistema (no pagable) o vincula uno a un empleado existente.
+          Crea un usuario solo del sistema (no pagable) o vincula uno al personal existente.
         </p>
       </div>
       <NewUserForm customRoles={customRoles} employees={employees} />

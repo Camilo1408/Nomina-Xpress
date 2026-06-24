@@ -37,7 +37,7 @@ interface EmployeeFormProps {
 type PayType = "PAYROLL" | "SHIFT";
 
 const roleLabels: Record<string, string> = {
-  EMPLOYEE: "Empleado",
+  EMPLOYEE: "Personal",
   ADMIN: "Admin",
   SUPERADMIN: "Superadmin",
 };
@@ -104,7 +104,7 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
     });
     setLoading(false);
     if (res.ok) {
-      toast.success(isEdit ? "Empleado actualizado" : "Empleado creado");
+      toast.success(isEdit ? "Personal actualizado" : "Personal creado");
       router.push("/admin/employees");
       router.refresh();
     } else {
@@ -216,8 +216,8 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
             <Label>Tipo de pago *</Label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {([
-                { value: "PAYROLL", label: "Pago de nómina", desc: "Empleado fijo bajo nómina" },
-                { value: "SHIFT", label: "Pago por turnos", desc: "Empleado pagado por turnos" },
+                { value: "PAYROLL", label: "Pago de nómina", desc: "Personal fijo bajo nómina" },
+                { value: "SHIFT", label: "Pago por turnos", desc: "Personal pagado por turnos" },
               ] as const).map(({ value, label, desc }) => (
                 <label
                   key={value}
@@ -253,7 +253,7 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
               {(
                 [
                   { value: "NONE", label: "Sin acceso", desc: "Solo aparece en registros internos", icon: null },
-                  { value: "EMPLOYEE", label: "Empleado", desc: "Puede ver su quincena y horario en el portal", icon: User },
+                  { value: "EMPLOYEE", label: "Personal", desc: "Puede ver su quincena y horario en el portal", icon: User },
                   { value: "ADMIN", label: "Admin", desc: "Puede registrar horas y ver reportes", icon: ShieldCheck },
                 ] as const
               ).map(({ value, label, desc, icon: Icon }) => (

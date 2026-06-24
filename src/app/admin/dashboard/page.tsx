@@ -192,7 +192,7 @@ export default async function DashboardPage() {
           <Card className="border-l-4 border-l-[var(--primary)] shadow-sm">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Users className="w-4 h-4" /> Empleados activos
+                <Users className="w-4 h-4" /> Personal activo
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -241,7 +241,7 @@ export default async function DashboardPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-[var(--warning)]" />
-              Empleados con entrada sin salida hoy
+              Personal con entrada sin salida hoy
             </CardTitle>
           </CardHeader>
           <CardContent>

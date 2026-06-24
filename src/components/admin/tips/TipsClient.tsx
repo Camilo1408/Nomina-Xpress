@@ -243,7 +243,7 @@ export function TipsClient({ canCreate, canEdit, canDelete }: TipsClientProps) {
                         <table className="w-full min-w-[480px] text-xs">
                           <thead>
                             <tr className="border-b border-[#E0D5CA]">
-                              <th className="text-left py-1.5 text-[#7A6358] font-medium">Empleado</th>
+                              <th className="text-left py-1.5 text-[#7A6358] font-medium">Personal</th>
                               <th className="text-right py-1.5 text-[#7A6358] font-medium">Horas</th>
                               <th className="text-right py-1.5 text-[#7A6358] font-medium">% Prop.</th>
                               <th className="text-right py-1.5 text-[#7A6358] font-medium">Hs. ef.</th>

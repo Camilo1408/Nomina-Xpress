@@ -18,7 +18,7 @@ export default async function ReportsPayrollPage() {
       <div>
         <h1 className="text-2xl font-heading font-bold text-[#2C1F15]">Reportes de Nómina</h1>
         <p className="text-sm text-[#7A6358] mt-1">
-          Calcula y exporta el reporte de nómina por período (empleados con pago de nómina)
+          Calcula y exporta el reporte de nómina por período (personal con pago de nómina)
         </p>
       </div>
       <ReportsClient

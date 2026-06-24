@@ -152,11 +152,11 @@ export function TimeEntryForm({ employees, entry }: TimeEntryFormProps) {
 
         {/* Empleado */}
         <div className="sm:col-span-2 space-y-1.5">
-          <Label>Empleado *</Label>
+          <Label>Personal *</Label>
           <SearchableSelect
             value={form.employeeId}
             onValueChange={(v) => set("employeeId", v)}
-            placeholder="Buscar empleado…"
+            placeholder="Buscar personal…"
             options={employees.map((emp) => ({ value: emp.id, label: emp.name }))}
           />
         </div>

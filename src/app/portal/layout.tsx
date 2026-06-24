@@ -18,7 +18,7 @@ export default async function PortalLayout({
       : null,
   ]);
 
-  const displayName = employee?.name ?? session.user.name ?? "Empleado";
+  const displayName = employee?.name ?? session.user.name ?? "Personal";
 
   return (
     <div className="min-h-screen bg-background">

@@ -8,7 +8,7 @@ import { requirePagePermission } from "@/lib/require-permission";
 import { PERMISSIONS } from "@/lib/permission-keys";
 
 const ROLE_LABELS: Record<string, string> = {
-  EMPLOYEE: "Empleado",
+  EMPLOYEE: "Personal",
   ADMIN: "Admin",
   SUPERADMIN: "Superadmin",
   PROPRIETARY: "Propietario",
@@ -62,7 +62,7 @@ export default async function UsuariosPage() {
               <th className="text-left px-4 py-3 font-semibold text-[#2C1F15]">Usuario</th>
               <th className="text-left px-4 py-3 font-semibold text-[#2C1F15]">Rol base</th>
               <th className="text-left px-4 py-3 font-semibold text-[#2C1F15]">Rol personalizado</th>
-              <th className="text-left px-4 py-3 font-semibold text-[#2C1F15]">Empleado / Pagable</th>
+              <th className="text-left px-4 py-3 font-semibold text-[#2C1F15]">Personal / Pagable</th>
               <th className="text-left px-4 py-3 font-semibold text-[#2C1F15]">Overrides</th>
               <th className="text-left px-4 py-3 font-semibold text-[#2C1F15]">Acceso</th>
               <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]">Acciones</th>
@@ -99,7 +99,7 @@ export default async function UsuariosPage() {
                     <div>
                       <p className="text-[#2C1F15]">{u.employee.name}</p>
                       {!u.employee.active && (
-                        <span className="text-xs text-[#B94040]">Empleado inactivo</span>
+                        <span className="text-xs text-[#B94040]">Personal inactivo</span>
                       )}
                     </div>
                   ) : (
@@ -142,7 +142,7 @@ export default async function UsuariosPage() {
       </div>
 
       <div className="rounded-lg border border-[#E0D5CA] bg-[#FAF7F2] px-4 py-3 text-sm text-[#7A6358]">
-        <strong className="text-[#2C1F15]">Solo sistema</strong> — usuarios sin empleado vinculado. No aparecen en nómina, horas, bonos, propinas ni reportes de pago.
+        <strong className="text-[#2C1F15]">Solo sistema</strong> — usuarios sin personal vinculado. No aparecen en nómina, horas, bonos, propinas ni reportes de pago.
       </div>
     </div>
   );

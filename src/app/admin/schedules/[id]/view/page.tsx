@@ -88,7 +88,7 @@ export default async function ScheduleViewPage({
               </Badge>
             </div>
             <p className="text-sm text-[#7A6358] mt-0.5">
-              Semana del {schedule.weekStart} · {employees.length} empleado{employees.length !== 1 ? "s" : ""} · {totalShifts} turno{totalShifts !== 1 ? "s" : ""}
+              Semana del {schedule.weekStart} · {employees.length} personal · {totalShifts} turno{totalShifts !== 1 ? "s" : ""}
             </p>
           </div>
         </div>
@@ -106,7 +106,7 @@ export default async function ScheduleViewPage({
         <table className="w-full min-w-[720px] text-sm">
           <thead>
             <tr className="border-b border-[#E0D5CA] bg-[#F2EDE6]/60">
-              <th className="text-left px-4 py-3 font-semibold text-[#2C1F15] w-40">Empleado</th>
+              <th className="text-left px-4 py-3 font-semibold text-[#2C1F15] w-40">Personal</th>
               {weekDates.map((date, i) => {
                 const { label, date: dayDate } = formatDayHeader(date, DAY_LABELS[i]);
                 const isSunday = i === 6;
