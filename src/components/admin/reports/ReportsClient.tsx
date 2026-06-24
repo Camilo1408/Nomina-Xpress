@@ -165,10 +165,10 @@ export function ReportsClient({ employees, canExportPdf, canExportExcel, canAddA
               { label: "Horas normales", value: formatHours(totalNormalH), color: "#6B8E6B" },
               { label: "Horas especiales", value: formatHours(totalSpecialH), color: "#C1643F" },
               { label: "Total neto", value: formatCurrency(totalNet), color: "#2C1F15" },
-              { label: "Propinas", value: formatCurrency(totalTips), color: "#C1643F" },
               { label: "Bonos", value: formatCurrency(totalBonuses), color: "#6B8E6B" },
               { label: "Descuentos", value: formatCurrency(totalDiscounts), color: "#B94040" },
               { label: "Total final", value: formatCurrency(totalFinal), color: "#6B8E6B" },
+              { label: "Propinas", value: formatCurrency(totalTips), color: "#C1643F" },
             ].map((card) => (
               <Card key={card.label} className="shadow-[0_1px_3px_rgba(44,31,21,0.08)]">
                 <CardHeader className="pb-1">
@@ -191,10 +191,10 @@ export function ReportsClient({ employees, canExportPdf, canExportExcel, canAddA
                   <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]">H. Especial</th>
                   <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]">Ajustes</th>
                   <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]">Neto</th>
-                  <th className="text-right px-4 py-3 font-semibold text-[#C1643F]">Propinas</th>
                   <th className="text-right px-4 py-3 font-semibold text-[#6B8E6B]">Bonos</th>
                   <th className="text-right px-4 py-3 font-semibold text-[#B94040]">Descuentos</th>
                   <th className="text-right px-4 py-3 font-semibold text-[#6B8E6B]">Total final</th>
+                  <th className="text-right px-4 py-3 font-semibold text-[#C1643F]">Propinas</th>
                   {canAddAdjustment && <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]">Acción</th>}
                 </tr>
               </thead>
@@ -270,9 +270,6 @@ export function ReportsClient({ employees, canExportPdf, canExportExcel, canAddA
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right font-mono font-bold text-[#6B8E6B]">{formatCurrency(emp.netPay)}</td>
-                    <td className="px-4 py-3 text-right font-mono text-[#C1643F]">
-                      {emp.totalTips > 0 ? formatCurrency(emp.totalTips) : <span className="text-[#7A6358]">—</span>}
-                    </td>
                     <td className="px-4 py-3 text-right font-mono text-[#6B8E6B]">
                       {emp.totalBonuses > 0 ? formatCurrency(emp.totalBonuses) : <span className="text-[#7A6358]">—</span>}
                     </td>
@@ -280,6 +277,9 @@ export function ReportsClient({ employees, canExportPdf, canExportExcel, canAddA
                       {emp.totalDiscounts > 0 ? `−${formatCurrency(emp.totalDiscounts)}` : <span className="text-[#7A6358]">—</span>}
                     </td>
                     <td className="px-4 py-3 text-right font-mono font-bold text-[#6B8E6B]">{formatCurrency(emp.finalPay)}</td>
+                    <td className="px-4 py-3 text-right font-mono text-[#C1643F]">
+                      {emp.totalTips > 0 ? formatCurrency(emp.totalTips) : <span className="text-[#7A6358]">—</span>}
+                    </td>
                     {canAddAdjustment && (
                     <td className="px-4 py-3 text-right">
                       <Button
