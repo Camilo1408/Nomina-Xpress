@@ -103,6 +103,25 @@ export function resolvePermissionsSync(user: {
 }
 
 /**
+ * ¿El usuario puede acceder al ÁREA de administración?
+ *
+ * El acceso al área admin depende de los permisos EFECTIVOS, no del rol base:
+ * un EMPLOYEE con un rol personalizado o permisos individuales que otorgan
+ * acciones admin (horas, horarios, propinas, nómina, etc.) debe poder entrar,
+ * y el sidebar/páginas ya filtran por permiso lo que ve.
+ *
+ * Regla: tiene acceso si posee al menos un permiso que NO sea puramente del
+ * portal (`profile:edit`). El baseline de EMPLOYEE es vacío, así que un empleado
+ * sin permisos concedidos queda fuera del área admin (solo su portal).
+ */
+export function hasAdminAreaAccess(permissions: Set<string>): boolean {
+  for (const key of permissions) {
+    if (key !== PERMISSIONS.PROFILE_EDIT) return true;
+  }
+  return false;
+}
+
+/**
  * Helper para Server Components y API routes: dado un session de NextAuth,
  * retorna el set de permisos efectivos del usuario logueado.
  */
