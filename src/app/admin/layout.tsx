@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { AdminSidebar } from "@/components/shared/AdminSidebar";
-import { getSessionPermissions } from "@/lib/get-permissions";
+import { getSessionPermissions, hasAdminAreaAccess } from "@/lib/get-permissions";
 
 export default async function AdminLayout({
   children,
@@ -10,12 +10,17 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const session = await auth();
-  if (!session || !["ADMIN", "SUPERADMIN", "PROPRIETARY"].includes(session.user.role)) redirect("/login");
+  if (!session) redirect("/login");
 
   const [tenant, permissions] = await Promise.all([
     prisma.tenant.findUnique({ where: { id: session.user.tenantId } }),
     getSessionPermissions(session),
   ]);
+
+  // Gate por permisos EFECTIVOS (BD fresca), no por rol base: así un EMPLOYEE con
+  // rol personalizado o permisos individuales admin entra al área, y los cambios
+  // de permisos se reflejan al refrescar sin necesidad de re-loguear.
+  if (!hasAdminAreaAccess(permissions)) redirect("/portal/report");
 
   return (
     <div className="flex h-screen overflow-hidden">

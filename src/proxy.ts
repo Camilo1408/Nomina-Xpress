@@ -17,11 +17,11 @@ export default auth((req) => {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  if (pathname.startsWith("/admin")) {
-    if (!ADMIN_PORTAL_ROLES.includes(role ?? "")) {
-      return NextResponse.redirect(new URL("/portal/report", req.url));
-    }
-  }
+  // El acceso a /admin NO se decide aquí por rol base: el edge runtime no puede
+  // resolver permisos efectivos desde la BD. El gate real está en admin/layout
+  // (Server Component con BD fresca), que permite entrar a cualquier usuario con
+  // al menos un permiso admin (incluye EMPLOYEE con rol personalizado) y redirige
+  // al portal a quien no tenga permisos.
 
   if (pathname.startsWith("/portal")) {
     if (role !== "EMPLOYEE") {
