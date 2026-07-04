@@ -11,6 +11,6 @@ export interface PayrollWithExtras extends PayrollResult {
   totalBonuses: number;
   discounts: DiscountApplied[];
   totalDiscounts: number;
-  // Total final: neto + propinas + bonos − descuentos (nunca negativo)
+  // Total final: neto + bonos − descuentos (nunca negativo; propinas son informativas)
   finalPay: number;
 }

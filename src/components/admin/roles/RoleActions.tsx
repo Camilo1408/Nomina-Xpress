@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { MoreHorizontal, Pencil, Trash2, Power } from "lucide-react";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
 interface RoleActionsProps {
   roleId: string;
@@ -20,6 +21,7 @@ export function RoleActions({ roleId, roleName, active, isSystem, userCount, can
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [coords, setCoords] = useState<{ top: number; right: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
 
@@ -57,11 +59,10 @@ export function RoleActions({ roleId, roleName, active, isSystem, userCount, can
   }
 
   async function remove() {
-    if (!confirm(`¿Eliminar el rol "${roleName}"? Esta acción no se puede deshacer.`)) return;
     setLoading(true);
-    setOpen(false);
     const res = await fetch(`/api/admin/roles/${roleId}`, { method: "DELETE" });
     setLoading(false);
+    setConfirmOpen(false);
     if (res.ok) {
       toast.success("Rol eliminado");
       router.refresh();
@@ -111,7 +112,7 @@ export function RoleActions({ roleId, roleName, active, isSystem, userCount, can
             )}
             {canEdit && userCount === 0 && (
               <button
-                onClick={remove}
+                onClick={() => { setOpen(false); setConfirmOpen(true); }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-sm text-[#B94040] hover:bg-red-50"
               >
                 <Trash2 className="w-3.5 h-3.5" /> Eliminar
@@ -121,6 +122,15 @@ export function RoleActions({ roleId, roleName, active, isSystem, userCount, can
         </>,
         document.body
       )}
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Eliminar rol"
+        description={`¿Eliminar el rol "${roleName}"? Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar"
+        variant="danger"
+        onConfirm={remove}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </div>
   );
 }

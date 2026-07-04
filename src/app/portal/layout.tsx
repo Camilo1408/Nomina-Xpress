@@ -18,13 +18,16 @@ export default async function PortalLayout({
       : null,
   ]);
 
-  const displayName = employee?.name ?? session.user.name ?? "Empleado";
+  const displayName = employee?.name ?? session.user.name ?? "Personal";
 
   return (
     <div className="min-h-screen bg-background">
       <PortalNav
         userName={displayName}
         logoUrl={tenant?.logoUrl}
+        inventarioUrl={session.user.inventoryAccess
+          ? process.env.NEXT_PUBLIC_INVENTARIO_APP_URL
+          : undefined}
       />
       <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">{children}</main>
     </div>

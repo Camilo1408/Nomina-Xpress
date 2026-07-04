@@ -119,9 +119,9 @@ export default async function RolesPage() {
       <div className="rounded-lg border border-[#E0D5CA] bg-[#FAF7F2] p-4">
         <h3 className="text-sm font-semibold text-[#2C1F15] mb-2">Roles base del sistema</h3>
         <div className="space-y-1 text-sm text-[#7A6358]">
-          <p><strong className="text-[#2C1F15]">EMPLOYEE</strong> — Acceso solo al portal del empleado (mi quincena, mi horario).</p>
+          <p><strong className="text-[#2C1F15]">EMPLOYEE</strong> — Acceso solo al portal del personal (mi quincena, mi horario).</p>
           <p><strong className="text-[#2C1F15]">ADMIN</strong> — Portal admin: registro de horas, propinas, reportes, perfil.</p>
-          <p><strong className="text-[#2C1F15]">SUPERADMIN</strong> — Todo ADMIN + empleados, horarios, bonos, descuentos, configuración.</p>
+          <p><strong className="text-[#2C1F15]">SUPERADMIN</strong> — Todo ADMIN + personal, horarios, bonos, descuentos, configuración.</p>
           <p><strong className="text-[#2C1F15]">PROPRIETARY</strong> — Todos los permisos. Gestiona roles, usuarios, auditoría y configuración avanzada.</p>
         </div>
         <p className="text-xs text-[#7A6358] mt-3">

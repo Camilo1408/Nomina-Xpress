@@ -76,12 +76,85 @@ export const PERMISSIONS = {
   // ── Auditoría ─────────────────────────────────────────────────────────────
   AUDIT_VIEW:               "audit:view",
 
+  // ── Inventario (módulo externo, enforced por el app de inventario vía JWT) ──
+  INVENTORY_VIEW:               "inventory:view",                // acceder al inventario
+  INVENTORY_PRODUCTS_CREATE:    "inventory:products:create",     // crear productos
+  INVENTORY_PRODUCTS_EDIT:      "inventory:products:edit",       // editar productos
+  INVENTORY_PRODUCTS_DELETE:    "inventory:products:delete",     // eliminar/desactivar productos
+  INVENTORY_CATEGORIES_MANAGE:  "inventory:categories:manage",   // crear/editar categorías
+  INVENTORY_STOCK_COUNT:        "inventory:stock:count",         // registrar movimientos / inventario diario
+  INVENTORY_STOCK_ADJUST:       "inventory:stock:adjust",        // ajustes manuales de stock
+  INVENTORY_DAILY_REOPEN:       "inventory:daily:reopen",        // reabrir inventario diario cerrado
+  INVENTORY_REPORTS_VIEW:       "inventory:reports:view",        // ver reportes de inventario
+  INVENTORY_USERS_MANAGE:       "inventory:users:manage",        // gestionar usuarios del inventario (standalone)
+
   // ── Perfil propio ─────────────────────────────────────────────────────────
   PROFILE_EDIT:             "profile:edit",
 } as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 export const ALL_PERMISSION_KEYS = Object.values(PERMISSIONS) as PermissionKey[];
+
+// Subconjunto de claves del módulo de inventario. El app de inventario las
+// consume desde el JWT para enforcing granular. Útil para filtrar los permisos
+// efectivos que se transmiten al sistema externo.
+export const INVENTORY_PERMISSION_KEYS = ALL_PERMISSION_KEYS.filter((k) =>
+  k.startsWith("inventory:")
+) as PermissionKey[];
+
+// ─── Permisos DINÁMICOS de inventario diario POR CATEGORÍA ───────────────────
+// Contrato con el inventario: por cada categoría raíz (identificada por su slug)
+// existen 5 claves. No son estáticas (dependen de las categorías), por eso viven
+// fuera de PERMISSIONS y se validan por patrón.
+//   inventory:daily:<slug>:view | open | close | edit | history
+export type DailyAction = "view" | "open" | "close" | "edit" | "history";
+export const DAILY_ACTIONS: DailyAction[] = ["view", "open", "close", "edit", "history"];
+
+export const DAILY_ACTION_LABELS: Record<DailyAction, string> = {
+  view: "Ver",
+  open: "Abrir jornada",
+  close: "Cerrar jornada",
+  edit: "Reabrir/editar",
+  history: "Historial",
+};
+
+export function dailyCategoryKey(slug: string, action: DailyAction): string {
+  return `inventory:daily:${slug}:${action}`;
+}
+
+export function dailyCategoryKeys(slug: string): string[] {
+  return DAILY_ACTIONS.map((a) => dailyCategoryKey(slug, a));
+}
+
+// Valida que una clave sea del formato dinámico de inventario diario por categoría.
+const DAILY_KEY_RE = /^inventory:daily:([a-z0-9-]+):(view|open|close|edit|history)$/;
+export function isDailyCategoryKey(key: string): boolean {
+  return DAILY_KEY_RE.test(key);
+}
+
+export function parseDailyCategoryKey(key: string): { slug: string; action: DailyAction } | null {
+  const m = key.match(DAILY_KEY_RE);
+  if (!m) return null;
+  return { slug: m[1], action: m[2] as DailyAction };
+}
+
+// Etiqueta legible para cualquier clave (estática o dinámica por categoría).
+// `nameBySlug` mapea slug → nombre de categoría para las claves dinámicas.
+export function permissionLabel(key: string, nameBySlug?: Map<string, string>): string {
+  if (PERMISSION_LABELS[key]) return PERMISSION_LABELS[key];
+  const parsed = parseDailyCategoryKey(key);
+  if (parsed) {
+    const name = nameBySlug?.get(parsed.slug) ?? parsed.slug;
+    return `${name} · ${DAILY_ACTION_LABELS[parsed.action]}`;
+  }
+  return key;
+}
+
+// Una clave de permiso es válida si está en el catálogo estático o es una clave
+// dinámica de inventario diario por categoría.
+export function isValidPermissionKey(key: string): boolean {
+  return ALL_PERMISSION_KEYS.includes(key as PermissionKey) || isDailyCategoryKey(key);
+}
 
 // ─── Permisos por rol base del sistema ────────────────────────────────────────
 // Cuando un usuario NO tiene un rol personalizado, estos son sus permisos efectivos.
@@ -103,6 +176,17 @@ export const BASE_ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
     PERMISSIONS.PAYROLL_GENERATE,
     PERMISSIONS.PAYROLL_EXPORT_PDF,
     PERMISSIONS.PAYROLL_EXPORT_EXCEL,
+    // Inventario: gestión completa (regla de negocio — ADMIN gestiona todo)
+    PERMISSIONS.INVENTORY_VIEW,
+    PERMISSIONS.INVENTORY_PRODUCTS_CREATE,
+    PERMISSIONS.INVENTORY_PRODUCTS_EDIT,
+    PERMISSIONS.INVENTORY_PRODUCTS_DELETE,
+    PERMISSIONS.INVENTORY_CATEGORIES_MANAGE,
+    PERMISSIONS.INVENTORY_STOCK_COUNT,
+    PERMISSIONS.INVENTORY_STOCK_ADJUST,
+    PERMISSIONS.INVENTORY_DAILY_REOPEN,
+    PERMISSIONS.INVENTORY_REPORTS_VIEW,
+    PERMISSIONS.INVENTORY_USERS_MANAGE,
     PERMISSIONS.PROFILE_EDIT,
   ],
 
@@ -145,6 +229,17 @@ export const BASE_ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
     PERMISSIONS.DISCOUNTS_ASSIGN,
     PERMISSIONS.SETTINGS_VIEW,
     PERMISSIONS.SETTINGS_EDIT,
+    // Inventario: gestión completa
+    PERMISSIONS.INVENTORY_VIEW,
+    PERMISSIONS.INVENTORY_PRODUCTS_CREATE,
+    PERMISSIONS.INVENTORY_PRODUCTS_EDIT,
+    PERMISSIONS.INVENTORY_PRODUCTS_DELETE,
+    PERMISSIONS.INVENTORY_CATEGORIES_MANAGE,
+    PERMISSIONS.INVENTORY_STOCK_COUNT,
+    PERMISSIONS.INVENTORY_STOCK_ADJUST,
+    PERMISSIONS.INVENTORY_DAILY_REOPEN,
+    PERMISSIONS.INVENTORY_REPORTS_VIEW,
+    PERMISSIONS.INVENTORY_USERS_MANAGE,
     PERMISSIONS.PROFILE_EDIT,
   ],
 
@@ -172,7 +267,7 @@ export const PERMISSION_GROUPS: Array<{
   },
   {
     module: "employees",
-    label: "Empleados",
+    label: "Personal",
     keys: [
       PERMISSIONS.EMPLOYEES_VIEW,
       PERMISSIONS.EMPLOYEES_CREATE,
@@ -276,6 +371,22 @@ export const PERMISSION_GROUPS: Array<{
     keys: [PERMISSIONS.AUDIT_VIEW],
   },
   {
+    module: "inventory",
+    label: "Inventario",
+    keys: [
+      PERMISSIONS.INVENTORY_VIEW,
+      PERMISSIONS.INVENTORY_PRODUCTS_CREATE,
+      PERMISSIONS.INVENTORY_PRODUCTS_EDIT,
+      PERMISSIONS.INVENTORY_PRODUCTS_DELETE,
+      PERMISSIONS.INVENTORY_CATEGORIES_MANAGE,
+      PERMISSIONS.INVENTORY_STOCK_COUNT,
+      PERMISSIONS.INVENTORY_STOCK_ADJUST,
+      PERMISSIONS.INVENTORY_DAILY_REOPEN,
+      PERMISSIONS.INVENTORY_REPORTS_VIEW,
+      PERMISSIONS.INVENTORY_USERS_MANAGE,
+    ],
+  },
+  {
     module: "profile",
     label: "Perfil propio",
     keys: [PERMISSIONS.PROFILE_EDIT],
@@ -290,12 +401,12 @@ export const PERMISSION_LABELS: Record<string, string> = {
   "users:deactivate":         "Desactivar usuarios",
   "users:assign_role":        "Asignar roles",
   "users:manage_permissions": "Gestionar permisos individuales",
-  "employees:view":           "Ver empleados",
-  "employees:create":         "Crear empleados",
-  "employees:edit":           "Editar empleados",
-  "employees:deactivate":     "Activar/desactivar empleados",
-  "employees:delete":         "Eliminar empleados",
-  "employees:credentials":    "Gestionar credenciales de empleados",
+  "employees:view":           "Ver personal",
+  "employees:create":         "Crear personal",
+  "employees:edit":           "Editar personal",
+  "employees:deactivate":     "Activar/desactivar personal",
+  "employees:delete":         "Eliminar personal",
+  "employees:credentials":    "Gestionar credenciales del personal",
   "roles:view":               "Ver roles",
   "roles:create":             "Crear roles",
   "roles:edit":               "Editar roles",
@@ -325,14 +436,24 @@ export const PERMISSION_LABELS: Record<string, string> = {
   "bonuses:create":           "Crear bonos",
   "bonuses:edit":             "Editar bonos",
   "bonuses:delete":           "Eliminar bonos",
-  "bonuses:assign":           "Asignar bonos a empleados",
+  "bonuses:assign":           "Asignar bonos al personal",
   "discounts:view":           "Ver descuentos",
   "discounts:create":         "Crear descuentos",
   "discounts:edit":           "Editar descuentos",
   "discounts:delete":         "Eliminar descuentos",
-  "discounts:assign":         "Asignar descuentos a empleados",
+  "discounts:assign":         "Asignar descuentos al personal",
   "settings:view":            "Ver configuración",
   "settings:edit":            "Editar configuración",
   "audit:view":               "Ver auditoría",
+  "inventory:view":              "Acceder al inventario",
+  "inventory:products:create":   "Crear productos",
+  "inventory:products:edit":     "Editar productos",
+  "inventory:products:delete":   "Eliminar/desactivar productos",
+  "inventory:categories:manage": "Gestionar categorías",
+  "inventory:stock:count":       "Registrar movimientos / inventario diario",
+  "inventory:stock:adjust":      "Ajustar stock manualmente",
+  "inventory:daily:reopen":      "Reabrir inventario diario",
+  "inventory:reports:view":      "Ver reportes de inventario",
+  "inventory:users:manage":      "Gestionar usuarios del inventario",
   "profile:edit":             "Editar perfil propio",
 };

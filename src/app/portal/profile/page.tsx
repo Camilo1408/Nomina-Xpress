@@ -14,7 +14,7 @@ export default async function PortalProfilePage() {
       })
     : null;
 
-  const displayName = employee?.name ?? session!.user.name ?? "Empleado";
+  const displayName = employee?.name ?? session!.user.name ?? "Personal";
 
   return (
     <div className="space-y-6">

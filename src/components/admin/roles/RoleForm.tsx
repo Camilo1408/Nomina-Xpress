@@ -6,7 +6,12 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PERMISSION_GROUPS, PERMISSION_LABELS, ALL_PERMISSION_KEYS, type PermissionKey } from "@/lib/permission-keys";
+import {
+  PERMISSION_GROUPS,
+  permissionLabel,
+  isValidPermissionKey,
+  dailyCategoryKeys,
+} from "@/lib/permission-keys";
 
 interface RoleFormProps {
   role?: {
@@ -18,6 +23,8 @@ interface RoleFormProps {
     active: boolean;
     isSystem: boolean;
   };
+  // Categorías de inventario (espejo sincronizado) para los permisos por categoría.
+  dailyCategories?: { slug: string; name: string }[];
 }
 
 function slugify(s: string) {
@@ -29,24 +36,29 @@ function slugify(s: string) {
     .replace(/(^-|-$)/g, "");
 }
 
-export function RoleForm({ role }: RoleFormProps) {
+export function RoleForm({ role, dailyCategories = [] }: RoleFormProps) {
   const router = useRouter();
   const isEdit = !!role;
 
-  const initialPerms: Set<PermissionKey> = new Set(
-    isEdit ? (JSON.parse(role!.permissions) as string[]).filter((k) =>
-      ALL_PERMISSION_KEYS.includes(k as PermissionKey)
-    ) as PermissionKey[] : []
+  const initialPerms: Set<string> = new Set(
+    isEdit ? (JSON.parse(role!.permissions) as string[]).filter((k) => isValidPermissionKey(k)) : []
   );
 
   const [name, setName] = useState(role?.name ?? "");
   const [slug, setSlug] = useState(role?.slug ?? "");
   const [description, setDescription] = useState(role?.description ?? "");
-  const [perms, setPerms] = useState<Set<PermissionKey>>(initialPerms);
+  const [perms, setPerms] = useState<Set<string>>(initialPerms);
   const [loading, setLoading] = useState(false);
   const [autoSlug, setAutoSlug] = useState(!isEdit);
 
-  function togglePerm(key: PermissionKey) {
+  // Mapa slug→nombre y claves dinámicas por categoría, inyectadas en el grupo "Inventario".
+  const nameBySlug = new Map(dailyCategories.map((c) => [c.slug, c.name]));
+  const dailyKeys = dailyCategories.flatMap((c) => dailyCategoryKeys(c.slug));
+  const groups = PERMISSION_GROUPS.map((g) =>
+    g.module === "inventory" ? { ...g, keys: [...g.keys, ...dailyKeys] } : g
+  );
+
+  function togglePerm(key: string) {
     setPerms((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
@@ -55,7 +67,7 @@ export function RoleForm({ role }: RoleFormProps) {
     });
   }
 
-  function toggleGroup(keys: PermissionKey[]) {
+  function toggleGroup(keys: string[]) {
     const allOn = keys.every((k) => perms.has(k));
     setPerms((prev) => {
       const next = new Set(prev);
@@ -155,7 +167,7 @@ export function RoleForm({ role }: RoleFormProps) {
           Permisos ({perms.size} seleccionados)
         </h3>
         <div className="space-y-4">
-          {PERMISSION_GROUPS.map((group) => {
+          {groups.map((group) => {
             const allOn = group.keys.every((k) => perms.has(k));
             const someOn = group.keys.some((k) => perms.has(k));
             return (
@@ -196,7 +208,7 @@ export function RoleForm({ role }: RoleFormProps) {
                         className="accent-[#C1643F] w-4 h-4 flex-shrink-0"
                       />
                       <span className="text-sm text-[#2C1F15]">
-                        {PERMISSION_LABELS[key] ?? key}
+                        {permissionLabel(key, nameBySlug)}
                       </span>
                     </label>
                   ))}

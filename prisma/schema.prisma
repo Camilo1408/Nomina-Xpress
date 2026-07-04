@@ -30,6 +30,7 @@ model Tenant {
   auditLogs            AuditLog[]
   customRoles          CustomRole[]
   userPermissions      UserPermission[]
+  inventoryCategories  InventoryCategory[]
 }
 
 model User {
@@ -44,6 +45,8 @@ model User {
   // Rol personalizado creado por PROPRIETARY (complementa o reemplaza los permisos del role base)
   customRoleId String?
   customRole   CustomRole? @relation(fields: [customRoleId], references: [id], onDelete: SetNull)
+  // Acceso al módulo de inventario (columna heredada, no usada en nómina)
+  inventoryAccess Boolean @default(false)
   // Si false, es usuario solo del sistema (no aparece en nómina ni en listas de empleados pagables)
   active       Boolean   @default(true)
   createdAt    DateTime  @default(now())
@@ -376,4 +379,22 @@ model AuditLog {
   @@index([tenantId, action])
   @@index([tenantId, module])
   @@index([tenantId, userId])
+}
+
+// Espejo local de las categorías RAÍZ del sistema de inventario (que vive en
+// otra base de datos / proyecto). Se sincroniza vía GET /api/categories del
+// inventario. Es la fuente para: (a) generar las claves de permiso por categoría
+// `inventory:daily:<slug>:<acción>` en la matriz de roles/usuarios, y (b) emitir
+// esas claves en el JWT al iniciar sesión (cuando no se puede llamar al inventario).
+model InventoryCategory {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  slug      String
+  name      String
+  active    Boolean  @default(true)
+  syncedAt  DateTime @default(now())
+
+  @@unique([tenantId, slug])
+  @@index([tenantId, active])
 }

@@ -23,6 +23,8 @@ import {
   ScrollText,
   ShieldCheck,
   UserCog,
+  Package,
+  ExternalLink,
 } from "lucide-react";
 
 // Cada item del menú declara el permiso que lo habilita.
@@ -34,7 +36,7 @@ const allNavItems: Array<{
   permission: PermissionKey | null;
 }> = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard, permission: null },
-  { href: "/admin/employees", label: "Empleados", icon: Users, permission: PERMISSIONS.EMPLOYEES_VIEW },
+  { href: "/admin/employees", label: "Personal", icon: Users, permission: PERMISSIONS.EMPLOYEES_VIEW },
   { href: "/admin/time-entries", label: "Registro de Horas", icon: Clock, permission: PERMISSIONS.TIME_ENTRIES_VIEW },
   { href: "/admin/schedules", label: "Horarios", icon: Calendar, permission: PERMISSIONS.SCHEDULES_VIEW },
   { href: "/admin/tips", label: "Propinas", icon: Coins, permission: PERMISSIONS.TIPS_VIEW },
@@ -59,6 +61,7 @@ interface AdminSidebarProps {
   userName: string;
   permissions: string[];
   hasEmployee: boolean;
+  inventarioUrl?: string;
 }
 
 export function AdminSidebar({
@@ -68,6 +71,7 @@ export function AdminSidebar({
   userName,
   permissions,
   hasEmployee,
+  inventarioUrl,
 }: AdminSidebarProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -85,6 +89,10 @@ export function AdminSidebar({
   // acceso completo de gestión (ADMIN operativo). PROPRIETARY/SUPERADMIN puro
   // sin empleado no lo ve.
   const showMyAccount = hasEmployee && role === "ADMIN";
+  // El acceso a inventario se controla por el permiso granular `inventory:view`.
+  // Los roles base ADMIN/SUPERADMIN lo incluyen y PROPRIETARY lo tiene por acceso
+  // total, así que esos tres siempre lo ven; además es asignable/removible por rol.
+  const showInventario = Boolean(inventarioUrl) && permSet.has(PERMISSIONS.INVENTORY_VIEW);
 
   return (
     <>
@@ -182,6 +190,25 @@ export function AdminSidebar({
               </Link>
             );
           })}
+
+          {/* Acceso a Inventario — PROPRIETARY, SUPERADMIN y ADMIN */}
+          {showInventario && (
+            <>
+              <div className="pt-2 pb-1 px-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">Módulos</p>
+              </div>
+              <a
+                href={inventarioUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors text-[var(--muted-foreground)] hover:bg-[var(--sidebar-accent)] hover:text-[var(--sidebar-foreground)]"
+              >
+                <Package className="w-4 h-4 flex-shrink-0" />
+                Inventario
+                <ExternalLink className="w-3 h-3 ml-auto opacity-50" />
+              </a>
+            </>
+          )}
 
           {/* Mi Quincena y Mi Horario — solo para ADMIN con empleado vinculado */}
           {showMyAccount && (

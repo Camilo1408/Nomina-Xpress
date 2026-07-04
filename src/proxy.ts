@@ -37,5 +37,5 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/((?!_next|api/auth|api/cron|favicon\\.ico|uploads|sw\\.js|manifest\\.json|icon-).*)" ],
+  matcher: ["/((?!_next|api/auth|api/cron|api/inventory-permissions/sync|favicon\\.ico|uploads|sw\\.js|manifest\\.json|icon-).*)" ],
 };

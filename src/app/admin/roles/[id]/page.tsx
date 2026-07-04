@@ -4,6 +4,7 @@ import { RoleForm } from "@/components/admin/roles/RoleForm";
 import { Badge } from "@/components/ui/badge";
 import { requirePagePermission } from "@/lib/require-permission";
 import { PERMISSIONS } from "@/lib/permission-keys";
+import { getDailyCategoriesForUI } from "@/lib/inventory-sync";
 
 export default async function EditRolePage({
   params,
@@ -11,6 +12,7 @@ export default async function EditRolePage({
   params: Promise<{ id: string }>;
 }) {
   const { session } = await requirePagePermission(PERMISSIONS.ROLES_EDIT);
+  const dailyCategories = await getDailyCategoriesForUI(session.user.tenantId);
 
   const { id } = await params;
   const role = await prisma.customRole.findFirst({
@@ -50,6 +52,7 @@ export default async function EditRolePage({
             active: role.active,
             isSystem: role.isSystem,
           }}
+          dailyCategories={dailyCategories}
         />
       )}
 

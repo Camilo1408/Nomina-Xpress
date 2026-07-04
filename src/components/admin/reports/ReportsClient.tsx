@@ -128,11 +128,11 @@ export function ReportsClient({ employees, canExportPdf, canExportExcel, canAddA
             <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="border border-[#E0D5CA] rounded-md px-2 py-1.5 text-sm block w-full" />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-[#7A6358]">Empleado</label>
+            <label className="text-xs font-medium text-[#7A6358]">Personal</label>
             <SearchableSelect
               value={selectedEmployee}
               onValueChange={setSelectedEmployee}
-              placeholder="Buscar empleado…"
+              placeholder="Buscar personal…"
               emptyOption={{ value: "", label: "Todos" }}
               options={employees.map((e) => ({ value: e.id, label: e.name }))}
             />
@@ -186,7 +186,7 @@ export function ReportsClient({ employees, canExportPdf, canExportExcel, canAddA
             <table className="w-full min-w-[860px] text-sm">
               <thead>
                 <tr className="border-b border-[#E0D5CA] bg-[#C1643F]/8">
-                  <th className="text-left px-4 py-3 font-semibold text-[#2C1F15]">Empleado</th>
+                  <th className="text-left px-4 py-3 font-semibold text-[#2C1F15]">Personal</th>
                   <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]">H. Normal</th>
                   <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]">H. Especial</th>
                   <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]">Ajustes</th>

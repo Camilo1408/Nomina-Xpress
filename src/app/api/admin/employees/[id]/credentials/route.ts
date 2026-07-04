@@ -42,7 +42,7 @@ export async function POST(
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const exists = await prisma.user.findUnique({ where: { username: parsed.data.username } });
-  if (exists) return NextResponse.json({ error: { message: "El nombre de usuario ya está en uso" } }, { status: 409 });
+  if (exists) return NextResponse.json({ error: "El nombre de usuario ya está en uso" }, { status: 409 });
 
   const passwordHash = await bcrypt.hash(parsed.data.password, 12);
   await prisma.user.create({
@@ -95,7 +95,7 @@ export async function PUT(
 
   if (parsed.data.username && parsed.data.username !== employee.user.username) {
     const exists = await prisma.user.findUnique({ where: { username: parsed.data.username } });
-    if (exists) return NextResponse.json({ error: { message: "El nombre de usuario ya está en uso" } }, { status: 409 });
+    if (exists) return NextResponse.json({ error: "El nombre de usuario ya está en uso" }, { status: 409 });
   }
 
   const updateData: { username?: string; passwordHash?: string; role?: string } = {};

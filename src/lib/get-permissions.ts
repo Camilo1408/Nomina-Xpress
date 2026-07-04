@@ -2,7 +2,7 @@
 // El resultado final combina: rol base → rol personalizado → overrides individuales.
 
 import { prisma } from "@/lib/db";
-import { PERMISSIONS, BASE_ROLE_PERMISSIONS, ALL_PERMISSION_KEYS, type PermissionKey } from "@/lib/permission-keys";
+import { PERMISSIONS, BASE_ROLE_PERMISSIONS, ALL_PERMISSION_KEYS, isValidPermissionKey, type PermissionKey } from "@/lib/permission-keys";
 
 /**
  * Retorna el set de permisos efectivos del usuario indicado.
@@ -17,7 +17,7 @@ import { PERMISSIONS, BASE_ROLE_PERMISSIONS, ALL_PERMISSION_KEYS, type Permissio
 export async function getEffectivePermissions(
   userId: string,
   tenantId: string
-): Promise<Set<PermissionKey>> {
+): Promise<Set<string>> {
   if (!userId) return new Set();
 
   const user = await prisma.user.findFirst({
@@ -30,28 +30,30 @@ export async function getEffectivePermissions(
 
   if (!user) return new Set();
 
-  // PROPRIETARY: acceso total, sin consultas adicionales
+  // PROPRIETARY: acceso total a permisos estáticos. Las claves dinámicas de
+  // inventario diario por categoría se agregan al construir el JWT (auth.ts),
+  // porque dependen de las categorías activas.
   if (user.role === "PROPRIETARY") {
-    return new Set(ALL_PERMISSION_KEYS);
+    return new Set<string>(ALL_PERMISSION_KEYS);
   }
 
   // Permisos base: del CustomRole activo o del rol del sistema
-  let base: Set<PermissionKey>;
+  let base: Set<string>;
 
   if (user.customRole && user.customRole.active && user.customRole.tenantId === tenantId) {
     const parsed = JSON.parse(user.customRole.permissions) as string[];
-    base = new Set(parsed.filter((k): k is PermissionKey => ALL_PERMISSION_KEYS.includes(k as PermissionKey)));
+    // Conserva claves estáticas válidas Y claves dinámicas inventory:daily:<slug>:<acción>
+    base = new Set(parsed.filter((k) => isValidPermissionKey(k)));
   } else {
-    base = new Set(BASE_ROLE_PERMISSIONS[user.role] ?? []);
+    base = new Set<string>(BASE_ROLE_PERMISSIONS[user.role] ?? []);
   }
 
   // Aplicar overrides individuales
   for (const override of user.userPermissions) {
-    const key = override.permissionKey as PermissionKey;
     if (override.granted) {
-      base.add(key);
+      base.add(override.permissionKey);
     } else {
-      base.delete(key);
+      base.delete(override.permissionKey);
     }
   }
 
@@ -80,22 +82,21 @@ export function resolvePermissionsSync(user: {
   role: string;
   customRole?: { permissions: string; active: boolean; tenantId: string } | null;
   userPermissions?: { permissionKey: string; granted: boolean }[];
-}, tenantId: string): Set<PermissionKey> {
-  if (user.role === "PROPRIETARY") return new Set(ALL_PERMISSION_KEYS);
+}, tenantId: string): Set<string> {
+  if (user.role === "PROPRIETARY") return new Set<string>(ALL_PERMISSION_KEYS);
 
-  let base: Set<PermissionKey>;
+  let base: Set<string>;
 
   if (user.customRole && user.customRole.active && user.customRole.tenantId === tenantId) {
     const parsed = JSON.parse(user.customRole.permissions) as string[];
-    base = new Set(parsed.filter((k): k is PermissionKey => ALL_PERMISSION_KEYS.includes(k as PermissionKey)));
+    base = new Set(parsed.filter((k) => isValidPermissionKey(k)));
   } else {
-    base = new Set(BASE_ROLE_PERMISSIONS[user.role] ?? []);
+    base = new Set<string>(BASE_ROLE_PERMISSIONS[user.role] ?? []);
   }
 
   for (const override of user.userPermissions ?? []) {
-    const key = override.permissionKey as PermissionKey;
-    if (override.granted) base.add(key);
-    else base.delete(key);
+    if (override.granted) base.add(override.permissionKey);
+    else base.delete(override.permissionKey);
   }
 
   return base;
@@ -107,7 +108,7 @@ export function resolvePermissionsSync(user: {
  */
 export async function getSessionPermissions(session: {
   user?: { id?: string | null; tenantId?: string | null };
-} | null): Promise<Set<PermissionKey>> {
+} | null): Promise<Set<string>> {
   const id = session?.user?.id;
   const tenantId = session?.user?.tenantId;
   if (!id || !tenantId) return new Set();

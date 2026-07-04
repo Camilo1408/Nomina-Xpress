@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Eye, EyeOff, KeyRound, UserPlus, ShieldCheck, User } from "lucide-react";
+import { Eye, EyeOff, KeyRound, UserPlus, ShieldCheck, User, Package } from "lucide-react";
 
 function digitsOnly(raw: string): string {
   return raw.replace(/\D/g, "").slice(0, 9);
@@ -31,13 +31,13 @@ interface EmployeeFormProps {
     payType: string;
     active: boolean;
   };
-  existingUser?: { username: string; role: string } | null;
+  existingUser?: { username: string; role: string; inventoryAccess: boolean } | null;
 }
 
 type PayType = "PAYROLL" | "SHIFT";
 
 const roleLabels: Record<string, string> = {
-  EMPLOYEE: "Empleado",
+  EMPLOYEE: "Personal",
   ADMIN: "Admin",
   SUPERADMIN: "Superadmin",
 };
@@ -83,6 +83,28 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
   const [newRole, setNewRole] = useState<"EMPLOYEE" | "ADMIN">("EMPLOYEE");
   const [showNewPassword, setShowNewPassword] = useState(false);
 
+  // Inventory access toggle
+  const [inventoryAccess, setInventoryAccess] = useState(existingUser?.inventoryAccess ?? false);
+  const [inventoryLoading, setInventoryLoading] = useState(false);
+
+  async function handleToggleInventoryAccess() {
+    const newValue = !inventoryAccess;
+    setInventoryLoading(true);
+    const res = await fetch(`/api/admin/employees/${employee!.id}/inventory-access`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ inventoryAccess: newValue }),
+    });
+    setInventoryLoading(false);
+    if (res.ok) {
+      setInventoryAccess(newValue);
+      toast.success(newValue ? "Acceso a inventario habilitado" : "Acceso a inventario deshabilitado");
+    } else {
+      const data = await res.json() as { error?: string };
+      toast.error(data.error ?? "Error al actualizar");
+    }
+  }
+
   function set(field: string, value: string | number | boolean) {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
@@ -104,12 +126,12 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
     });
     setLoading(false);
     if (res.ok) {
-      toast.success(isEdit ? "Empleado actualizado" : "Empleado creado");
+      toast.success(isEdit ? "Personal actualizado" : "Personal creado");
       router.push("/admin/employees");
       router.refresh();
     } else {
-      const data = await res.json();
-      toast.error(data.error?.message ?? "Error al guardar");
+      const data = await res.json() as { error?: string };
+      toast.error(data.error ?? "Error al guardar");
     }
   }
 
@@ -135,8 +157,8 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
       setCredPassword("");
       router.refresh();
     } else {
-      const data = await res.json();
-      toast.error(data.error?.message ?? "Error al actualizar credenciales");
+      const data = await res.json() as { error?: string };
+      toast.error(data.error ?? "Error al actualizar credenciales");
     }
   }
 
@@ -154,8 +176,8 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
       toast.success("Acceso creado");
       router.refresh();
     } else {
-      const data = await res.json();
-      toast.error(data.error?.message ?? "Error al crear acceso");
+      const data = await res.json() as { error?: string };
+      toast.error(data.error ?? "Error al crear acceso");
     }
   }
 
@@ -216,8 +238,8 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
             <Label>Tipo de pago *</Label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {([
-                { value: "PAYROLL", label: "Pago de nómina", desc: "Empleado fijo bajo nómina" },
-                { value: "SHIFT", label: "Pago por turnos", desc: "Empleado pagado por turnos" },
+                { value: "PAYROLL", label: "Pago de nómina", desc: "Personal fijo bajo nómina" },
+                { value: "SHIFT", label: "Pago por turnos", desc: "Personal pagado por turnos" },
               ] as const).map(({ value, label, desc }) => (
                 <label
                   key={value}
@@ -253,7 +275,7 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
               {(
                 [
                   { value: "NONE", label: "Sin acceso", desc: "Solo aparece en registros internos", icon: null },
-                  { value: "EMPLOYEE", label: "Empleado", desc: "Puede ver su quincena y horario en el portal", icon: User },
+                  { value: "EMPLOYEE", label: "Personal", desc: "Puede ver su quincena y horario en el portal", icon: User },
                   { value: "ADMIN", label: "Admin", desc: "Puede registrar horas y ver reportes", icon: ShieldCheck },
                 ] as const
               ).map(({ value, label, desc, icon: Icon }) => (
@@ -331,6 +353,41 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
           </Button>
         </div>
       </form>
+
+      {/* ── Acceso a Inventario — EDIT mode, solo si tiene cuenta ── */}
+      {isEdit && existingUser && existingUser.role !== "SUPERADMIN" && (
+        <div className="max-w-xl">
+          <div className="border border-[#E0D5CA] rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Package className="w-4 h-4 text-[#7A6358]" />
+                <h3 className="text-sm font-semibold text-[#2C1F15]">Acceso a Inventario</h3>
+                <Badge className={inventoryAccess ? "bg-blue-100 text-blue-700 border-0" : "bg-[#F2EDE6] text-[#7A6358] border-0"}>
+                  {inventoryAccess ? "Habilitado" : "Sin acceso"}
+                </Badge>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={inventoryLoading}
+                onClick={handleToggleInventoryAccess}
+                className={inventoryAccess
+                  ? "border-[#B94040] text-[#B94040] hover:bg-red-50"
+                  : "border-blue-500 text-blue-600 hover:bg-blue-50"
+                }
+              >
+                {inventoryLoading ? "..." : inventoryAccess ? "Quitar acceso" : "Habilitar acceso"}
+              </Button>
+            </div>
+            <p className="text-xs text-[#7A6358] mt-2">
+              {inventoryAccess
+                ? "Este empleado puede gestionar el inventario operativo (entradas, salidas e inventario diario) pero no puede crear ni eliminar productos o categorías."
+                : "Al habilitar, el empleado podrá acceder al módulo de inventario para registrar entradas, salidas y realizar el inventario diario."}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ── Acceso al sistema — EDIT mode (SUPERADMIN only) ── */}
       {isEdit && (

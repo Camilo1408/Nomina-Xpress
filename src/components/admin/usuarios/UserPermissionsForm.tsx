@@ -6,10 +6,10 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   PERMISSION_GROUPS,
-  PERMISSION_LABELS,
+  permissionLabel,
   BASE_ROLE_PERMISSIONS,
   ALL_PERMISSION_KEYS,
-  type PermissionKey,
+  dailyCategoryKeys,
 } from "@/lib/permission-keys";
 
 interface UserPermission {
@@ -25,6 +25,8 @@ interface Props {
   currentOverrides: UserPermission[];
   customRoles: { id: string; name: string; active: boolean }[];
   currentCustomRoleId: string | null;
+  // Categorías de inventario (espejo sincronizado) para permisos por categoría.
+  dailyCategories?: { slug: string; name: string }[];
 }
 
 export function UserPermissionsForm({
@@ -34,8 +36,16 @@ export function UserPermissionsForm({
   currentOverrides,
   customRoles,
   currentCustomRoleId,
+  dailyCategories = [],
 }: Props) {
   const router = useRouter();
+
+  // Mapa slug→nombre, claves dinámicas por categoría y grupos aumentados.
+  const nameBySlug = new Map(dailyCategories.map((c) => [c.slug, c.name]));
+  const dailyKeys = dailyCategories.flatMap((c) => dailyCategoryKeys(c.slug));
+  const groups = PERMISSION_GROUPS.map((g) =>
+    g.module === "inventory" ? { ...g, keys: [...g.keys, ...dailyKeys] } : g
+  );
 
   // Las "effective" son las perms del rol (base o personalizado)
   const rolePerms: Set<string> = customRolePermissions
@@ -53,7 +63,7 @@ export function UserPermissionsForm({
   // false = deny explícito
   const [overrides, setOverrides] = useState<Map<string, boolean | null>>(() => {
     const m = new Map<string, boolean | null>();
-    for (const key of ALL_PERMISSION_KEYS) {
+    for (const key of [...ALL_PERMISSION_KEYS, ...dailyKeys]) {
       m.set(key, overrideMap.has(key) ? overrideMap.get(key)! : null);
     }
     return m;
@@ -62,7 +72,7 @@ export function UserPermissionsForm({
   const [selectedRoleId, setSelectedRoleId] = useState(currentCustomRoleId ?? "");
   const [loading, setLoading] = useState(false);
 
-  function setOverride(key: PermissionKey, state: boolean | null) {
+  function setOverride(key: string, state: boolean | null) {
     setOverrides((prev) => {
       const next = new Map(prev);
       next.set(key, state);
@@ -167,7 +177,7 @@ export function UserPermissionsForm({
         </div>
 
         <div className="space-y-4">
-          {PERMISSION_GROUPS.map((group) => (
+          {groups.map((group) => (
             <div key={group.module} className="rounded-lg border border-[#E0D5CA] overflow-hidden">
               <div className="px-4 py-2 bg-[#F2EDE6]/60 border-b border-[#E0D5CA]">
                 <p className="text-xs font-semibold uppercase tracking-wider text-[#7A6358]">
@@ -196,7 +206,7 @@ export function UserPermissionsForm({
                           }`}
                         />
                         <span className="text-sm text-[#2C1F15]">
-                          {PERMISSION_LABELS[key] ?? key}
+                          {permissionLabel(key, nameBySlug)}
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">

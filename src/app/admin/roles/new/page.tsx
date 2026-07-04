@@ -1,9 +1,11 @@
 import { RoleForm } from "@/components/admin/roles/RoleForm";
 import { requirePagePermission } from "@/lib/require-permission";
 import { PERMISSIONS } from "@/lib/permission-keys";
+import { getDailyCategoriesForUI } from "@/lib/inventory-sync";
 
 export default async function NewRolePage() {
-  await requirePagePermission(PERMISSIONS.ROLES_CREATE);
+  const { session } = await requirePagePermission(PERMISSIONS.ROLES_CREATE);
+  const dailyCategories = await getDailyCategoriesForUI(session.user.tenantId);
 
   return (
     <div className="space-y-6">
@@ -13,7 +15,7 @@ export default async function NewRolePage() {
           Define el nombre, descripción y permisos del nuevo rol.
         </p>
       </div>
-      <RoleForm />
+      <RoleForm dailyCategories={dailyCategories} />
     </div>
   );
 }

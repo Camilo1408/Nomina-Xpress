@@ -3,7 +3,7 @@ import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Package } from "lucide-react";
 import { EmployeeActions } from "@/components/admin/employees/EmployeeActions";
 import { BonusManager } from "@/components/admin/bonuses/BonusManager";
 import { DiscountManager } from "@/components/admin/discounts/DiscountManager";
@@ -28,7 +28,7 @@ export default async function EmployeesPage() {
 
   const employees = await prisma.employee.findMany({
     where: { tenantId },
-    include: { user: { select: { username: true } } },
+    include: { user: { select: { username: true, inventoryAccess: true } } },
     orderBy: { name: "asc" },
   });
 
@@ -43,7 +43,7 @@ export default async function EmployeesPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-heading font-bold text-[#2C1F15]">Empleados</h1>
+          <h1 className="text-2xl font-heading font-bold text-[#2C1F15]">Personal</h1>
           <p className="text-sm text-[#7A6358] mt-1">{employees.filter(e => e.active).length} activos</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -66,7 +66,7 @@ export default async function EmployeesPage() {
           {canAdd && (
             <Link href="/admin/employees/new">
               <Button className="bg-[#C1643F] hover:bg-[#A8522F] text-[#FAF7F2] gap-2">
-                <Plus className="w-4 h-4" /> Nuevo empleado
+                <Plus className="w-4 h-4" /> Nuevo personal
               </Button>
             </Link>
           )}
@@ -93,9 +93,17 @@ export default async function EmployeesPage() {
                 className={`border-b border-[#F2EDE6] last:border-0 ${i % 2 === 1 ? "bg-[#F2EDE6]/50" : ""}`}
               >
                 <td className="px-4 py-3">
-                  <div>
-                    <p className="font-medium text-[#2C1F15]">{emp.name}</p>
-                    {emp.user && <p className="text-xs text-[#7A6358]">@{emp.user.username}</p>}
+                  <div className="flex items-center gap-2">
+                    <div>
+                      <p className="font-medium text-[#2C1F15]">{emp.name}</p>
+                      {emp.user && <p className="text-xs text-[#7A6358]">@{emp.user.username}</p>}
+                    </div>
+                    {emp.user?.inventoryAccess && (
+                      <Badge className="bg-blue-100 text-blue-700 border-0 gap-1 text-[10px]">
+                        <Package className="w-2.5 h-2.5" />
+                        Inventario
+                      </Badge>
+                    )}
                   </div>
                 </td>
                 <td className="px-4 py-3 text-[#7A6358] font-mono">{emp.documentId ?? "—"}</td>
@@ -135,7 +143,7 @@ export default async function EmployeesPage() {
             {employees.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-4 py-12 text-center text-[#7A6358]">
-                  No hay empleados registrados.{" "}
+                  No hay personal registrado.{" "}
                   {canAdd && (
                     <Link href="/admin/employees/new" className="text-[#C1643F] hover:underline">
                       Crear el primero

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { logAudit } from "@/lib/audit";
-import { ALL_PERMISSION_KEYS, PERMISSIONS } from "@/lib/permission-keys";
+import { isValidPermissionKey, PERMISSIONS } from "@/lib/permission-keys";
 import { sessionCan } from "@/lib/get-permissions";
 
 const createSchema = z.object({
@@ -49,7 +49,7 @@ export async function POST(req: Request) {
   const { name, slug, description, permissions } = parsed.data;
 
   // Validar que las claves de permiso sean válidas
-  const validPerms = permissions.filter((p) => ALL_PERMISSION_KEYS.includes(p as never));
+  const validPerms = permissions.filter((p) => isValidPermissionKey(p));
 
   // Slug único por tenant
   const exists = await prisma.customRole.findUnique({ where: { tenantId_slug: { tenantId, slug } } });
