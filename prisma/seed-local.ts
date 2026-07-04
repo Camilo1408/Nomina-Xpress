@@ -115,7 +115,7 @@ async function main() {
     },
   });
 
-  // EMPLOYEE — Cesar con acceso a Inventario
+  // EMPLOYEE — Cesar (inventario desactivado en el demo)
   const empCesar = await prisma.employee.create({
     data: {
       tenantId: tenant.id,
@@ -135,7 +135,7 @@ async function main() {
       passwordHash: await bcrypt.hash("CesarH123", 12),
       role: "EMPLOYEE",
       employeeId: empCesar.id,
-      inventoryAccess: true,
+      inventoryAccess: false,
     },
   });
 
@@ -363,7 +363,7 @@ async function main() {
   });
 
   console.log("🛡️  Creando rol personalizado de prueba...");
-  await prisma.customRole.create({
+  const supervisorRole = await prisma.customRole.create({
     data: {
       tenantId: tenant.id,
       name: "Supervisor de turno",
@@ -382,6 +382,18 @@ async function main() {
     },
   });
 
+  console.log("🧑‍🔧 Creando usuario con rol personalizado...");
+  await prisma.user.create({
+    data: {
+      tenantId: tenant.id,
+      username: "SupervisorDemo",
+      passwordHash: await bcrypt.hash("Supervisor123", 12),
+      role: "EMPLOYEE",
+      customRoleId: supervisorRole.id,
+      inventoryAccess: false,
+    },
+  });
+
   console.log("🔑 Creando permiso individual de prueba (override)...");
   // A AdminValen se le concede explícitamente ver la auditoría (permiso extra)
   await prisma.userPermission.create({
@@ -395,11 +407,12 @@ async function main() {
 
   console.log("\n✅ Seed completado.");
   console.log("─────────────────────────────────────────────");
-  console.log("   SadminJavier / Javier123  → PROPRIETARY");
-  console.log("   SadminMajo   / Majo123    → SUPERADMIN");
-  console.log("   AdminValen   / Valen123   → ADMIN");
-  console.log("   CesarH       / CesarH123  → EMPLOYEE (inventoryAccess=true)");
-  console.log("   Vanessa      / Vanessa123 → EMPLOYEE");
+  console.log("   SadminJavier   / Javier123     → PROPRIETARY");
+  console.log("   SadminMajo     / Majo123       → SUPERADMIN");
+  console.log("   AdminValen     / Valen123      → ADMIN");
+  console.log("   CesarH         / CesarH123     → EMPLOYEE");
+  console.log("   Vanessa        / Vanessa123    → EMPLOYEE");
+  console.log("   SupervisorDemo / Supervisor123 → EMPLOYEE + CustomRole 'Supervisor de turno'");
   console.log("─────────────────────────────────────────────");
 }
 
