@@ -89,8 +89,8 @@ async function main() {
   await prisma.user.create({
     data: {
       tenantId: tenant.id,
-      username: "SadminJavier",
-      passwordHash: await bcrypt.hash("Javier123", 12),
+      username: "proprietario",
+      passwordHash: await bcrypt.hash("proprietario123", 12),
       role: "PROPRIETARY",
     },
   });
@@ -99,18 +99,18 @@ async function main() {
   await prisma.user.create({
     data: {
       tenantId: tenant.id,
-      username: "SadminMajo",
-      passwordHash: await bcrypt.hash("Majo123", 12),
+      username: "superadmin",
+      passwordHash: await bcrypt.hash("superadmin123", 12),
       role: "SUPERADMIN",
     },
   });
 
   // ADMIN
-  const userValen = await prisma.user.create({
+  const userAdmin = await prisma.user.create({
     data: {
       tenantId: tenant.id,
-      username: "AdminValen",
-      passwordHash: await bcrypt.hash("Valen123", 12),
+      username: "admin",
+      passwordHash: await bcrypt.hash("admin123", 12),
       role: "ADMIN",
     },
   });
@@ -131,15 +131,15 @@ async function main() {
   await prisma.user.create({
     data: {
       tenantId: tenant.id,
-      username: "CesarH",
-      passwordHash: await bcrypt.hash("CesarH123", 12),
+      username: "empleado",
+      passwordHash: await bcrypt.hash("empleado123", 12),
       role: "EMPLOYEE",
       employeeId: empCesar.id,
       inventoryAccess: false,
     },
   });
 
-  // EMPLOYEE — Vanessa sin acceso a inventario
+  // Empleada adicional sin cuenta (datos de prueba para nómina)
   const empVanessa = await prisma.employee.create({
     data: {
       tenantId: tenant.id,
@@ -150,16 +150,6 @@ async function main() {
       hourlyRateSpecial: 11400,
       tipPercent: 100,
       payType: "PAYROLL",
-    },
-  });
-  await prisma.user.create({
-    data: {
-      tenantId: tenant.id,
-      username: "Vanessa",
-      passwordHash: await bcrypt.hash("Vanessa123", 12),
-      role: "EMPLOYEE",
-      employeeId: empVanessa.id,
-      inventoryAccess: false,
     },
   });
 
@@ -395,11 +385,11 @@ async function main() {
   });
 
   console.log("🔑 Creando permiso individual de prueba (override)...");
-  // A AdminValen se le concede explícitamente ver la auditoría (permiso extra)
+  // Al admin se le concede explícitamente ver la auditoría (permiso extra)
   await prisma.userPermission.create({
     data: {
       tenantId: tenant.id,
-      userId: userValen.id,
+      userId: userAdmin.id,
       permissionKey: "audit:view",
       granted: true,
     },
@@ -407,12 +397,11 @@ async function main() {
 
   console.log("\n✅ Seed completado.");
   console.log("─────────────────────────────────────────────");
-  console.log("   SadminJavier   / Javier123     → PROPRIETARY");
-  console.log("   SadminMajo     / Majo123       → SUPERADMIN");
-  console.log("   AdminValen     / Valen123      → ADMIN");
-  console.log("   CesarH         / CesarH123     → EMPLOYEE");
-  console.log("   Vanessa        / Vanessa123    → EMPLOYEE");
-  console.log("   SupervisorDemo / Supervisor123 → EMPLOYEE + CustomRole 'Supervisor de turno'");
+  console.log("   proprietario   / proprietario123 → PROPRIETARY");
+  console.log("   superadmin     / superadmin123   → SUPERADMIN");
+  console.log("   admin          / admin123        → ADMIN");
+  console.log("   empleado       / empleado123     → EMPLOYEE");
+  console.log("   SupervisorDemo / Supervisor123   → EMPLOYEE + CustomRole 'Supervisor de turno'");
   console.log("─────────────────────────────────────────────");
 }
 
