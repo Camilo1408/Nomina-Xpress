@@ -23,6 +23,15 @@ interface InventoryApiCategory {
   parentId?: string | null;
 }
 
+// Respuesta del endpoint dedicado de permisos del inventario.
+// Contrato: GET <INVENTORY_URL>/api/inventory-permissions
+//   { global: string[], categories: [{slug,name,keys}], defaultGrantRoles: string[] }
+interface InventoryPermissionsResponse {
+  global?: string[];
+  categories?: Array<{ slug: string; name: string; keys?: string[] }>;
+  defaultGrantRoles?: string[];
+}
+
 /**
  * Lee el espejo local de categorías activas del tenant (sin llamar al inventario).
  * Esta es la fuente que usa el builder del JWT en cada login.
@@ -37,10 +46,80 @@ export async function getMirroredCategories(tenantId: string): Promise<Inventory
 }
 
 /**
- * Sincroniza el espejo desde el inventario (GET /api/categories).
- * - Reenvía la cookie de sesión del usuario (las apps comparten el JWT).
+ * Reconciliación del espejo: hace upsert de las categorías raíz recibidas y marca
+ * como inactivas las que ya no llegaron (eliminadas en el inventario), de forma
+ * que desaparezcan de la matriz de permisos.
+ */
+async function reconcileCategories(
+  tenantId: string,
+  remote: InventoryCategoryDTO[]
+): Promise<InventoryCategoryDTO[]> {
+  const remoteSlugs = new Set(remote.map((c) => c.slug));
+
+  for (const cat of remote) {
+    await prisma.inventoryCategory.upsert({
+      where: { tenantId_slug: { tenantId, slug: cat.slug } },
+      create: { tenantId, slug: cat.slug, name: cat.name, active: true },
+      update: { name: cat.name, active: true, syncedAt: new Date() },
+    });
+  }
+
+  await prisma.inventoryCategory.updateMany({
+    where: { tenantId, active: true, slug: { notIn: [...remoteSlugs] } },
+    data: { active: false },
+  });
+
+  return getMirroredCategories(tenantId);
+}
+
+/**
+ * Trae las categorías raíz desde el inventario. Intenta primero el endpoint
+ * dedicado de permisos (`/api/inventory-permissions`, contrato recomendado) y, si
+ * no está disponible, recurre al legacy `/api/categories`. Reenvía la cookie de
+ * sesión (las apps comparten el JWT). Devuelve `null` si ninguno respondió, para
+ * que el caller conserve el espejo actual.
+ */
+async function fetchRemoteCategories(cookieHeader: string): Promise<InventoryCategoryDTO[] | null> {
+  // 1. Endpoint dedicado de permisos (recomendado)
+  try {
+    const res = await fetch(`${INVENTORY_URL}/api/inventory-permissions`, {
+      headers: { Cookie: cookieHeader },
+      cache: "no-store",
+    });
+    if (res.ok) {
+      const data = (await res.json()) as InventoryPermissionsResponse;
+      if (Array.isArray(data.categories)) {
+        return data.categories
+          .filter((c) => !!c.slug)
+          .map((c) => ({ slug: c.slug, name: c.name }));
+      }
+    }
+  } catch {
+    // cae al fallback
+  }
+
+  // 2. Fallback legacy: /api/categories
+  try {
+    const res = await fetch(`${INVENTORY_URL}/api/categories`, {
+      headers: { Cookie: cookieHeader },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { categories?: InventoryApiCategory[] };
+    return (data.categories ?? [])
+      .filter((c) => !c.parentId && !!c.slug)
+      .map((c) => ({ slug: c.slug as string, name: c.name }));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Sincroniza el espejo desde el inventario (pull).
+ * - Usa el endpoint dedicado `/api/inventory-permissions` con fallback a
+ *   `/api/categories`. Reenvía la cookie de sesión del usuario.
  * - Hace upsert de las categorías raíz activas y marca como inactivas las que
- *   ya no existen (eliminadas/desactivadas) → así desaparecen de la matriz.
+ *   ya no existen → así desaparecen de la matriz.
  * - Si el inventario no responde, NO lanza: devuelve el espejo actual (tolerante
  *   a caídas temporales del inventario).
  *
@@ -52,39 +131,32 @@ export async function syncInventoryCategories(
 ): Promise<InventoryCategoryDTO[]> {
   if (!INVENTORY_URL) return getMirroredCategories(tenantId);
 
-  let remote: InventoryApiCategory[];
-  try {
-    const res = await fetch(`${INVENTORY_URL}/api/categories`, {
-      headers: { Cookie: cookieHeader },
-      cache: "no-store",
-    });
-    if (!res.ok) return getMirroredCategories(tenantId);
-    const data = (await res.json()) as { categories?: InventoryApiCategory[] };
-    // El inventario ya devuelve solo categorías raíz activas con slug.
-    remote = (data.categories ?? []).filter((c) => !c.parentId && !!c.slug);
-  } catch {
-    // Inventario caído o inalcanzable → conservar el espejo actual
-    return getMirroredCategories(tenantId);
-  }
+  const remote = await fetchRemoteCategories(cookieHeader);
+  if (remote === null) return getMirroredCategories(tenantId); // inventario caído
 
-  const remoteSlugs = new Set(remote.map((c) => c.slug as string));
+  return reconcileCategories(tenantId, remote);
+}
 
-  // Upsert de las categorías remotas (reactiva las que vuelvan a existir)
-  for (const cat of remote) {
-    await prisma.inventoryCategory.upsert({
-      where: { tenantId_slug: { tenantId, slug: cat.slug as string } },
-      create: { tenantId, slug: cat.slug as string, name: cat.name, active: true },
-      update: { name: cat.name, active: true, syncedAt: new Date() },
-    });
-  }
-
-  // Marcar como inactivas las que ya no llegaron (eliminadas en el inventario)
-  await prisma.inventoryCategory.updateMany({
-    where: { tenantId, active: true, slug: { notIn: [...remoteSlugs] } },
-    data: { active: false },
+/**
+ * Upsert puntual de UNA categoría raíz desde el webhook push del inventario
+ * (`inventory.category.created`). No desactiva otras categorías (es un alta
+ * incremental, no una reconciliación completa). Idempotente: si la categoría ya
+ * existía, solo refresca el nombre y la reactiva.
+ *
+ * Los roles privilegiados (PROPRIETARY/SUPERADMIN/ADMIN con rol base) obtienen
+ * acceso a la nueva categoría automáticamente al re-loguear, porque el JWT
+ * (`resolveInventoryPermissions`) deriva sus claves de las categorías activas del
+ * espejo — no hay que persistir asignación por rol.
+ */
+export async function upsertCategoryFromPush(
+  tenantId: string,
+  category: InventoryCategoryDTO
+): Promise<void> {
+  await prisma.inventoryCategory.upsert({
+    where: { tenantId_slug: { tenantId, slug: category.slug } },
+    create: { tenantId, slug: category.slug, name: category.name, active: true },
+    update: { name: category.name, active: true, syncedAt: new Date() },
   });
-
-  return getMirroredCategories(tenantId);
 }
 
 /**
