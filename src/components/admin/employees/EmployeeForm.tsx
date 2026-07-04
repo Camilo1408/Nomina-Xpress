@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Eye, EyeOff, KeyRound, UserPlus, ShieldCheck, User, Package } from "lucide-react";
+import { isInventoryEnabled } from "@/lib/inventory-config";
 
 function digitsOnly(raw: string): string {
   return raw.replace(/\D/g, "").slice(0, 9);
@@ -354,8 +355,8 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
         </div>
       </form>
 
-      {/* ── Acceso a Inventario — EDIT mode, solo si tiene cuenta ── */}
-      {isEdit && existingUser && existingUser.role !== "SUPERADMIN" && (
+      {/* ── Acceso a Inventario — EDIT mode, solo si tiene cuenta y el módulo está activo ── */}
+      {isInventoryEnabled() && isEdit && existingUser && existingUser.role !== "SUPERADMIN" && (
         <div className="max-w-xl">
           <div className="border border-[#E0D5CA] rounded-lg p-4">
             <div className="flex items-center justify-between">

@@ -12,6 +12,7 @@ import {
   isValidPermissionKey,
   dailyCategoryKeys,
 } from "@/lib/permission-keys";
+import { isInventoryEnabled } from "@/lib/inventory-config";
 
 interface RoleFormProps {
   role?: {
@@ -54,7 +55,10 @@ export function RoleForm({ role, dailyCategories = [] }: RoleFormProps) {
   // Mapa slug→nombre y claves dinámicas por categoría, inyectadas en el grupo "Inventario".
   const nameBySlug = new Map(dailyCategories.map((c) => [c.slug, c.name]));
   const dailyKeys = dailyCategories.flatMap((c) => dailyCategoryKeys(c.slug));
-  const groups = PERMISSION_GROUPS.map((g) =>
+  const visibleGroups = PERMISSION_GROUPS.filter(
+    (g) => isInventoryEnabled() || g.module !== "inventory"
+  );
+  const groups = visibleGroups.map((g) =>
     g.module === "inventory" ? { ...g, keys: [...g.keys, ...dailyKeys] } : g
   );
 
