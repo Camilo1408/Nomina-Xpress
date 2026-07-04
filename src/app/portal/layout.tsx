@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { PortalNav } from "@/components/portal/PortalNav";
+import { getSessionPermissions, hasAdminAreaAccess } from "@/lib/get-permissions";
 
 export default async function PortalLayout({
   children,
@@ -10,6 +11,12 @@ export default async function PortalLayout({
 }) {
   const session = await auth();
   if (!session || session.user.role !== "EMPLOYEE") redirect("/login");
+
+  // Un empleado con permisos admin (rol personalizado o permisos individuales)
+  // opera en el área admin: se envía allí (refleja los cambios de permisos al
+  // refrescar, sin re-login).
+  const permissions = await getSessionPermissions(session);
+  if (hasAdminAreaAccess(permissions)) redirect("/admin/dashboard");
 
   const [tenant, employee] = await Promise.all([
     prisma.tenant.findUnique({ where: { id: session.user.tenantId } }),
