@@ -51,30 +51,30 @@ Todos los proyectos de Vercel salen del mismo repo y del mismo código:
 | Proyecto Vercel | Production Branch | Auto-deploy | Rol |
 |---|---|---|---|
 | `nomina-xpress` (demo) | `main` | Sí (nativo) | Staging/aprobación. Inventario configurable por env. |
-| `cucina-fiori` | `prod/cucina-fiori` | Sí (nativo, sobre su rama) | Cliente. Inventario OFF. |
-| Cliente futuro `N` | `prod/<cliente-N>` | Sí (nativo, sobre su rama) | Cliente. Flags según necesidad. |
+| `cucina-fiori` | `client/cucina-fiori` | Sí (nativo, sobre su rama) | Cliente. Inventario OFF. |
+| Cliente futuro `N` | `client/<cliente-N>` | Sí (nativo, sobre su rama) | Cliente. Flags según necesidad. |
 
 - La diferencia de configuración por cliente vive **solo en las Environment Variables** de cada proyecto en Vercel (flags + `TURSO_*` + `NEXTAUTH_*` + `CRON_SECRET` + Cloudinary + VAPID).
 
-### 4. Ramas puntero de producción `prod/<cliente>`
+### 4. Ramas puntero de producción `client/<cliente>`
 
-- Una `prod/<cliente>` **NO es una rama de código**: es un **puntero de release** que siempre apunta a un commit que ya existe en `main`. Nunca tiene commits propios; el código es 100% idéntico a `main`.
+- Una `client/<cliente>` **NO es una rama de código**: es un **puntero de release** que siempre apunta a un commit que ya existe en `main`. Nunca tiene commits propios; el código es 100% idéntico a `main`.
 - Invariante garantizado por `git merge --ff-only`: un fast-forward solo procede si la rama no ha divergido. Si alguien intentara ponerle código específico, el `--ff-only` falla → drift mecánicamente imposible.
 - Analogía: un tag que se mueve. Le dice a Vercel *"qué commit de `main` desplegar y cuándo"* para ese cliente.
 
 ### 5. Flujo de release y promoción
 
 ```
-main:              A─B─C─D─E─F   ← nomina-xpress (demo) auto-deploy en cada push
-                       │
-prod/cucina-fiori: ────┘  (corre C)
+main:                A─B─C─D─E─F   ← nomina-xpress (demo) auto-deploy en cada push
+                         │
+client/cucina-fiori: ────┘  (corre C)
 ```
 
 1. Se hace merge a `main` → **demo (`nomina-xpress`) se despliega automáticamente**.
 2. Se **verifica y aprueba manualmente** el demo (humano).
 3. Para promover un cliente al último `main` (p.ej. de `C` a `F`):
    ```bash
-   git checkout prod/cucina-fiori
+   git checkout client/cucina-fiori
    git merge --ff-only main
    git push
    # Vercel auto-deploya cucina-fiori con el commit F
@@ -85,26 +85,52 @@ prod/cucina-fiori: ────┘  (corre C)
 **Pasos precisos de configuración en Vercel (una sola vez por proyecto cliente):**
 
 1. Vercel → proyecto `cucina-fiori` → **Settings → Git**.
-2. Cambiar **Production Branch** de `deploy-fiori` a `prod/cucina-fiori`.
+2. Cambiar **Production Branch** de `deploy-fiori` a `client/cucina-fiori`.
 3. Confirmar que el auto-deploy nativo está activo (Vercel despliega automáticamente el production branch cuando recibe commits). No se toca `vercel.json`.
-4. Repetir por cada cliente nuevo con su propia `prod/<cliente>`.
+4. Repetir por cada cliente nuevo con su propia `client/<cliente>`.
 
 > Nota: NO se pone `git.deploymentEnabled=false` ni `github.autoAlias=false` en `vercel.json`, porque son compartidos y romperían el auto-deploy del demo. El gate por cliente lo da la rama puntero, no `vercel.json`.
 
 ### 6. Corte de cucina-fiori (`deploy-fiori` → `main`) sin romper nada
 
-Secuencia segura, con rollback trivial:
+> ⚠️ **`deploy-fiori` está PUBLICADA y en uso por un cliente real en el proyecto `cucina-fiori`.** No se toca, no se borra, no se reapunta nada hasta completar la **Fase 0 de respaldos** y verificar el corte. `deploy-fiori` permanece intacta como respaldo vivo durante todo el proceso.
 
-1. **Crear la rama puntero:** `git checkout main && git branch prod/cucina-fiori <commit-de-main-a-promover> && git push -u origin prod/cucina-fiori`. Inicialmente apunta al `main` verificado en demo.
+**Fase 0 — Respaldos obligatorios (ANTES de cualquier cambio):**
+
+0.1. **Backup de la rama en git:** crear una etiqueta/rama de respaldo inmutable del commit exacto que corre hoy cucina-fiori:
+   ```bash
+   git fetch origin
+   git tag backup/deploy-fiori-2026-07-07 origin/deploy-fiori
+   git push origin backup/deploy-fiori-2026-07-07
+   ```
+   Así, aunque `deploy-fiori` se borre en el futuro, el commit publicado queda referenciado para siempre.
+
+0.2. **Backup de la BD de producción de cucina-fiori** (`nominaxpress-fiori-camilo1408`) ANTES de la migración `InventoryCategory`. Dos vías (hacer al menos una, preferible ambas):
+   - **Manual inmediato** (dump completo con Turso CLI):
+     ```bash
+     turso db shell "libsql://nominaxpress-fiori-camilo1408...turso.io" ".dump" > backup-cucina-fiori-2026-07-07.sql
+     ```
+     Guardar el `.sql` fuera del repo (gestor de secretos / almacenamiento seguro).
+   - **Vía workflow existente:** lanzar manualmente **Actions → Weekly DB Backup → Run workflow** (usa `BACKUP_GPG_PASSPHRASE`), confirmando que los secrets `TURSO_*` apuntan a la BD de cucina-fiori. Ver `BACKUP.md`.
+
+0.3. **Registrar el estado actual de Vercel** del proyecto cucina-fiori para rollback:
+   - Anotar el **deployment ID / URL de producción actual** (Vercel → cucina-fiori → Deployments → el que está "Production/Current"). Sirve para "Instant Rollback" o "Redeploy" inmediato si algo falla.
+   - Exportar/anotar las **Environment Variables actuales** del proyecto (Vercel → Settings → Environment Variables) como referencia.
+
+0.4. **Verificar los respaldos** antes de continuar: que el tag exista en remoto, que el `.sql` de la BD abra en SQLite y tenga filas (`sqlite3 temp.db < backup-...sql; SELECT COUNT(*) FROM User;`), y que se tenga anotado el deployment de rollback. **Sin estos tres, no se procede.**
+
+**Fase 1 — Corte (secuencia segura, con rollback trivial):**
+
+1. **Crear la rama puntero:** `git checkout main && git branch client/cucina-fiori <commit-de-main-a-promover> && git push -u origin client/cucina-fiori`. Inicialmente apunta al `main` verificado en demo.
 2. **Env vars en Vercel (proyecto cucina-fiori):** confirmar/replicar las que ya tiene, con **inventario OFF** (NO definir `NEXT_PUBLIC_INVENTARIO_APP_URL`): `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `CRON_SECRET`, `AUDIT_RETENTION_MONTHS`, `CLOUDINARY_*`, `VAPID_*`/`NEXT_PUBLIC_VAPID_PUBLIC_KEY`.
 3. **Migración aditiva de BD** en la Turso de cucina-fiori: crear la tabla `InventoryCategory` (única diferencia de schema). Inerte con inventario OFF, pero alinea el schema con `main`. Aplicar con el mecanismo de migración del proyecto (verificar en el plan el comando exacto compatible con libsql/Turso).
-4. **Cambiar Production Branch** del proyecto a `prod/cucina-fiori` (sección 5).
+4. **Cambiar Production Branch** del proyecto a `client/cucina-fiori` (sección 5).
 5. **Verificar cucina-fiori** en la URL de producción: login por username, redirecciones por rol, roles/permisos (ADMIN bloqueado de lo que corresponde), reportes quincenal/mensual, propinas, y **ausencia total de UI de inventario** (sidebar, portal nav, forms). Solo tras verificar se considera hecho el corte.
-6. **Rollback:** si algo falla, reapuntar Production Branch a `deploy-fiori` (queda intacta como respaldo hasta confirmar el corte).
+6. **Rollback:** si algo falla, reapuntar Production Branch a `deploy-fiori` (intacta) y/o usar el **Instant Rollback** al deployment anotado en 0.3. Si la migración de BD causó problemas, restaurar desde el backup de 0.2 (procedimiento en `BACKUP.md`).
 
 ### 7. Limpieza de ramas
 
-- `deploy-fiori`: **conservar como respaldo** hasta que cucina-fiori esté verificado en producción sobre `prod/cucina-fiori`/`main`. Luego archivar/borrar (remota y local).
+- `deploy-fiori`: **está en vivo para un cliente real; NO se toca durante el corte.** Conservar como respaldo hasta que cucina-fiori esté verificado en producción sobre `client/cucina-fiori`/`main`. El commit publicado ya queda referenciado por el tag `backup/deploy-fiori-2026-07-07` (Fase 0.1). Solo tras verificación estable — y previa confirmación explícita del usuario — se podría archivar/borrar la rama (el tag de respaldo permanece).
 - `local-inventory`: está detrás de `main` y ya no aporta; descartar tras confirmar que no tiene trabajo único pendiente (verificado: es casi idéntica a `main`). El trabajo de este spec se hace en `feat/codigo-base-unico-envvars` desde `main`.
 
 ## Verificación / testing
@@ -119,10 +145,11 @@ Secuencia segura, con rollback trivial:
 
 1. `src/lib/feature-flags.ts` (centraliza `isInventoryEnabled()`), con `inventory-config.ts` re-exportando o call sites actualizados. Comportamiento idéntico.
 2. `DESPLIEGUES.md`: matriz de env vars por cliente + runbook de promoción + pasos Vercel + procedimiento de alta de cliente nuevo.
-3. Rama `prod/cucina-fiori` (puntero) creada y empujada.
-4. Migración/creación de `InventoryCategory` aplicada en la Turso de cucina-fiori.
-5. Reapuntado de Production Branch de cucina-fiori a `prod/cucina-fiori` + verificación.
-6. Retiro de `deploy-fiori` y `local-inventory` tras verificación.
+3. Respaldos de Fase 0 hechos y verificados: tag `backup/deploy-fiori-2026-07-07`, dump de BD de cucina-fiori, deployment de rollback anotado.
+4. Rama `client/cucina-fiori` (puntero) creada y empujada.
+5. Migración/creación de `InventoryCategory` aplicada en la Turso de cucina-fiori.
+6. Reapuntado de Production Branch de cucina-fiori a `client/cucina-fiori` + verificación.
+7. Retiro de `deploy-fiori`/`local-inventory` — solo tras verificación estable y confirmación explícita del usuario (el tag de respaldo permanece).
 
 ## Fuera de alcance (YAGNI)
 
@@ -136,5 +163,6 @@ Secuencia segura, con rollback trivial:
 |---|---|
 | Alguna superficie de inventario NO esté gated y aparezca en cucina-fiori | Chequeo explícito en verificación (lista de la sección 7) antes de aprobar el corte. |
 | Migración `InventoryCategory` falla en Turso/libsql | Es aditiva y opcional (inerte con inventario OFF); rollback = reapuntar a `deploy-fiori`. Verificar comando de migración compatible en el plan. |
-| Push accidental de código a `prod/<cliente>` | `--ff-only` lo impide; documentar en runbook que esas ramas son solo punteros. |
+| Push accidental de código a `client/<cliente>` | `--ff-only` lo impide; documentar en runbook que esas ramas son solo punteros. |
+| Tocar `deploy-fiori` (en vivo) por error durante el corte | Fase 0 crea tag inmutable de respaldo; `deploy-fiori` no se modifica ni borra hasta verificación + confirmación del usuario; rollback = reapuntar Production Branch a `deploy-fiori`. |
 | Env var faltante en cucina-fiori tras el corte | Replicar la lista completa (sección 6.2) y verificar login + funciones antes de aprobar. |
