@@ -12,7 +12,7 @@ import {
   isValidPermissionKey,
   dailyCategoryKeys,
 } from "@/lib/permission-keys";
-import { isInventoryEnabled } from "@/lib/inventory-config";
+import { isInventoryEnabled } from "@/lib/feature-flags";
 
 interface RoleFormProps {
   role?: {

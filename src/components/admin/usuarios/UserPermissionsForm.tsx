@@ -11,7 +11,7 @@ import {
   ALL_PERMISSION_KEYS,
   dailyCategoryKeys,
 } from "@/lib/permission-keys";
-import { isInventoryEnabled } from "@/lib/inventory-config";
+import { isInventoryEnabled } from "@/lib/feature-flags";
 
 interface UserPermission {
   permissionKey: string;

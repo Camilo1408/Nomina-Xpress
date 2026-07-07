@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Eye, EyeOff, KeyRound, UserPlus, ShieldCheck, User, Package } from "lucide-react";
-import { isInventoryEnabled } from "@/lib/inventory-config";
+import { isInventoryEnabled } from "@/lib/feature-flags";
 
 function digitsOnly(raw: string): string {
   return raw.replace(/\D/g, "").slice(0, 9);
