@@ -1,34 +1,61 @@
-# Backups de la base de datos — Nómina Xpress
+# Backups de base de datos — Nómina Xpress (per-cliente)
+
+Todos los despliegues salen de un solo código base (`main`); cada cliente tiene
+su **propia base Turso**. Los backups son **por cliente**: un workflow de GitHub
+Actions vuelca, cifra y archiva cada base de la lista `DB_TARGETS`.
 
 ## Cómo funciona
 
-Un workflow de GitHub Actions (`backup-db.yml`) corre automáticamente cada **domingo a las 03:00 UTC**. El proceso:
+El workflow [`backup-db.yml`](.github/workflows/backup-db.yml) corre cada
+**domingo a las 03:00 UTC** (o manualmente desde **Actions → Weekly DB Backup →
+Run workflow**). Por cada cliente en `DB_TARGETS`:
 
-1. Descarga el volcado completo de la base Turso con `turso db shell ... .dump`
-2. Lo cifra con GPG / AES-256 usando la clave `BACKUP_GPG_PASSPHRASE`
-3. Lo sube como artefacto de GitHub Actions con retención de **56 días** (8 semanas)
+1. Vuelca la base con [`scripts/db-dump.mjs`](scripts/db-dump.mjs) (solo lectura,
+   vía `@libsql/client`) a `backup-<cliente>-<fecha>.sql`.
+2. Lo cifra con GPG / AES-256 usando `BACKUP_GPG_PASSPHRASE`.
+3. Sube todos los `.gpg` como un artefacto con retención de **180 días (~6 meses)**.
 
-Al cabo de 8 semanas el artefacto más antiguo se borra automáticamente, por lo que siempre habrá como máximo 8 backups disponibles.
-
-También se puede lanzar manualmente desde **Actions → Weekly DB Backup → Run workflow**.
-
----
-
-## Secrets requeridos en el repositorio
+## Secrets requeridos (GitHub → Settings → Secrets and variables → Actions)
 
 | Secret | Valor |
 |--------|-------|
-| `TURSO_DATABASE_URL` | `libsql://nominaxpress-fiori-camilo1408...turso.io` |
-| `TURSO_AUTH_TOKEN` | Token de autenticación de Turso |
-| `BACKUP_GPG_PASSPHRASE` | Contraseña para cifrar/descifrar el backup |
+| `DB_TARGETS` | **JSON array** con una entrada por cliente: `[{ "name": "...", "url": "libsql://...", "token": "..." }]` |
+| `BACKUP_GPG_PASSPHRASE` | Passphrase para cifrar/descifrar los backups |
 
-Configurar en: **GitHub → Settings → Secrets and variables → Actions → New repository secret**
+Ejemplo de `DB_TARGETS` (una línea; incluye demo y cada cliente):
 
-Genera una contraseña segura con:
+```json
+[
+  { "name": "demo",         "url": "libsql://nomina-xpress-db-camilo1408...turso.io",   "token": "eyJ..." },
+  { "name": "cucina-fiori", "url": "libsql://nominaxpress-fiori-camilo1408...turso.io", "token": "eyJ..." }
+]
+```
+
+> Los tokens quedan enmascarados en los logs (`::add-mask::`). `DB_TARGETS` es
+> también la fuente de verdad de [`migrate-db.yml`](.github/workflows/migrate-db.yml).
+
+## ⚠️ Requisito para que la retención llegue a 180 días
+
+GitHub **limita** la retención de artefactos al máximo del repositorio (por
+defecto **90 días**). Como el repo es **privado**, se puede subir hasta 400 días.
+Para obtener los 180:
+
+**GitHub → Settings → Actions → General → Artifact and log retention** → subir a
+**≥ 180 días** y guardar. Sin esto, `retention-days: 180` se recorta al máximo del
+repo (el workflow no falla, pero solo retiene lo que el repo permita).
+
+## Genera la passphrase GPG
+
 ```bash
 openssl rand -base64 32
 ```
+
 Guárdala en un gestor de contraseñas; sin ella el backup cifrado es irrecuperable.
+
+## Agregar un cliente nuevo al backup
+
+Edita el secret `DB_TARGETS` y añade una entrada `{ "name", "url", "token" }`. Nada
+más — el próximo run lo respalda automáticamente.
 
 ---
 
@@ -36,61 +63,50 @@ Guárdala en un gestor de contraseñas; sin ella el backup cifrado es irrecupera
 
 ### 1. Descargar el artefacto
 
-En GitHub: **Actions → Weekly DB Backup → [ejecución deseada] → Artifacts → turso-backup-XXX**
-
-Descarga el archivo `.sql.gpg`.
+GitHub: **Actions → Weekly DB Backup → [ejecución] → Artifacts → turso-backups-XXX**.
+Descarga y elige el archivo del cliente: `backup-<cliente>-YYYY-MM-DD.sql.gpg`.
 
 ### 2. Descifrar
 
 ```bash
 gpg --batch --passphrase "TU_PASSPHRASE" \
-    --decrypt backup-YYYY-MM-DD.sql.gpg \
-    --output backup-YYYY-MM-DD.sql
+    --decrypt backup-cucina-fiori-YYYY-MM-DD.sql.gpg \
+    --output backup-cucina-fiori-YYYY-MM-DD.sql
 ```
 
-### 3. Restaurar en Turso
+### 3. Restaurar
 
-> ⚠️ Esto sobreescribe los datos actuales de producción. Asegúrate de estar restaurando en la base correcta.
+> ⚠️ El dump ejecuta `DROP TABLE IF EXISTS` + `CREATE`: **sobrescribe** la base
+> destino. Restaura primero en una base **nueva/temporal**, verifica, y solo
+> entonces apunta el cliente a ella (cambiando su `TURSO_*` en Vercel).
+
+Con el script incluido (no requiere Turso CLI):
 
 ```bash
-# Instalar Turso CLI si no lo tienes
-curl -sSfL https://get.tur.so/install.sh | bash
-
-# Autenticarse
-turso auth login
-
-# Restaurar línea a línea (SQLite dump es SQL estándar)
-turso db shell "$TURSO_DATABASE_URL" < backup-YYYY-MM-DD.sql
+RESTORE_URL="libsql://<base-destino>...turso.io" \
+RESTORE_TOKEN="<token-destino>" \
+RESTORE_CONFIRM=si \
+  node scripts/db-restore.mjs backup-cucina-fiori-YYYY-MM-DD.sql
 ```
 
-Si la base tiene datos existentes y quieres una restauración limpia:
+Alternativa con Turso CLI: `turso db shell "<url-destino>" < backup-....sql`.
+
+### 4. Verificar sin tocar producción
+
+Restaura en una base **local** para inspeccionar sin riesgo:
+
 ```bash
-# 1. Crear una nueva base temporal y restaurar ahí para verificar
-turso db create nominaxpress-restore
-turso db shell nominaxpress-restore < backup-YYYY-MM-DD.sql
-
-# 2. Verificar que los datos estén correctos en la base temporal
-turso db shell nominaxpress-restore "SELECT COUNT(*) FROM User;"
-
-# 3. Si todo está bien, actualizar TURSO_DATABASE_URL en Vercel al nuevo nombre
+RESTORE_URL="file:./verify.db" RESTORE_CONFIRM=si \
+  node scripts/db-restore.mjs backup-cucina-fiori-YYYY-MM-DD.sql
 ```
+
+El header del dump (`-- Tabla: X (N filas)`) indica los conteos esperados por tabla.
 
 ---
 
-## Verificar integridad sin restaurar
+## Prueba de integridad (round-trip)
 
-Para revisar el contenido sin tocar producción:
-
-```bash
-# Descifrar
-gpg --batch --passphrase "TU_PASSPHRASE" \
-    --decrypt backup-YYYY-MM-DD.sql.gpg \
-    --output backup-YYYY-MM-DD.sql
-
-# Abrir en SQLite local
-sqlite3 temp-verify.db < backup-YYYY-MM-DD.sql
-sqlite3 temp-verify.db "SELECT COUNT(*) FROM User; SELECT COUNT(*) FROM TimeEntry;"
-
-# Limpiar
-rm backup-YYYY-MM-DD.sql temp-verify.db
-```
+Verificado 2026-07-08: dump de cucina-fiori (solo lectura) → restauración en base
+local → **19 tablas, 1383 filas, conteos idénticos**. El par
+[`db-dump.mjs`](scripts/db-dump.mjs) / [`db-restore.mjs`](scripts/db-restore.mjs)
+produce SQL estándar restaurable.

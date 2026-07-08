@@ -1,16 +1,20 @@
-name: DB Migration (Turso)
+name: DB Migration (Turso, per-cliente)
 
 on:
   workflow_dispatch:
     inputs:
+      target:
+        description: "Cliente destino: 'all' o el name exacto en DB_TARGETS (p.ej. cucina-fiori)"
+        required: true
+        default: "all"
       confirm:
-        description: "Escribir 'si' para confirmar la migración en producción"
+        description: "Escribe 'si' para confirmar la migración en producción"
         required: true
         default: ""
 
 jobs:
   migrate:
-    name: Aplicar migraciones a Turso
+    name: Aplicar migraciones a las BD de clientes
     runs-on: ubuntu-latest
     if: ${{ github.event.inputs.confirm == 'si' }}
 
@@ -25,8 +29,32 @@ jobs:
       - name: Instalar dependencias
         run: npm ci --ignore-scripts
 
-      - name: Aplicar migraciones via LibSQL
+      - name: Aplicar migraciones por cliente (DB_TARGETS)
         env:
-          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
-          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
-        run: node prisma/run-migrations.mjs
+          DB_TARGETS: ${{ secrets.DB_TARGETS }}
+          TARGET: ${{ github.event.inputs.target }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DB_TARGETS:-}" ]; then
+            echo "::error::Falta el secret DB_TARGETS (JSON array de {name,url,token})."
+            exit 1
+          fi
+          COUNT=$(echo "$DB_TARGETS" | jq 'length')
+          APPLIED=0
+          for i in $(seq 0 $((COUNT - 1))); do
+            NAME=$(echo "$DB_TARGETS" | jq -r ".[$i].name")
+            if [ "$TARGET" != "all" ] && [ "$TARGET" != "$NAME" ]; then
+              continue
+            fi
+            URL=$(echo "$DB_TARGETS" | jq -r ".[$i].url")
+            TOKEN=$(echo "$DB_TARGETS" | jq -r ".[$i].token")
+            echo "::add-mask::$TOKEN"
+            echo "== Migrando ${NAME} =="
+            TURSO_DATABASE_URL="$URL" TURSO_AUTH_TOKEN="$TOKEN" node prisma/run-migrations.mjs
+            APPLIED=$((APPLIED + 1))
+          done
+          if [ "$APPLIED" -eq 0 ]; then
+            echo "::error::El target '${TARGET}' no coincide con ningún cliente en DB_TARGETS."
+            exit 1
+          fi
+          echo "Migraciones aplicadas a ${APPLIED} cliente(s)."

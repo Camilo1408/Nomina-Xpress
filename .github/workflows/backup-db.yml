@@ -1,4 +1,4 @@
-name: Weekly DB Backup
+name: Weekly DB Backup (per-cliente)
 
 on:
   schedule:
@@ -8,47 +8,58 @@ on:
 
 jobs:
   backup:
-    name: Dump y cifrar Turso DB
+    name: Dump y cifrar todas las BD de clientes
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
-      - name: Instalar Turso CLI
-        run: curl -sSfL https://get.tur.so/install.sh | bash
-        env:
-          TURSO_INSTALL_SKIP_SIGNUP: "true"
+      - uses: actions/checkout@v4
 
-      - name: Autenticar con Turso
-        run: echo "${{ secrets.TURSO_AUTH_TOKEN }}" | ~/.turso/bin/turso auth token --stdin 2>/dev/null || true
-        # La autenticación se pasa por la variable de entorno TURSO_TOKEN en el dump
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
 
-      - name: Volcar la base de datos
-        env:
-          TURSO_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
-        run: |
-          export PATH="$HOME/.turso/bin:$PATH"
-          DUMP_FILE="backup-$(date -u '+%Y-%m-%d').sql"
-          turso db shell "${{ secrets.TURSO_DATABASE_URL }}" ".dump" > "$DUMP_FILE"
-          echo "DUMP_FILE=$DUMP_FILE" >> $GITHUB_ENV
-          echo "Tamaño del dump: $(du -sh $DUMP_FILE)"
+      - name: Instalar dependencias
+        run: npm ci --ignore-scripts
 
-      - name: Cifrar con GPG (AES-256)
+      - name: Dump + cifrar cada cliente (DB_TARGETS)
         env:
+          DB_TARGETS: ${{ secrets.DB_TARGETS }}
           PASSPHRASE: ${{ secrets.BACKUP_GPG_PASSPHRASE }}
         run: |
-          ENCRYPTED_FILE="${DUMP_FILE}.gpg"
-          gpg --batch --yes --passphrase "$PASSPHRASE" \
-              --symmetric --cipher-algo AES256 \
-              --output "$ENCRYPTED_FILE" "$DUMP_FILE"
-          # Eliminar dump en claro antes de subirlo
-          rm "$DUMP_FILE"
-          echo "ENCRYPTED_FILE=$ENCRYPTED_FILE" >> $GITHUB_ENV
-          echo "Tamaño cifrado: $(du -sh $ENCRYPTED_FILE)"
+          set -euo pipefail
+          if [ -z "${DB_TARGETS:-}" ]; then
+            echo "::error::Falta el secret DB_TARGETS (JSON array de {name,url,token})."
+            exit 1
+          fi
+          if [ -z "${PASSPHRASE:-}" ]; then
+            echo "::error::Falta el secret BACKUP_GPG_PASSPHRASE."
+            exit 1
+          fi
+          mkdir -p backups
+          DATE=$(date -u '+%Y-%m-%d')
+          COUNT=$(echo "$DB_TARGETS" | jq 'length')
+          echo "Clientes a respaldar: $COUNT"
+          for i in $(seq 0 $((COUNT - 1))); do
+            NAME=$(echo "$DB_TARGETS" | jq -r ".[$i].name")
+            URL=$(echo "$DB_TARGETS" | jq -r ".[$i].url")
+            TOKEN=$(echo "$DB_TARGETS" | jq -r ".[$i].token")
+            echo "::add-mask::$TOKEN"
+            echo "== Respaldando ${NAME} =="
+            DUMP_URL="$URL" DUMP_TOKEN="$TOKEN" node scripts/db-dump.mjs "backups/backup-${NAME}-${DATE}.sql"
+            gpg --batch --yes --passphrase "$PASSPHRASE" \
+                --symmetric --cipher-algo AES256 \
+                --output "backups/backup-${NAME}-${DATE}.sql.gpg" "backups/backup-${NAME}-${DATE}.sql"
+            rm "backups/backup-${NAME}-${DATE}.sql"
+          done
+          echo "Backups cifrados generados:"
+          ls -la backups/
 
-      - name: Subir como artefacto (retención 56 días = 8 semanas)
+      - name: Subir artefacto cifrado (retención 180 días = ~6 meses)
         uses: actions/upload-artifact@v4
         with:
-          name: turso-backup-${{ github.run_id }}
-          path: ${{ env.ENCRYPTED_FILE }}
-          retention-days: 56
+          name: turso-backups-${{ github.run_id }}
+          path: backups/*.gpg
+          retention-days: 180
           if-no-files-found: error
