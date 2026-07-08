@@ -3,12 +3,18 @@
  * Prisma's findUnique relies on these existing in the actual DB.
  * Run once: node scripts/fix-indices.mjs
  */
+import { config } from "dotenv";
+config({ path: ".env.production" });
 import { createClient } from "@libsql/client";
 
-const db = createClient({
-  url: process.env.TURSO_DATABASE_URL ?? "libsql://nominaxpress-fiori-camilo1408.aws-us-east-1.turso.io",
-  authToken: process.env.TURSO_AUTH_TOKEN ?? "***REMOVED***",
-});
+const url = process.env.TURSO_DATABASE_URL;
+const authToken = process.env.TURSO_AUTH_TOKEN;
+if (!url || !authToken) {
+  console.error("Missing TURSO_DATABASE_URL / TURSO_AUTH_TOKEN. Set them in .env.production or pass them as environment variables.");
+  process.exit(1);
+}
+
+const db = createClient({ url, authToken });
 
 const indices = [
   // User unique constraints

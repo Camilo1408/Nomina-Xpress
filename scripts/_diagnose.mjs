@@ -1,9 +1,15 @@
+import { config } from "dotenv";
+config({ path: ".env.production" });
 import { createClient } from "@libsql/client";
 
-const db = createClient({
-  url: "libsql://nominaxpress-fiori-camilo1408.aws-us-east-1.turso.io",
-  authToken: "***REMOVED***",
-});
+const url = process.env.TURSO_DATABASE_URL;
+const authToken = process.env.TURSO_AUTH_TOKEN;
+if (!url || !authToken) {
+  console.error("Faltan TURSO_DATABASE_URL / TURSO_AUTH_TOKEN. Definilas en .env.production o pasalas por variables de entorno.");
+  process.exit(1);
+}
+
+const db = createClient({ url, authToken });
 
 // 1. Ver esquema exacto de todas las tablas
 console.log("=== SCHEMA COMPLETO DE LA BD ===\n");

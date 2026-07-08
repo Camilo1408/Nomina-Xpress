@@ -18,7 +18,7 @@
 - Backup de la BD Turso ANTES de cualquier borrado (confirmado: reset con backup).
 - Credenciales Turso (pasar por env inline, NUNCA commitear a un archivo versionado):
   - `TURSO_DATABASE_URL=libsql://nomina-xpress-db-camilo1408.aws-us-east-1.turso.io`
-  - `TURSO_AUTH_TOKEN=***REMOVED***`
+  - `TURSO_AUTH_TOKEN=<REDACTADO — obtener del gestor de secretos, nunca commitear>`
 - Scripts `.mjs` temporales viven en la raíz del proyecto (para resolver `node_modules`) con prefijo `_` y se eliminan al terminar cada task; NUNCA se commitean.
 
 ---

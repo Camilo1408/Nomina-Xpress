@@ -1,8 +1,14 @@
+import { config } from "dotenv";
+config({ path: ".env.production" });
 import { PrismaClient } from "../src/generated/prisma/index.js";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 
-const url = "libsql://nominaxpress-fiori-camilo1408.aws-us-east-1.turso.io";
-const authToken = "***REMOVED***";
+const url = process.env.TURSO_DATABASE_URL;
+const authToken = process.env.TURSO_AUTH_TOKEN;
+if (!url || !authToken) {
+  console.error("Faltan TURSO_DATABASE_URL / TURSO_AUTH_TOKEN. Definilas en .env.production o pasalas por variables de entorno.");
+  process.exit(1);
+}
 
 const adapter = new PrismaLibSql({ url, authToken });
 const prisma = new PrismaClient({ adapter });
