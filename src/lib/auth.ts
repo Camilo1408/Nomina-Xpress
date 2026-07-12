@@ -52,8 +52,32 @@ async function resolveInventoryPermissions(
   return [...inv];
 }
 
+// Cookie de sesión compartida entre subdominios (modo integrado con Inventory Xpress).
+// Cuando AUTH_COOKIE_DOMAIN está definido (p. ej. ".cucinadeifiori.com"), la cookie de
+// sesión se emite con ese Domain para que el subdominio del inventario
+// (inventario.<dominio>) la lea y valide el JWT con el mismo NEXTAUTH_SECRET. Si no
+// está definido (demo/local), NextAuth usa su cookie host-only por defecto y nada
+// cambia. El nombre "__Secure-authjs.session-token" es el mismo que NextAuth v5 usa
+// por defecto en HTTPS, así que fijarlo aquí solo agrega el Domain.
+const AUTH_COOKIE_DOMAIN = process.env.AUTH_COOKIE_DOMAIN?.trim();
+const sharedSessionCookie = AUTH_COOKIE_DOMAIN
+  ? {
+      sessionToken: {
+        name: "__Secure-authjs.session-token",
+        options: {
+          httpOnly: true,
+          sameSite: "lax" as const,
+          path: "/",
+          secure: true,
+          domain: AUTH_COOKIE_DOMAIN,
+        },
+      },
+    }
+  : undefined;
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
+  cookies: sharedSessionCookie,
   providers: [
     Credentials({
       credentials: { username: {}, password: {} },

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,8 +14,28 @@ interface LoginFormProps {
   logoUrl: string | null;
 }
 
+/**
+ * Destino post-login. Si venimos redirigidos desde el inventario (modo integrado),
+ * la URL trae `?callbackUrl=<url-del-inventario>`; solo la respetamos si su origen
+ * coincide EXACTAMENTE con el inventario configurado (NEXT_PUBLIC_INVENTARIO_APP_URL),
+ * para evitar open-redirects. En cualquier otro caso vamos al home de nómina.
+ */
+function resolvePostLoginTarget(callbackUrl: string | null): string | null {
+  const invUrl = process.env.NEXT_PUBLIC_INVENTARIO_APP_URL?.trim();
+  if (!callbackUrl || !invUrl) return null;
+  try {
+    const target = new URL(callbackUrl);
+    const inventory = new URL(invUrl);
+    if (target.origin === inventory.origin) return target.toString();
+  } catch {
+    // callbackUrl malformado → ignorar
+  }
+  return null;
+}
+
 export function LoginForm({ tenantName, logoUrl }: LoginFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -35,8 +55,14 @@ export function LoginForm({ tenantName, logoUrl }: LoginFormProps) {
     if (result?.error) {
       setError("Usuario o contraseña incorrectos.");
     } else {
-      router.push("/");
-      router.refresh();
+      // Retorno al inventario (modo integrado) si el callbackUrl es válido; si no, home.
+      const inventoryTarget = resolvePostLoginTarget(searchParams.get("callbackUrl"));
+      if (inventoryTarget) {
+        window.location.href = inventoryTarget;
+      } else {
+        router.push("/");
+        router.refresh();
+      }
     }
   }
 
