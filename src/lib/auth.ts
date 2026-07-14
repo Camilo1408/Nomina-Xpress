@@ -63,7 +63,13 @@ const AUTH_COOKIE_DOMAIN = process.env.AUTH_COOKIE_DOMAIN?.trim();
 const sharedSessionCookie = AUTH_COOKIE_DOMAIN
   ? {
       sessionToken: {
-        name: "__Secure-authjs.session-token",
+        // Nombre propio a propósito (no el default "__Secure-authjs.session-token").
+        // Durante la transición al dominio de cookie compartido quedaron cookies
+        // viejas host-only con el nombre default en los navegadores; usar un nombre
+        // distinto hace que la app IGNORE esas cookies viejas (no colisionan por
+        // orden de envío), así el login funciona sin que el usuario borre cookies.
+        // DEBE ser idéntico en nómina e inventario: es la sal de cifrado del JWT.
+        name: "__Secure-nx.session-token",
         options: {
           httpOnly: true,
           sameSite: "lax" as const,
