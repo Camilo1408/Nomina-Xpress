@@ -86,6 +86,17 @@ export async function PUT(
     });
   }
 
+  // Espejo hacia el toggle "Acceso a Inventario" (Personal): si este guardado
+  // incluye un override explícito de "inventory:view", el booleano queda igual
+  // de sincronizado sin tener que ir a la otra pantalla a repetir el cambio.
+  const inventoryViewOverride = validOverrides.find((o) => o.permissionKey === PERMISSIONS.INVENTORY_VIEW);
+  if (inventoryViewOverride) {
+    await prisma.user.update({
+      where: { id },
+      data: { inventoryAccess: inventoryViewOverride.granted },
+    });
+  }
+
   await logAudit(req, session, {
     action: "UPDATE",
     module: "USERS",
@@ -121,9 +132,15 @@ export async function DELETE(
     await prisma.userPermission.deleteMany({
       where: { userId: id, permissionKey: parsed.data.permissionKey },
     });
+    // Espejo: quitar el override de "inventory:view" vuelve al modo Auto,
+    // así que el toggle "Acceso a Inventario" también se apaga.
+    if (parsed.data.permissionKey === PERMISSIONS.INVENTORY_VIEW) {
+      await prisma.user.update({ where: { id }, data: { inventoryAccess: false } });
+    }
   } else {
     // Eliminar TODOS los overrides del usuario
     await prisma.userPermission.deleteMany({ where: { userId: id } });
+    await prisma.user.update({ where: { id }, data: { inventoryAccess: false } });
   }
 
   await logAudit(req, session, {

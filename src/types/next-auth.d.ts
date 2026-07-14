@@ -5,7 +5,8 @@ declare module "next-auth" {
     role: string;
     tenantId: string;
     employeeId?: string | null;
-    inventoryAccess: boolean;
+    // Calculados en el callback jwt() en cada request, no en authorize().
+    inventoryAccess?: boolean;
     inventoryPermissions?: string[];
   }
   interface Session {

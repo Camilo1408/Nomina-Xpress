@@ -146,12 +146,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           ip,
           userAgent,
         });
-        const inventoryPermissions = await resolveInventoryPermissions(
-          user.id,
-          user.tenantId,
-          user.role,
-          user.inventoryAccess
-        );
         return {
           id: user.id,
           name: user.username,
@@ -159,9 +153,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           role: user.role,
           tenantId: user.tenantId,
           employeeId: user.employeeId,
-          // Acceso efectivo: tiene al menos un permiso de inventario
-          inventoryAccess: inventoryPermissions.length > 0,
-          inventoryPermissions,
         };
       },
     }),
@@ -183,14 +174,35 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
   callbacks: {
-    jwt({ token, user }) {
+    // Se ejecuta en cada request (no solo al iniciar sesión). Los permisos de
+    // inventario se RECALCULAN siempre desde la DB, así que un cambio hecho por
+    // un admin (rol, permiso individual, o el toggle "Acceso a Inventario")
+    // surte efecto de inmediato sin exigir que el usuario vuelva a iniciar
+    // sesión — antes solo se calculaban una vez al hacer login y quedaban
+    // "congelados" en el JWT hasta el próximo login.
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
         token.tenantId = user.tenantId;
         token.employeeId = user.employeeId;
-        token.inventoryAccess = user.inventoryAccess ?? false;
-        token.inventoryPermissions = user.inventoryPermissions ?? [];
+      }
+      if (token.id && token.tenantId) {
+        const dbUser = await prisma.user.findFirst({
+          where: { id: token.id as string, tenantId: token.tenantId as string },
+          select: { role: true, inventoryAccess: true },
+        });
+        if (dbUser) {
+          token.role = dbUser.role;
+          const inventoryPermissions = await resolveInventoryPermissions(
+            token.id as string,
+            token.tenantId as string,
+            dbUser.role,
+            dbUser.inventoryAccess
+          );
+          token.inventoryAccess = inventoryPermissions.length > 0;
+          token.inventoryPermissions = inventoryPermissions;
+        }
       }
       return token;
     },
