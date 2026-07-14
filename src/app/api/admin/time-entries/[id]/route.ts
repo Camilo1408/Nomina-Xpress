@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { isSpecialDay } from "@/lib/holidays";
+import { isSpecialDayForTenant } from "@/lib/special-days";
 import { recalculateTipForDate } from "@/lib/recalculate-tips";
 import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
@@ -79,7 +79,7 @@ export async function PUT(
   const updateData: Record<string, unknown> = {};
   if (date !== undefined) {
     updateData.date = date;
-    updateData.isSpecial = isSpecialDay(date);
+    updateData.isSpecial = await isSpecialDayForTenant(session.user.tenantId, date);
   }
   if (checkIn !== undefined) updateData.checkIn = new Date(checkIn);
   if (checkOut !== undefined) updateData.checkOut = checkOut ? new Date(checkOut) : null;

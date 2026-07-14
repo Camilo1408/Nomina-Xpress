@@ -34,6 +34,7 @@ export const AUDIT_MODULES = [
   "INVENTORY",
   "ROLES",
   "USERS",
+  "HOLIDAYS",
 ] as const;
 export type AuditModule = (typeof AUDIT_MODULES)[number];
 
@@ -70,4 +71,5 @@ export const MODULE_LABELS: Record<string, string> = {
   INVENTORY: "Inventario",
   ROLES: "Roles y permisos",
   USERS: "Usuarios del portal",
+  HOLIDAYS: "Festivos",
 };

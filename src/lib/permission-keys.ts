@@ -69,6 +69,12 @@ export const PERMISSIONS = {
   DISCOUNTS_DELETE:         "discounts:delete",
   DISCOUNTS_ASSIGN:         "discounts:assign",
 
+  // ── Festivos personalizados ───────────────────────────────────────────────
+  HOLIDAYS_VIEW:            "holidays:view",
+  HOLIDAYS_CREATE:          "holidays:create",
+  HOLIDAYS_EDIT:            "holidays:edit",
+  HOLIDAYS_DELETE:          "holidays:delete",
+
   // ── Configuración ─────────────────────────────────────────────────────────
   SETTINGS_VIEW:            "settings:view",
   SETTINGS_EDIT:            "settings:edit",
@@ -227,6 +233,11 @@ export const BASE_ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
     PERMISSIONS.DISCOUNTS_EDIT,
     PERMISSIONS.DISCOUNTS_DELETE,
     PERMISSIONS.DISCOUNTS_ASSIGN,
+    // Festivos personalizados: solo SUPERADMIN (y PROPRIETARY por acceso total)
+    PERMISSIONS.HOLIDAYS_VIEW,
+    PERMISSIONS.HOLIDAYS_CREATE,
+    PERMISSIONS.HOLIDAYS_EDIT,
+    PERMISSIONS.HOLIDAYS_DELETE,
     PERMISSIONS.SETTINGS_VIEW,
     PERMISSIONS.SETTINGS_EDIT,
     // Inventario: gestión completa
@@ -361,6 +372,16 @@ export const PERMISSION_GROUPS: Array<{
     ],
   },
   {
+    module: "holidays",
+    label: "Festivos",
+    keys: [
+      PERMISSIONS.HOLIDAYS_VIEW,
+      PERMISSIONS.HOLIDAYS_CREATE,
+      PERMISSIONS.HOLIDAYS_EDIT,
+      PERMISSIONS.HOLIDAYS_DELETE,
+    ],
+  },
+  {
     module: "settings",
     label: "Configuración",
     keys: [PERMISSIONS.SETTINGS_VIEW, PERMISSIONS.SETTINGS_EDIT],
@@ -442,6 +463,10 @@ export const PERMISSION_LABELS: Record<string, string> = {
   "discounts:edit":           "Editar descuentos",
   "discounts:delete":         "Eliminar descuentos",
   "discounts:assign":         "Asignar descuentos al personal",
+  "holidays:view":            "Ver festivos",
+  "holidays:create":          "Crear festivos",
+  "holidays:edit":            "Editar festivos",
+  "holidays:delete":          "Eliminar festivos",
   "settings:view":            "Ver configuración",
   "settings:edit":            "Editar configuración",
   "audit:view":               "Ver auditoría",

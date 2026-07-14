@@ -13,6 +13,7 @@ import {
   Calendar,
   BarChart3,
   CalendarClock,
+  CalendarHeart,
   Settings,
   LogOut,
   Menu,
@@ -45,6 +46,7 @@ const allNavItems: Array<{
   { href: "/admin/audit", label: "Auditoría", icon: ScrollText, permission: PERMISSIONS.AUDIT_VIEW },
   { href: "/admin/roles", label: "Roles", icon: ShieldCheck, permission: PERMISSIONS.ROLES_VIEW },
   { href: "/admin/usuarios", label: "Usuarios", icon: UserCog, permission: PERMISSIONS.USERS_VIEW },
+  { href: "/admin/holidays", label: "Festivos", icon: CalendarHeart, permission: PERMISSIONS.HOLIDAYS_VIEW },
   { href: "/admin/settings", label: "Configuración", icon: Settings, permission: PERMISSIONS.SETTINGS_VIEW },
 ];
 

@@ -31,6 +31,7 @@ model Tenant {
   customRoles          CustomRole[]
   userPermissions      UserPermission[]
   inventoryCategories  InventoryCategory[]
+  holidays             Holiday[]
 }
 
 model User {
@@ -397,4 +398,27 @@ model InventoryCategory {
 
   @@unique([tenantId, slug])
   @@index([tenantId, active])
+}
+
+// Festivos personalizados por cliente. Complementan los festivos NACIONALES de
+// la librería `date-holidays` (que solo conoce los fijados por la Ley Emiliani):
+// permiten registrar festivos decretados localmente (municipales/departamentales)
+// que la librería no incluye, para que la nómina los pague como día especial.
+//
+// La fecha se guarda en mes/día (+ año opcional) en lugar de un string ISO:
+//   - year = null  → se repite CADA año ese mes/día (ej. fiesta patronal fija).
+//   - year = 2026  → aplica SOLO a ese año (ej. decreto puntual).
+model Holiday {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  month     Int      // 1-12
+  day       Int      // 1-31
+  year      Int?     // null = se repite cada año
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, year, month, day])
+  @@index([tenantId])
 }
