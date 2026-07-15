@@ -93,6 +93,7 @@ export const PERMISSIONS = {
   INVENTORY_DAILY_REOPEN:       "inventory:daily:reopen",        // reabrir inventario diario cerrado
   INVENTORY_REPORTS_VIEW:       "inventory:reports:view",        // ver reportes de inventario
   INVENTORY_USERS_MANAGE:       "inventory:users:manage",        // gestionar usuarios del inventario (standalone)
+  INVENTORY_AUDIT_VIEW:         "inventory:audit:view",          // ver auditoría del inventario (movimientos y acciones)
 
   // ── Perfil propio ─────────────────────────────────────────────────────────
   PROFILE_EDIT:             "profile:edit",
@@ -193,6 +194,7 @@ export const BASE_ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
     PERMISSIONS.INVENTORY_DAILY_REOPEN,
     PERMISSIONS.INVENTORY_REPORTS_VIEW,
     PERMISSIONS.INVENTORY_USERS_MANAGE,
+    PERMISSIONS.INVENTORY_AUDIT_VIEW,
     PERMISSIONS.PROFILE_EDIT,
   ],
 
@@ -251,6 +253,7 @@ export const BASE_ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
     PERMISSIONS.INVENTORY_DAILY_REOPEN,
     PERMISSIONS.INVENTORY_REPORTS_VIEW,
     PERMISSIONS.INVENTORY_USERS_MANAGE,
+    PERMISSIONS.INVENTORY_AUDIT_VIEW,
     PERMISSIONS.PROFILE_EDIT,
   ],
 
@@ -405,6 +408,7 @@ export const PERMISSION_GROUPS: Array<{
       PERMISSIONS.INVENTORY_DAILY_REOPEN,
       PERMISSIONS.INVENTORY_REPORTS_VIEW,
       PERMISSIONS.INVENTORY_USERS_MANAGE,
+      PERMISSIONS.INVENTORY_AUDIT_VIEW,
     ],
   },
   {
@@ -480,5 +484,6 @@ export const PERMISSION_LABELS: Record<string, string> = {
   "inventory:daily:reopen":      "Reabrir inventario diario",
   "inventory:reports:view":      "Ver reportes de inventario",
   "inventory:users:manage":      "Gestionar usuarios del inventario",
+  "inventory:audit:view":        "Ver auditoría del inventario",
   "profile:edit":             "Editar perfil propio",
 };
