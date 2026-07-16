@@ -33,4 +33,29 @@ describe("hasAdminAreaAccess", () => {
   it("set vacío → sin acceso", () => {
     expect(hasAdminAreaAccess(new Set())).toBe(false);
   });
+
+  it("empleado SOLO con permisos de inventario NO entra al área admin (queda en su portal)", () => {
+    const perms = new Set<string>([
+      PERMISSIONS.INVENTORY_VIEW,
+      PERMISSIONS.INVENTORY_STOCK_COUNT,
+    ]);
+    expect(hasAdminAreaAccess(perms)).toBe(false);
+  });
+
+  it("permisos dinámicos de inventario por categoría tampoco dan acceso al área admin", () => {
+    const perms = new Set<string>([
+      PERMISSIONS.INVENTORY_VIEW,
+      "inventory:daily:cocina:view",
+      "inventory:daily:cocina:open",
+    ]);
+    expect(hasAdminAreaAccess(perms)).toBe(false);
+  });
+
+  it("inventario + un permiso admin real SÍ da acceso al área admin", () => {
+    const perms = new Set<string>([
+      PERMISSIONS.INVENTORY_VIEW,
+      PERMISSIONS.TIME_ENTRIES_VIEW,
+    ]);
+    expect(hasAdminAreaAccess(perms)).toBe(true);
+  });
 });

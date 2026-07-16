@@ -111,12 +111,23 @@ export function resolvePermissionsSync(user: {
  * y el sidebar/páginas ya filtran por permiso lo que ve.
  *
  * Regla: tiene acceso si posee al menos un permiso que NO sea puramente del
- * portal (`profile:edit`). El baseline de EMPLOYEE es vacío, así que un empleado
- * sin permisos concedidos queda fuera del área admin (solo su portal).
+ * portal (`profile:edit`) NI del módulo externo de inventario (`inventory:*`,
+ * incluidas las claves dinámicas por categoría `inventory:daily:*`). El baseline
+ * de EMPLOYEE es vacío, así que un empleado sin permisos concedidos queda fuera
+ * del área admin (solo su portal).
+ *
+ * El inventario es un módulo externo ortogonal al área de gestión: un EMPLOYEE
+ * cuyos únicos permisos elevados son de inventario debe PERMANECER en su portal
+ * (Mi Quincena / Mi Horario / Perfil) y abrir el inventario desde ahí — no ser
+ * enviado al área admin, donde no tendría acceso a su propia nómina. Si además de
+ * inventario tiene algún permiso admin real (horas, horarios, nómina, etc.), sí
+ * entra al área admin.
  */
 export function hasAdminAreaAccess(permissions: Set<string>): boolean {
   for (const key of permissions) {
-    if (key !== PERMISSIONS.PROFILE_EDIT) return true;
+    if (key === PERMISSIONS.PROFILE_EDIT) continue;
+    if (key.startsWith("inventory:")) continue;
+    return true;
   }
   return false;
 }
