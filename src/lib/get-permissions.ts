@@ -1,6 +1,7 @@
 // Resolución de permisos efectivos de un usuario — solo server-side (usa Prisma).
 // El resultado final combina: rol base → rol personalizado → overrides individuales.
 
+import { cache } from "react";
 import { prisma } from "@/lib/db";
 import { PERMISSIONS, BASE_ROLE_PERMISSIONS, ALL_PERMISSION_KEYS, isValidPermissionKey, type PermissionKey } from "@/lib/permission-keys";
 
@@ -59,6 +60,20 @@ export async function getEffectivePermissions(
 
   return base;
 }
+
+/**
+ * Igual que getEffectivePermissions pero MEMOIZADO por request (React cache):
+ * cuando el layout admin y la página piden los permisos en el mismo render, la
+ * query de usuario+permisos corre UNA sola vez en lugar de dos. La memoización
+ * es por request (no persiste entre navegaciones), así que los permisos se
+ * siguen resolviendo frescos en cada request — se preserva el comportamiento de
+ * "permisos frescos por request".
+ *
+ * IMPORTANTE: auth.ts (construcción del JWT en login) usa a propósito la versión
+ * NO cacheada `getEffectivePermissions`, para no depender del scope de request de
+ * React fuera de un render de RSC.
+ */
+export const getEffectivePermissionsCached = cache(getEffectivePermissions);
 
 /**
  * Verifica si el usuario tiene un permiso específico.
@@ -142,7 +157,7 @@ export async function getSessionPermissions(session: {
   const id = session?.user?.id;
   const tenantId = session?.user?.tenantId;
   if (!id || !tenantId) return new Set();
-  return getEffectivePermissions(id, tenantId);
+  return getEffectivePermissionsCached(id, tenantId);
 }
 
 /**

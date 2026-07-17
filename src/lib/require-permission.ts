@@ -1,7 +1,7 @@
 import "server-only";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { getEffectivePermissions } from "@/lib/get-permissions";
+import { getEffectivePermissionsCached } from "@/lib/get-permissions";
 import type { PermissionKey } from "@/lib/permission-keys";
 
 /**
@@ -16,7 +16,7 @@ export async function requirePagePermission(key: PermissionKey) {
   const session = await auth();
   if (!session?.user?.id || !session.user.tenantId) redirect("/login");
 
-  const permissions = await getEffectivePermissions(session.user.id, session.user.tenantId);
+  const permissions = await getEffectivePermissionsCached(session.user.id, session.user.tenantId);
   if (!permissions.has(key)) {
     redirect("/admin/dashboard");
   }

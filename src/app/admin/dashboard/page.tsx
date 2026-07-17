@@ -43,14 +43,14 @@ export default async function DashboardPage() {
     canViewTimeEntries
       ? prisma.timeEntry.findMany({
           where: { tenantId, date: today },
-          include: { employee: true },
+          include: { employee: { select: { name: true } } },
           orderBy: { checkIn: "desc" },
         })
       : Promise.resolve([]),
     canViewTimeEntries
       ? prisma.timeEntry.findMany({
           where: { tenantId, date: today, checkOut: null },
-          include: { employee: true },
+          include: { employee: { select: { name: true } } },
         })
       : Promise.resolve([]),
     // Registros de días ANTERIORES que nunca tuvieron salida registrada
@@ -64,7 +64,7 @@ export default async function DashboardPage() {
               { checkIn2: { not: null }, checkOut2: null },
             ],
           },
-          include: { employee: true },
+          include: { employee: { select: { name: true } } },
           orderBy: [{ date: "desc" }, { checkIn: "desc" }],
         })
       : Promise.resolve([]),
