@@ -1,33 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { formatCurrency, formatHours, formatDate, formatTime } from "@/lib/utils";
+import { formatCurrency, formatHours, formatDate, formatTime, getCurrentBiweeklyPeriod } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Gift, TrendingDown } from "lucide-react";
 import type { BonusApplied } from "@/lib/bonuses";
 import type { DiscountApplied } from "@/lib/discounts";
 
-function getCurrentPeriod() {
-  const today = new Date();
-  const day = today.getDate();
-  const year = today.getFullYear();
-  const month = today.getMonth();
-  if (day <= 15) {
-    return {
-      from: new Date(year, month, 1).toISOString().split("T")[0],
-      to: new Date(year, month, 15).toISOString().split("T")[0],
-    };
-  }
-  const lastDay = new Date(year, month + 1, 0).getDate();
-  return {
-    from: new Date(year, month, 16).toISOString().split("T")[0],
-    to: new Date(year, month, lastDay).toISOString().split("T")[0],
-  };
-}
-
 export default function AdminMyQuincenaPage() {
-  const period = getCurrentPeriod();
+  const period = getCurrentBiweeklyPeriod();
   const [from, setFrom] = useState(period.from);
   const [to, setTo] = useState(period.to);
   const [data, setData] = useState<{

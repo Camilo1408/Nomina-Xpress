@@ -9,6 +9,7 @@ import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
 
 const updateSchema = z.object({
+  employeeId: z.string().min(1).optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   checkIn: z.string().optional(),
   checkOut: z.string().nullable().optional(),
@@ -16,6 +17,20 @@ const updateSchema = z.object({
   checkOut2: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
 });
+
+// Igual que en el POST: dos turnos del mismo día no pueden solaparse.
+function rangesOverlap(
+  aStart: Date,
+  aEnd: Date | null,
+  bStart: Date,
+  bEnd: Date | null,
+  date: string
+): boolean {
+  const dayEnd = new Date(date + "T23:59:59");
+  const effAEnd = aEnd ?? dayEnd;
+  const effBEnd = bEnd ?? dayEnd;
+  return aStart < effBEnd && bStart < effAEnd;
+}
 
 export async function PUT(
   req: Request,
@@ -32,12 +47,13 @@ export async function PUT(
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { date, checkIn, checkOut, checkIn2, checkOut2, notes } = parsed.data;
+  const { employeeId, date, checkIn, checkOut, checkIn2, checkOut2, notes } = parsed.data;
 
   // Leer el registro actual (para recalcular propinas y validar horarios)
   const existing = await prisma.timeEntry.findFirst({
     where: { id, tenantId: session.user.tenantId },
     select: {
+      employeeId: true,
       date: true,
       checkIn: true,
       checkOut: true,
@@ -47,6 +63,24 @@ export async function PUT(
       employee: { select: { name: true } },
     },
   });
+
+  if (!existing) {
+    return NextResponse.json({ error: "Registro no encontrado" }, { status: 404 });
+  }
+
+  // Si se reasigna el empleado, validar que pertenezca al tenant (no permitir
+  // asignaciones inválidas / de otro cliente).
+  let targetEmployeeName = existing.employee?.name ?? "empleado";
+  if (employeeId !== undefined && employeeId !== existing.employeeId) {
+    const target = await prisma.employee.findFirst({
+      where: { id: employeeId, tenantId: session.user.tenantId },
+      select: { id: true, name: true },
+    });
+    if (!target) {
+      return NextResponse.json({ error: "Empleado no encontrado" }, { status: 404 });
+    }
+    targetEmployeeName = target.name;
+  }
 
   // Validar que salida > entrada fusionando valores actuales con los nuevos
   const effectiveCheckIn = checkIn ? new Date(checkIn) : existing?.checkIn;
@@ -76,7 +110,43 @@ export async function PUT(
     );
   }
 
+  // Si el registro se mueve a otro empleado o a otra fecha, revalidar contra el
+  // destino: mismas reglas que al crear (máx. 2 turnos/día y sin solapamiento).
+  const effectiveEmployeeId = employeeId ?? existing.employeeId;
+  const effectiveDate = date ?? existing.date;
+  const isMoving =
+    effectiveEmployeeId !== existing.employeeId || effectiveDate !== existing.date;
+
+  if (isMoving && effectiveCheckIn) {
+    const siblings = await prisma.timeEntry.findMany({
+      where: {
+        tenantId: session.user.tenantId,
+        employeeId: effectiveEmployeeId,
+        date: effectiveDate,
+        id: { not: id },
+      },
+      select: { checkIn: true, checkOut: true },
+    });
+
+    if (siblings.length >= 2) {
+      return NextResponse.json(
+        { error: "El empleado ya tiene 2 registros para este día. El máximo permitido son 2 turnos diarios." },
+        { status: 409 }
+      );
+    }
+
+    for (const sib of siblings) {
+      if (rangesOverlap(effectiveCheckIn, effectiveCheckOut, sib.checkIn, sib.checkOut, effectiveDate)) {
+        return NextResponse.json(
+          { error: "El horario ingresado se superpone con un turno ya registrado para este empleado en esta fecha." },
+          { status: 409 }
+        );
+      }
+    }
+  }
+
   const updateData: Record<string, unknown> = {};
+  if (employeeId !== undefined) updateData.employeeId = employeeId;
   if (date !== undefined) {
     updateData.date = date;
     updateData.isSpecial = await isSpecialDayForTenant(session.user.tenantId, date);
@@ -103,11 +173,9 @@ export async function PUT(
     action: "UPDATE",
     module: "TIME_ENTRIES",
     entityId: id,
-    entityLabel: existing?.employee?.name
-      ? `${existing.employee.name} — ${newDate}`
-      : newDate,
-    description: `Editó el registro de horas de "${existing?.employee?.name ?? "empleado"}" del ${existing?.date ?? newDate}`,
-    before: existing ?? undefined,
+    entityLabel: `${targetEmployeeName} — ${newDate}`,
+    description: `Editó el registro de horas de "${existing.employee?.name ?? "empleado"}" del ${existing.date}`,
+    before: existing,
     after: updateData,
   });
 

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency, formatHours } from "@/lib/utils";
+import { formatCurrency, formatHours, getCurrentBiweeklyPeriod } from "@/lib/utils";
 import { FileDown, FileSpreadsheet, Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { PayrollResult } from "@/lib/payroll";
@@ -43,27 +43,9 @@ const REPORT_LABELS: Record<ReportType, { buttonLabel: string; fileSlug: string 
   shifts:  { buttonLabel: "Calcular turnos", fileSlug: "turnos" },
 };
 
-function getCurrentPeriod(): { from: string; to: string } {
-  const today = new Date();
-  const day = today.getDate();
-  const year = today.getFullYear();
-  const month = today.getMonth();
-  if (day <= 15) {
-    return {
-      from: new Date(year, month, 1).toISOString().split("T")[0],
-      to: new Date(year, month, 15).toISOString().split("T")[0],
-    };
-  }
-  const lastDay = new Date(year, month + 1, 0).getDate();
-  return {
-    from: new Date(year, month, 16).toISOString().split("T")[0],
-    to: new Date(year, month, lastDay).toISOString().split("T")[0],
-  };
-}
-
 export function ReportsClient({ employees, canExportPdf, canExportExcel, canAddAdjustment, canEditAdjustment, canDeleteAdjustment, reportType = "payroll" }: ReportsClientProps) {
   const labels = REPORT_LABELS[reportType];
-  const period = getCurrentPeriod();
+  const period = getCurrentBiweeklyPeriod();
   const [from, setFrom] = useState(period.from);
   const [to, setTo] = useState(period.to);
   const [selectedEmployee, setSelectedEmployee] = useState("");

@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, getCurrentBiweeklyPeriod } from "@/lib/utils";
 import { Plus, Pencil, Trash2, ChevronDown, ChevronRight, SlidersHorizontal, CalendarDays, Users } from "lucide-react";
 import { toast } from "sonner";
 import { TipEntryModal } from "./TipEntryModal";
@@ -36,25 +36,6 @@ interface TipsClientProps {
   canCreate: boolean;
   canEdit: boolean;
   canDelete: boolean;
-}
-
-function getCurrentPeriod() {
-  const today = new Date();
-  const day = today.getDate();
-  const year = today.getFullYear();
-  const month = today.getMonth();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  if (day <= 15) {
-    return {
-      from: `${year}-${pad(month + 1)}-01`,
-      to: `${year}-${pad(month + 1)}-15`,
-    };
-  }
-  const lastDay = new Date(year, month + 1, 0).getDate();
-  return {
-    from: `${year}-${pad(month + 1)}-16`,
-    to: `${year}-${pad(month + 1)}-${pad(lastDay)}`,
-  };
 }
 
 interface EmployeeSummary {
@@ -98,7 +79,7 @@ function aggregateByEmployee(entries: TipEntry[]): EmployeeSummary[] {
 }
 
 export function TipsClient({ canCreate, canEdit, canDelete }: TipsClientProps) {
-  const period = getCurrentPeriod();
+  const period = getCurrentBiweeklyPeriod();
   const [from, setFrom] = useState(period.from);
   const [to, setTo] = useState(period.to);
   const [entries, setEntries] = useState<TipEntry[]>([]);

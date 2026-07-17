@@ -40,6 +40,46 @@ export function getPeriodBounds(
   };
 }
 
+/**
+ * Devuelve el último día (28–31) de un mes concreto, calculado dinámicamente.
+ * `month` es 1-based (1 = enero). Independiente de la zona horaria: solo lee
+ * los componentes locales de una fecha construida localmente.
+ */
+export function lastDayOfMonth(year: number, month: number): number {
+  return new Date(year, month, 0).getDate();
+}
+
+/**
+ * Quincena fija que contiene la fecha dada (mes 1-based, día 1–31):
+ *   - Primera quincena: día 1 → 15.
+ *   - Segunda quincena: día 16 → último día real del mes (28/29/30/31).
+ * Devuelve strings "YYYY-MM-DD" construidos manualmente (sin `toISOString`),
+ * para no depender de la zona horaria del navegador.
+ */
+export function getBiweeklyPeriodForDate(
+  year: number,
+  month: number,
+  day: number
+): { from: string; to: string } {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const mm = pad(month);
+  if (day <= 15) {
+    return { from: `${year}-${mm}-01`, to: `${year}-${mm}-15` };
+  }
+  return { from: `${year}-${mm}-16`, to: `${year}-${mm}-${pad(lastDayOfMonth(year, month))}` };
+}
+
+/**
+ * Quincena fija actual según la fecha de HOY en zona horaria de Colombia
+ * (evita elegir la quincena equivocada cerca de medianoche / cambio de mes
+ * cuando el navegador está en otra zona). Período por defecto de los filtros
+ * de reportes y registros.
+ */
+export function getCurrentBiweeklyPeriod(): { from: string; to: string } {
+  const [year, month, day] = todayColombia().split("-").map(Number);
+  return getBiweeklyPeriodForDate(year, month, day);
+}
+
 export function formatDate(date: Date | string): string {
   let d: Date;
   if (typeof date === "string") {
