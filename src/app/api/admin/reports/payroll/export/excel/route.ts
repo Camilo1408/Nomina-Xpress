@@ -4,6 +4,7 @@ import { calculatePayroll } from "@/lib/payroll";
 import { resolveBonusesForEmployees } from "@/lib/bonus-service";
 import { resolveDiscountsForEmployees } from "@/lib/discount-service";
 import { clampFinalPay } from "@/lib/discounts";
+import { fetchPayrollPeriodData } from "@/lib/payroll-report";
 import { generatePayrollExcel } from "@/lib/excel/payroll-template";
 import { loadTenantLogo } from "@/lib/logo-loader";
 import { NextResponse } from "next/server";
@@ -38,13 +39,10 @@ export async function GET(req: Request) {
     resolveDiscountsForEmployees(tenantId, from, empRefs),
   ]);
 
-  const results = await Promise.all(
-    employees.map(async (emp) => {
-      const [entries, adjustments, tipDists] = await Promise.all([
-        prisma.timeEntry.findMany({ where: { tenantId, employeeId: emp.id, date: { gte: from, lte: to } } }),
-        prisma.payAdjustment.findMany({ where: { tenantId, employeeId: emp.id, periodStart: { gte: from }, periodEnd: { lte: to } } }),
-        prisma.tipDistribution.findMany({ where: { tenantId, employeeId: emp.id, tipEntry: { date: { gte: from, lte: to } } } }),
-      ]);
+  const periodData = await fetchPayrollPeriodData(tenantId, from, to, employees.map((e) => e.id));
+
+  const results = employees.map((emp) => {
+      const { entries, adjustments, tipDists } = periodData.get(emp.id)!;
       const payroll = calculatePayroll(emp, entries, adjustments);
       const totalTips = Math.round(tipDists.reduce((s, d) => s + Number(d.amount), 0));
       const empBonuses = bonusMap.get(emp.id) ?? { bonuses: [], totalBonuses: 0 };
@@ -60,8 +58,7 @@ export async function GET(req: Request) {
         totalDiscounts: empDiscounts.totalDiscounts,
         finalPay: clampFinalPay(netPayWithTips, empBonuses.totalBonuses, empDiscounts.totalDiscounts),
       };
-    })
-  );
+    });
 
   const logo = await loadTenantLogo(tenant?.logoUrl);
   const buffer = await generatePayrollExcel(

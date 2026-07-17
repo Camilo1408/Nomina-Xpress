@@ -5,6 +5,7 @@ import { calculatePayroll } from "@/lib/payroll";
 import { resolveBonusesForEmployees } from "@/lib/bonus-service";
 import { resolveDiscountsForEmployees } from "@/lib/discount-service";
 import { clampFinalPay } from "@/lib/discounts";
+import { fetchPayrollPeriodData } from "@/lib/payroll-report";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
 
@@ -43,29 +44,11 @@ export async function GET(req: Request) {
     resolveDiscountsForEmployees(tenantId, from, empRefs),
   ]);
 
-  const results = await Promise.all(
-    employees.map(async (emp) => {
-      const [entries, adjustments, tipDists] = await Promise.all([
-        prisma.timeEntry.findMany({
-          where: { tenantId, employeeId: emp.id, date: { gte: from, lte: to } },
-        }),
-        prisma.payAdjustment.findMany({
-          where: {
-            tenantId,
-            employeeId: emp.id,
-            periodStart: { gte: from },
-            periodEnd: { lte: to },
-          },
-        }),
-        prisma.tipDistribution.findMany({
-          where: {
-            tenantId,
-            employeeId: emp.id,
-            tipEntry: { date: { gte: from, lte: to } },
-          },
-          include: { tipEntry: { select: { date: true } } },
-        }),
-      ]);
+  // Carga en bloque (3 queries) en vez de 3 por empleado (N+1).
+  const periodData = await fetchPayrollPeriodData(tenantId, from, to, employees.map((e) => e.id));
+
+  const results = employees.map((emp) => {
+      const { entries, adjustments, tipDists } = periodData.get(emp.id)!;
       const payroll = calculatePayroll(emp, entries, adjustments);
       const totalTips = tipDists.reduce((s, d) => s + Number(d.amount), 0);
       const empBonuses = bonusMap.get(emp.id) ?? { bonuses: [], totalBonuses: 0 };
@@ -88,8 +71,7 @@ export async function GET(req: Request) {
           tipPercent: Number(d.tipPercent),
         })),
       };
-    })
-  );
+    });
 
   return NextResponse.json({ period: { from, to }, employees: results });
 }
