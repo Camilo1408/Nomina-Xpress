@@ -138,7 +138,7 @@ export default async function TimeEntriesPage({
             ))}
           </select>
         </div>
-        <Button type="submit" size="sm" variant="outline" className="border-[#C1643F] text-[#C1643F] sm:self-end">
+        <Button type="submit" size="sm" variant="outline" className="border-[#C1643F] text-[#C1643F] sm:self-center">
           Filtrar
         </Button>
       </form>
