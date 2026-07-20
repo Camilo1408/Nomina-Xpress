@@ -7,6 +7,7 @@ import { recalculateTipForDate } from "@/lib/recalculate-tips";
 import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
+import { validateShiftWindow, sumDailyHours, MAX_DAILY_HOURS } from "@/lib/shift-times";
 
 const updateSchema = z.object({
   employeeId: z.string().min(1).optional(),
@@ -97,37 +98,42 @@ export async function PUT(
       ? checkOut2 ? new Date(checkOut2) : null
       : existing?.checkOut2 ?? null;
 
-  if (effectiveCheckIn && effectiveCheckOut && effectiveCheckOut <= effectiveCheckIn) {
-    return NextResponse.json(
-      { error: "La hora de salida debe ser posterior a la hora de entrada." },
-      { status: 400 }
-    );
-  }
-  if (effectiveCheckIn2 && effectiveCheckOut2 && effectiveCheckOut2 <= effectiveCheckIn2) {
-    return NextResponse.json(
-      { error: "La hora de salida del segundo turno debe ser posterior a su hora de entrada." },
-      { status: 400 }
-    );
-  }
-
-  // Si el registro se mueve a otro empleado o a otra fecha, revalidar contra el
-  // destino: mismas reglas que al crear (máx. 2 turnos/día y sin solapamiento).
   const effectiveEmployeeId = employeeId ?? existing.employeeId;
   const effectiveDate = date ?? existing.date;
+
+  // Validar la ventana de la salida (posterior a la entrada; cruce de medianoche
+  // permitido hasta las 2:00 AM del día siguiente), fusionando actual + nuevo.
+  if (effectiveCheckIn) {
+    const win1 = validateShiftWindow(effectiveDate, effectiveCheckIn, effectiveCheckOut);
+    if (!win1.ok) {
+      return NextResponse.json({ error: win1.error }, { status: 400 });
+    }
+  }
+  if (effectiveCheckIn2) {
+    const win2 = validateShiftWindow(effectiveDate, effectiveCheckIn2, effectiveCheckOut2);
+    if (!win2.ok) {
+      return NextResponse.json({ error: win2.error }, { status: 400 });
+    }
+  }
+
+  // Registros hermanos del empleado/fecha efectivos (excluye el que se edita).
+  // Se leen siempre para poder validar el tope de horas diarias.
+  const siblings = await prisma.timeEntry.findMany({
+    where: {
+      tenantId: session.user.tenantId,
+      employeeId: effectiveEmployeeId,
+      date: effectiveDate,
+      id: { not: id },
+    },
+    select: { checkIn: true, checkOut: true, checkIn2: true, checkOut2: true },
+  });
+
+  // Si el registro se mueve a otro empleado o fecha, revalidar contra el destino:
+  // mismas reglas que al crear (máx. 2 turnos/día y sin solapamiento).
   const isMoving =
     effectiveEmployeeId !== existing.employeeId || effectiveDate !== existing.date;
 
   if (isMoving && effectiveCheckIn) {
-    const siblings = await prisma.timeEntry.findMany({
-      where: {
-        tenantId: session.user.tenantId,
-        employeeId: effectiveEmployeeId,
-        date: effectiveDate,
-        id: { not: id },
-      },
-      select: { checkIn: true, checkOut: true },
-    });
-
     if (siblings.length >= 2) {
       return NextResponse.json(
         { error: "El empleado ya tiene 2 registros para este día. El máximo permitido son 2 turnos diarios." },
@@ -142,6 +148,27 @@ export async function PUT(
           { status: 409 }
         );
       }
+    }
+  }
+
+  // Tope de horas diarias por empleado: suma de todos los turnos del día.
+  if (effectiveCheckIn) {
+    const dailyTotal = sumDailyHours([
+      ...siblings,
+      {
+        checkIn: effectiveCheckIn,
+        checkOut: effectiveCheckOut,
+        checkIn2: effectiveCheckIn2,
+        checkOut2: effectiveCheckOut2,
+      },
+    ]);
+    if (dailyTotal > MAX_DAILY_HOURS) {
+      return NextResponse.json(
+        {
+          error: `El total de horas del día para este empleado superaría el máximo de ${MAX_DAILY_HOURS} h (quedaría en ${dailyTotal.toFixed(1)} h).`,
+        },
+        { status: 409 }
+      );
     }
   }
 

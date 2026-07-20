@@ -7,6 +7,7 @@ import { recalculateTipForDate } from "@/lib/recalculate-tips";
 import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
+import { validateShiftWindow, sumDailyHours, MAX_DAILY_HOURS } from "@/lib/shift-times";
 
 const createSchema = z.object({
   employeeId: z.string(),
@@ -86,18 +87,17 @@ export async function POST(req: Request) {
     );
   }
 
-  // Validar que la salida sea posterior a la entrada
-  if (checkOut && new Date(checkOut) <= new Date(checkIn)) {
-    return NextResponse.json(
-      { error: "La hora de salida debe ser posterior a la hora de entrada." },
-      { status: 400 }
-    );
+  // Validar la ventana de la salida: posterior a la entrada, con cruce de
+  // medianoche permitido hasta las 2:00 AM del día siguiente.
+  const win1 = validateShiftWindow(date, new Date(checkIn), checkOut ? new Date(checkOut) : null);
+  if (!win1.ok) {
+    return NextResponse.json({ error: win1.error }, { status: 400 });
   }
-  if (checkIn2 && checkOut2 && new Date(checkOut2) <= new Date(checkIn2)) {
-    return NextResponse.json(
-      { error: "La hora de salida del segundo turno debe ser posterior a su hora de entrada." },
-      { status: 400 }
-    );
+  if (checkIn2) {
+    const win2 = validateShiftWindow(date, new Date(checkIn2), checkOut2 ? new Date(checkOut2) : null);
+    if (!win2.ok) {
+      return NextResponse.json({ error: win2.error }, { status: 400 });
+    }
   }
 
   const newStart = new Date(checkIn);
@@ -110,6 +110,25 @@ export async function POST(req: Request) {
         { status: 409 }
       );
     }
+  }
+
+  // Tope de horas diarias por empleado: suma de todos los turnos del día.
+  const dailyTotal = sumDailyHours([
+    ...existingEntries,
+    {
+      checkIn: newStart,
+      checkOut: newEnd,
+      checkIn2: checkIn2 ? new Date(checkIn2) : null,
+      checkOut2: checkOut2 ? new Date(checkOut2) : null,
+    },
+  ]);
+  if (dailyTotal > MAX_DAILY_HOURS) {
+    return NextResponse.json(
+      {
+        error: `El total de horas del día para este empleado superaría el máximo de ${MAX_DAILY_HOURS} h (quedaría en ${dailyTotal.toFixed(1)} h).`,
+      },
+      { status: 409 }
+    );
   }
 
   const special = await isSpecialDayForTenant(session.user.tenantId, date);

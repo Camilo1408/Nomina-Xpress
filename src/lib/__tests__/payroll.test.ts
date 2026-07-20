@@ -167,6 +167,22 @@ describe("calculatePayroll", () => {
     expect(result.netPay).toBe(56200);
   });
 
+  it("pays overnight hours at the START day's rate (Saturday shift into Sunday)", () => {
+    // Sábado 9 may 2026 18:00 → domingo 10 may 01:00 = 7h. El registro es del
+    // sábado (isSpecial=false), así que TODAS las horas, incluida la madrugada
+    // del domingo, se pagan a tarifa NORMAL del día inicial.
+    const overnight = makeEntry({
+      isSpecial: false,
+      date: "2026-05-09",
+      checkIn: new Date("2026-05-09T18:00:00"),
+      checkOut: new Date("2026-05-10T01:00:00"),
+    });
+    const result = calculatePayroll(employee, [overnight], []);
+    expect(result.normalHours).toBe(7);
+    expect(result.specialHours).toBe(0);
+    expect(result.grossPay).toBe(7 * 6400);
+  });
+
   it("mixes normal and special hours across multiple entries", () => {
     const normalEntry = makeEntry({ id: "e1", isSpecial: false });
     const specialEntry = makeEntry({

@@ -10,6 +10,13 @@ import { Badge } from "@/components/ui/badge";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { SplitSquareHorizontal } from "lucide-react";
 import { todayColombia } from "@/lib/utils";
+import {
+  buildShiftDateTimes,
+  classifyShift,
+  sumDailyHours,
+  MAX_DAILY_HOURS,
+  type DailyShift,
+} from "@/lib/shift-times";
 
 interface Employee { id: string; name: string; }
 
@@ -54,13 +61,13 @@ export function TimeEntryForm({ employees, entry }: TimeEntryFormProps) {
 
   const special = form.date ? new Date(form.date + "T12:00:00Z").getUTCDay() === 0 : false;
 
-  const buildDateTime = (date: string, time: string) => {
-    if (!time) return null;
-    const [h, m] = time.split(":").map(Number);
-    const d = new Date(date + "T00:00:00");
-    d.setHours(h, m, 0, 0);
-    return d.toISOString();
-  };
+  // Pistas "+1 día": la salida cae en la madrugada del día siguiente.
+  const checkOutNextDay =
+    !!form.checkIn && !!form.checkOut &&
+    classifyShift(form.checkIn, form.checkOut) === "overnight";
+  const checkOut2NextDay =
+    splitShift && !!form.checkIn2 && !!form.checkOut2 &&
+    classifyShift(form.checkIn2, form.checkOut2) === "overnight";
 
   async function postEntry(payload: object): Promise<{ ok: boolean; error?: string }> {
     const url = isEdit ? `/api/admin/time-entries/${entry!.id}` : "/api/admin/time-entries";
@@ -80,12 +87,43 @@ export function TimeEntryForm({ employees, entry }: TimeEntryFormProps) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    if (form.checkOut && form.checkOut <= form.checkIn) {
-      toast.error("La hora de salida debe ser posterior a la hora de entrada.");
+    const shift1 = buildShiftDateTimes(form.date, form.checkIn, form.checkOut);
+    if (!shift1.ok) {
+      toast.error(shift1.error);
       return;
     }
-    if (splitShift && form.checkIn2 && form.checkOut2 && form.checkOut2 <= form.checkIn2) {
-      toast.error("La hora de salida del turno 2 debe ser posterior a su hora de entrada.");
+
+    const isSplit = !isEdit && splitShift && !!form.checkIn2;
+    const shift2 = isSplit
+      ? buildShiftDateTimes(form.date, form.checkIn2, form.checkOut2)
+      : null;
+    if (shift2 && !shift2.ok) {
+      toast.error(`Turno 2: ${shift2.error}`);
+      return;
+    }
+
+    // Pre-chequeo del tope diario con lo ingresado en el formulario. El
+    // servidor hace la validación autoritativa incluyendo turnos ya guardados.
+    const dailyEntries: DailyShift[] = [
+      {
+        checkIn: new Date(shift1.checkIn),
+        checkOut: shift1.checkOut ? new Date(shift1.checkOut) : null,
+        checkIn2: null,
+        checkOut2: null,
+      },
+    ];
+    if (shift2 && shift2.ok) {
+      dailyEntries.push({
+        checkIn: new Date(shift2.checkIn),
+        checkOut: shift2.checkOut ? new Date(shift2.checkOut) : null,
+        checkIn2: null,
+        checkOut2: null,
+      });
+    }
+    if (sumDailyHours(dailyEntries) > MAX_DAILY_HOURS) {
+      toast.error(
+        `El total de horas del día para este empleado supera el máximo de ${MAX_DAILY_HOURS} h.`
+      );
       return;
     }
 
@@ -94,8 +132,8 @@ export function TimeEntryForm({ employees, entry }: TimeEntryFormProps) {
     const turno1 = {
       employeeId: form.employeeId,
       date: form.date,
-      checkIn: buildDateTime(form.date, form.checkIn),
-      checkOut: form.checkOut ? buildDateTime(form.date, form.checkOut) : null,
+      checkIn: shift1.checkIn,
+      checkOut: shift1.checkOut,
       notes: form.notes || null,
     };
 
@@ -120,12 +158,12 @@ export function TimeEntryForm({ employees, entry }: TimeEntryFormProps) {
       return;
     }
 
-    if (splitShift && form.checkIn2) {
+    if (shift2 && shift2.ok) {
       const turno2 = {
         employeeId: form.employeeId,
         date: form.date,
-        checkIn: buildDateTime(form.date, form.checkIn2),
-        checkOut: form.checkOut2 ? buildDateTime(form.date, form.checkOut2) : null,
+        checkIn: shift2.checkIn,
+        checkOut: shift2.checkOut,
         notes: null,
       };
       const result2 = await postEntry(turno2);
@@ -196,13 +234,22 @@ export function TimeEntryForm({ employees, entry }: TimeEntryFormProps) {
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Salida</Label>
+              <div className="flex items-center gap-2">
+                <Label>Salida</Label>
+                {checkOutNextDay && (
+                  <Badge className="border-0 whitespace-nowrap bg-[#C1643F]/10 text-[#C1643F]">
+                    +1 día
+                  </Badge>
+                )}
+              </div>
               <Input
                 type="time"
                 value={form.checkOut}
                 onChange={(e) => set("checkOut", e.target.value)}
               />
-              <p className="text-xs text-[#7A6358]">Vacío = solo entrada</p>
+              <p className="text-xs text-[#7A6358]">
+                Vacío = solo entrada · cruza medianoche hasta 2:00 AM
+              </p>
             </div>
           </div>
         </div>
@@ -240,7 +287,14 @@ export function TimeEntryForm({ employees, entry }: TimeEntryFormProps) {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Salida 2</Label>
+                <div className="flex items-center gap-2">
+                  <Label>Salida 2</Label>
+                  {checkOut2NextDay && (
+                    <Badge className="border-0 whitespace-nowrap bg-[#C1643F]/10 text-[#C1643F]">
+                      +1 día
+                    </Badge>
+                  )}
+                </div>
                 <Input
                   type="time"
                   value={form.checkOut2}
