@@ -223,7 +223,7 @@ export function TimeEntryForm({ employees, entry }: TimeEntryFormProps) {
           <p className="text-xs font-semibold text-[#7A6358] uppercase tracking-wider mb-2">
             {!isEdit && splitShift ? "Turno 1" : "Horario"}
           </p>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>Entrada *</Label>
               <Input
@@ -276,7 +276,7 @@ export function TimeEntryForm({ employees, entry }: TimeEntryFormProps) {
         {!isEdit && splitShift && (
           <div className="sm:col-span-2">
             <p className="text-xs font-semibold text-[#7A6358] uppercase tracking-wider mb-2">Turno 2</p>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Entrada 2 *</Label>
                 <Input
