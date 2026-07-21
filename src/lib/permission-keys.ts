@@ -125,6 +125,22 @@ export const DAILY_ACTION_LABELS: Record<DailyAction, string> = {
   history: "Historial",
 };
 
+// Descripción del alcance de cada acción diaria por categoría. Se muestra como
+// leyenda/tooltip en la matriz de roles para que quien asigne el permiso conozca
+// exactamente qué habilita.
+//
+// NOTA sobre `edit`: además de reabrir una jornada CERRADA, esta clave también
+// gobierna descartar una jornada ABIERTA y corregir su conteo inicial (alcance
+// ampliado en el inventario). No es una clave nueva ni cambia el contrato de
+// sincronización — solo se aclara aquí para la UI.
+export const DAILY_ACTION_DESCRIPTIONS: Record<DailyAction, string> = {
+  view: "Consultar el inventario diario de la categoría.",
+  open: "Iniciar (abrir) la jornada de conteo del día.",
+  close: "Cerrar la jornada y registrar el conteo final.",
+  edit: "Reabrir una jornada cerrada y, además, descartar una jornada abierta o corregir su conteo inicial.",
+  history: "Ver el historial de jornadas anteriores.",
+};
+
 export function dailyCategoryKey(slug: string, action: DailyAction): string {
   return `inventory:daily:${slug}:${action}`;
 }

@@ -11,8 +11,18 @@ import {
   permissionLabel,
   isValidPermissionKey,
   dailyCategoryKeys,
+  parseDailyCategoryKey,
+  DAILY_ACTION_DESCRIPTIONS,
 } from "@/lib/permission-keys";
 import { isInventoryEnabled } from "@/lib/feature-flags";
+import { InventoryDailyActionsLegend } from "@/components/admin/InventoryDailyActionsLegend";
+
+// Tooltip de ayuda para las claves dinámicas de inventario diario por categoría.
+// Para las claves estáticas devuelve undefined (sin tooltip).
+function dailyActionTooltip(key: string): string | undefined {
+  const parsed = parseDailyCategoryKey(key);
+  return parsed ? DAILY_ACTION_DESCRIPTIONS[parsed.action] : undefined;
+}
 
 interface RoleFormProps {
   role?: {
@@ -203,6 +213,7 @@ export function RoleForm({ role, dailyCategories = [] }: RoleFormProps) {
                   {group.keys.map((key) => (
                     <label
                       key={key}
+                      title={dailyActionTooltip(key)}
                       className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-[#FAF7F2] transition-colors"
                     >
                       <input
@@ -217,6 +228,10 @@ export function RoleForm({ role, dailyCategories = [] }: RoleFormProps) {
                     </label>
                   ))}
                 </div>
+                {/* Leyenda de las 5 acciones diarias (solo si hay categorías sincronizadas) */}
+                {group.module === "inventory" && dailyCategories.length > 0 && (
+                  <InventoryDailyActionsLegend />
+                )}
               </div>
             );
           })}
