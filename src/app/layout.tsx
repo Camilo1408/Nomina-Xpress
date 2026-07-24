@@ -36,7 +36,7 @@ export default function RootLayout({
         <ThemeProvider>
           <div suppressHydrationWarning>
             {children}
-            <Toaster richColors position="top-right" />
+            <Toaster richColors position="bottom-right" />
           </div>
         </ThemeProvider>
         <ServiceWorkerInit />
