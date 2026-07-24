@@ -15,6 +15,12 @@ export const MAX_OVERNIGHT_END_MINUTES = 120; // 02:00
 /** Máximo de horas que un empleado puede trabajar en un día (suma de turnos). */
 export const MAX_DAILY_HOURS = 15;
 
+/**
+ * Jornada estándar. Registrar horas que hagan superar este total en un mismo día
+ * no está prohibido, pero se pide confirmación explícita al admin.
+ */
+export const DAILY_ALERT_HOURS = 8;
+
 export const OVERNIGHT_LIMIT_ERROR =
   "La salida solo puede cruzar la medianoche hasta las 2:00 AM. Verifica la hora de salida.";
 const CHECKOUT_BEFORE_ERROR =
@@ -146,4 +152,85 @@ function entryHours(entry: DailyShift): number {
 /** Suma las horas trabajadas de un conjunto de registros del mismo día. */
 export function sumDailyHours(entries: DailyShift[]): number {
   return entries.reduce((sum, entry) => sum + entryHours(entry), 0);
+}
+
+/** Un tramo trabajado suelto: entrada y (opcionalmente) salida. */
+export interface ShiftRange {
+  checkIn: Date;
+  checkOut: Date | null;
+}
+
+/** Turno del día, marcando si es uno de los que se están registrando ahora. */
+export interface OrderedShift extends ShiftRange {
+  pending: boolean;
+}
+
+export interface OvertimeWarning {
+  /** Horas del día contando los turnos previos + los que se están registrando. */
+  totalHours: number;
+  /**
+   * Todos los turnos del día en orden cronológico: el "Turno 1" es siempre el
+   * de entrada más temprana, sin importar en qué orden se hayan registrado ni
+   * cuál se esté editando.
+   */
+  shifts: OrderedShift[];
+  /** Índice en `shifts` del turno que se está registrando y dispara el aviso. */
+  pendingIndex: number;
+  /** "split" si el día queda con más de un turno; "single" si es uno solo. */
+  kind: "single" | "split";
+}
+
+/** Aplana un registro (que puede llevar 2 turnos) en tramos individuales. */
+export function flattenEntryShifts(entry: DailyShift): ShiftRange[] {
+  const ranges: ShiftRange[] = [{ checkIn: entry.checkIn, checkOut: entry.checkOut }];
+  if (entry.checkIn2) {
+    ranges.push({ checkIn: entry.checkIn2, checkOut: entry.checkOut2 });
+  }
+  return ranges;
+}
+
+function rangeHours(range: ShiftRange): number {
+  return range.checkOut ? calculateHours(range.checkIn, range.checkOut) : 0;
+}
+
+function byCheckIn(a: ShiftRange, b: ShiftRange): number {
+  return a.checkIn.getTime() - b.checkIn.getTime();
+}
+
+/**
+ * Decide si hay que avisar al admin de que el día supera la jornada estándar.
+ *
+ * `prior` son los turnos ya guardados para ese empleado y fecha; `pending` los
+ * que se están registrando ahora (1 o 2 en el caso de turno partido). Devuelve
+ * `null` cuando el total del día no supera `DAILY_ALERT_HOURS`.
+ *
+ * Los turnos se devuelven siempre ordenados por hora de entrada, así que el
+ * "Turno 1" es el más temprano del día aunque se haya guardado después. El que
+ * dispara el aviso es el último cronológicamente de `pending`: es el que el
+ * admin debe confirmar.
+ */
+export function buildOvertimeWarning(
+  prior: ShiftRange[],
+  pending: ShiftRange[]
+): OvertimeWarning | null {
+  if (pending.length === 0) return null;
+
+  const all = [...prior, ...pending];
+  const totalHours = all.reduce((sum, range) => sum + rangeHours(range), 0);
+  if (totalHours <= DAILY_ALERT_HOURS) return null;
+
+  const trigger = [...pending].sort(byCheckIn)[pending.length - 1];
+  const ordered = all
+    .map((range) => ({
+      shift: { ...range, pending: pending.includes(range) },
+      isTrigger: range === trigger,
+    }))
+    .sort((a, b) => byCheckIn(a.shift, b.shift));
+
+  return {
+    totalHours,
+    shifts: ordered.map((o) => o.shift),
+    pendingIndex: ordered.findIndex((o) => o.isTrigger),
+    kind: all.length > 1 ? "split" : "single",
+  };
 }

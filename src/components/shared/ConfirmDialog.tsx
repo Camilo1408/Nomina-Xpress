@@ -15,6 +15,8 @@ interface ConfirmDialogProps {
   open: boolean;
   title: string;
   description: string;
+  /** Contenido opcional (listas, detalles) que se muestra bajo la descripción. */
+  details?: React.ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   variant?: "danger" | "warning" | "success";
@@ -26,6 +28,7 @@ export function ConfirmDialog({
   open,
   title,
   description,
+  details,
   confirmLabel = "Confirmar",
   cancelLabel = "Cancelar",
   variant = "danger",
@@ -57,6 +60,7 @@ export function ConfirmDialog({
             </div>
           </div>
         </DialogHeader>
+        {details && <div className="pl-13">{details}</div>}
         <DialogFooter className="bg-transparent border-0 -mx-0 -mb-0 p-0 pt-2 flex-row justify-end gap-2">
           <Button
             variant="outline"

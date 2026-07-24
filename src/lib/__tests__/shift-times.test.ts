@@ -1,11 +1,14 @@
 import { describe, it, expect } from "vitest";
 import {
+  DAILY_ALERT_HOURS,
   MAX_DAILY_HOURS,
   MAX_OVERNIGHT_END_MINUTES,
   classifyShift,
   buildShiftDateTimes,
   validateShiftWindow,
   sumDailyHours,
+  flattenEntryShifts,
+  buildOvertimeWarning,
 } from "../shift-times";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -182,5 +185,133 @@ describe("sumDailyHours", () => {
       { checkIn: new Date("2026-07-19T08:00:00Z"), checkOut: null, ...base },
     ]);
     expect(total).toBe(0);
+  });
+});
+
+describe("flattenEntryShifts", () => {
+  it("returns a single range for a simple entry", () => {
+    const ranges = flattenEntryShifts({
+      checkIn: new Date("2026-07-19T08:00:00Z"),
+      checkOut: new Date("2026-07-19T16:00:00Z"),
+      checkIn2: null,
+      checkOut2: null,
+    });
+    expect(ranges).toHaveLength(1);
+    expect(ranges[0].checkOut).not.toBeNull();
+  });
+
+  it("splits a two-shift entry into two ranges", () => {
+    const ranges = flattenEntryShifts({
+      checkIn: new Date("2026-07-19T08:00:00Z"),
+      checkOut: new Date("2026-07-19T12:00:00Z"),
+      checkIn2: new Date("2026-07-19T18:00:00Z"),
+      checkOut2: new Date("2026-07-19T22:00:00Z"),
+    });
+    expect(ranges).toHaveLength(2);
+    expect(ranges[1].checkIn.toISOString()).toBe("2026-07-19T18:00:00.000Z");
+  });
+});
+
+describe("buildOvertimeWarning", () => {
+  const range = (from: string, to: string | null): { checkIn: Date; checkOut: Date | null } => ({
+    checkIn: new Date(from),
+    checkOut: to ? new Date(to) : null,
+  });
+
+  it("uses 8 h as the standard workday threshold", () => {
+    expect(DAILY_ALERT_HOURS).toBe(8);
+  });
+
+  it("returns null for a day of exactly 8 h", () => {
+    const warning = buildOvertimeWarning([], [range("2026-07-19T13:00:00Z", "2026-07-19T21:00:00Z")]);
+    expect(warning).toBeNull();
+  });
+
+  it("flags a single shift longer than 8 h and marks it as single", () => {
+    const warning = buildOvertimeWarning([], [range("2026-07-19T13:00:00Z", "2026-07-19T22:30:00Z")]);
+    expect(warning).not.toBeNull();
+    expect(warning!.kind).toBe("single");
+    expect(warning!.totalHours).toBe(9.5);
+    expect(warning!.shifts).toHaveLength(1);
+    expect(warning!.pendingIndex).toBe(0);
+    expect(warning!.shifts[0].checkIn.toISOString()).toBe("2026-07-19T13:00:00.000Z");
+  });
+
+  it("flags the second shift of a split day and keeps the first as context", () => {
+    const warning = buildOvertimeWarning(
+      [],
+      [
+        range("2026-07-19T13:00:00Z", "2026-07-19T18:00:00Z"), // 5 h
+        range("2026-07-19T20:00:00Z", "2026-07-20T00:00:00Z"), // 4 h
+      ]
+    );
+    expect(warning).not.toBeNull();
+    expect(warning!.kind).toBe("split");
+    expect(warning!.totalHours).toBe(9);
+    expect(warning!.shifts).toHaveLength(2);
+    expect(warning!.pendingIndex).toBe(1);
+    expect(warning!.shifts[0].checkIn.toISOString()).toBe("2026-07-19T13:00:00.000Z");
+  });
+
+  it("counts already-saved shifts of the day as prior context", () => {
+    const warning = buildOvertimeWarning(
+      [range("2026-07-19T13:00:00Z", "2026-07-19T20:00:00Z")], // 7 h ya guardadas
+      [range("2026-07-19T21:00:00Z", "2026-07-19T23:00:00Z")] // 2 h nuevas
+    );
+    expect(warning).not.toBeNull();
+    expect(warning!.kind).toBe("split");
+    expect(warning!.totalHours).toBe(9);
+    expect(warning!.pendingIndex).toBe(1);
+    expect(warning!.shifts[0].pending).toBe(false);
+    expect(warning!.shifts[0].checkOut!.toISOString()).toBe("2026-07-19T20:00:00.000Z");
+  });
+
+  it("numbers shifts by start time: the earliest is always Turno 1", () => {
+    // El turno guardado es el de la NOCHE; el que se registra es el de la MAÑANA.
+    const warning = buildOvertimeWarning(
+      [range("2026-07-20T00:20:00Z", "2026-07-20T03:30:00Z")], // 07:20 p.m. → 10:30 p.m. Bogotá
+      [range("2026-07-19T13:20:00Z", "2026-07-19T21:02:00Z")] // 08:20 a.m. → 04:02 p.m. Bogotá
+    );
+    expect(warning).not.toBeNull();
+    // El turno 1 es el más temprano, que aquí es justamente el que se registra.
+    expect(warning!.shifts[0].checkIn.toISOString()).toBe("2026-07-19T13:20:00.000Z");
+    expect(warning!.shifts[0].pending).toBe(true);
+    expect(warning!.pendingIndex).toBe(0);
+    expect(warning!.shifts[1].pending).toBe(false);
+  });
+
+  it("flags an open second shift when the saved shifts already exceed 8 h", () => {
+    const warning = buildOvertimeWarning(
+      [range("2026-07-19T13:00:00Z", "2026-07-19T22:00:00Z")], // 9 h ya guardadas
+      [range("2026-07-19T23:00:00Z", null)] // segundo turno sin salida
+    );
+    expect(warning).not.toBeNull();
+    expect(warning!.kind).toBe("split");
+    expect(warning!.pendingIndex).toBe(1);
+    expect(warning!.shifts[1].checkOut).toBeNull();
+  });
+
+  it("does not flag an open shift on its own (no hours yet)", () => {
+    const warning = buildOvertimeWarning([], [range("2026-07-19T13:00:00Z", null)]);
+    expect(warning).toBeNull();
+  });
+
+  it("sorts every shift of the day chronologically", () => {
+    const warning = buildOvertimeWarning(
+      [range("2026-07-19T20:00:00Z", "2026-07-19T23:00:00Z")], // 3 h, tarde
+      [
+        range("2026-07-19T11:00:00Z", "2026-07-19T15:00:00Z"), // 4 h, mañana
+        range("2026-07-20T01:00:00Z", "2026-07-20T04:00:00Z"), // 3 h, madrugada
+      ]
+    );
+    expect(warning).not.toBeNull();
+    expect(warning!.shifts.map((r) => r.checkIn.toISOString())).toEqual([
+      "2026-07-19T11:00:00.000Z",
+      "2026-07-19T20:00:00.000Z",
+      "2026-07-20T01:00:00.000Z",
+    ]);
+    // El aviso lo dispara el último de los que se están registrando.
+    expect(warning!.pendingIndex).toBe(2);
+    expect(warning!.shifts.map((r) => r.pending)).toEqual([true, false, true]);
   });
 });

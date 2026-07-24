@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -8,17 +8,38 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { SplitSquareHorizontal } from "lucide-react";
-import { todayColombia } from "@/lib/utils";
+import { todayColombia, formatTime, formatHours, formatDate } from "@/lib/utils";
 import {
   buildShiftDateTimes,
+  buildOvertimeWarning,
   classifyShift,
+  flattenEntryShifts,
   sumDailyHours,
+  DAILY_ALERT_HOURS,
   MAX_DAILY_HOURS,
   type DailyShift,
+  type ShiftRange,
+  type OvertimeWarning,
 } from "@/lib/shift-times";
 
 interface Employee { id: string; name: string; }
+
+/** Payload de creación/edición de un registro de horas. */
+interface EntryPayload {
+  employeeId: string;
+  date: string;
+  checkIn: string;
+  checkOut: string | null;
+  notes: string | null;
+}
+
+/** Lo que se va a guardar, ya validado y pendiente de confirmación. */
+interface PreparedSave {
+  turno1: EntryPayload;
+  turno2: EntryPayload | null;
+}
 
 interface TimeEntryFormProps {
   employees: Employee[];
@@ -55,11 +76,57 @@ export function TimeEntryForm({ employees, entry }: TimeEntryFormProps) {
   const [splitShift, setSplitShift] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Turnos ya guardados para este empleado y fecha (excluye el que se edita).
+  // Son el contexto del aviso de jornada: sin ellos no sabríamos que el turno
+  // que se está registrando es el segundo del día.
+  const [savedDayShifts, setSavedDayShifts] = useState<ShiftRange[]>([]);
+  const [pending, setPending] = useState<{ save: PreparedSave; warning: OvertimeWarning } | null>(null);
+
+  useEffect(() => {
+    // Sin empleado o sin fecha no hay nada que consultar; el formulario no se
+    // puede enviar en ese estado (ambos campos son obligatorios).
+    if (!form.employeeId || !form.date) return;
+    let cancelled = false;
+    const params = new URLSearchParams({
+      from: form.date,
+      to: form.date,
+      employeeId: form.employeeId,
+    });
+    fetch(`/api/admin/time-entries?${params}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("fetch failed"))))
+      .then((data: { id: string; checkIn: string; checkOut: string | null; checkIn2: string | null; checkOut2: string | null }[]) => {
+        if (cancelled) return;
+        setSavedDayShifts(
+          data
+            .filter((e) => e.id !== entry?.id)
+            .flatMap((e) =>
+              flattenEntryShifts({
+                checkIn: new Date(e.checkIn),
+                checkOut: e.checkOut ? new Date(e.checkOut) : null,
+                checkIn2: e.checkIn2 ? new Date(e.checkIn2) : null,
+                checkOut2: e.checkOut2 ? new Date(e.checkOut2) : null,
+              })
+            )
+        );
+      })
+      .catch(() => {
+        // Sin permiso de lectura o error de red: el aviso se calcula solo con
+        // lo del formulario y el servidor sigue validando el tope diario.
+        if (!cancelled) setSavedDayShifts([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [form.employeeId, form.date, entry?.id]);
+
   function set(field: string, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
   const special = form.date ? new Date(form.date + "T12:00:00Z").getUTCDay() === 0 : false;
+
+  const employeeName =
+    employees.find((emp) => emp.id === form.employeeId)?.name ?? "El empleado";
 
   // Pistas "+1 día": la salida cae en la madrugada del día siguiente.
   const checkOutNextDay =
@@ -84,13 +151,15 @@ export function TimeEntryForm({ employees, entry }: TimeEntryFormProps) {
     return { ok: true };
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
+  /**
+   * Valida lo ingresado y devuelve los payloads listos para guardar, o `null`
+   * si algo no cuadra (ya avisado por toast).
+   */
+  function prepareSave(): PreparedSave | null {
     const shift1 = buildShiftDateTimes(form.date, form.checkIn, form.checkOut);
     if (!shift1.ok) {
       toast.error(shift1.error);
-      return;
+      return null;
     }
 
     const isSplit = !isEdit && splitShift && !!form.checkIn2;
@@ -99,7 +168,7 @@ export function TimeEntryForm({ employees, entry }: TimeEntryFormProps) {
       : null;
     if (shift2 && !shift2.ok) {
       toast.error(`Turno 2: ${shift2.error}`);
-      return;
+      return null;
     }
 
     // Pre-chequeo del tope diario con lo ingresado en el formulario. El
@@ -124,18 +193,32 @@ export function TimeEntryForm({ employees, entry }: TimeEntryFormProps) {
       toast.error(
         `El total de horas del día para este empleado supera el máximo de ${MAX_DAILY_HOURS} h.`
       );
-      return;
+      return null;
     }
 
-    setLoading(true);
-
-    const turno1 = {
-      employeeId: form.employeeId,
-      date: form.date,
-      checkIn: shift1.checkIn,
-      checkOut: shift1.checkOut,
-      notes: form.notes || null,
+    return {
+      turno1: {
+        employeeId: form.employeeId,
+        date: form.date,
+        checkIn: shift1.checkIn,
+        checkOut: shift1.checkOut,
+        notes: form.notes || null,
+      },
+      turno2:
+        shift2 && shift2.ok
+          ? {
+              employeeId: form.employeeId,
+              date: form.date,
+              checkIn: shift2.checkIn,
+              checkOut: shift2.checkOut,
+              notes: null,
+            }
+          : null,
     };
+  }
+
+  async function save({ turno1, turno2 }: PreparedSave) {
+    setLoading(true);
 
     if (isEdit) {
       const result = await postEntry(turno1);
@@ -158,14 +241,7 @@ export function TimeEntryForm({ employees, entry }: TimeEntryFormProps) {
       return;
     }
 
-    if (shift2 && shift2.ok) {
-      const turno2 = {
-        employeeId: form.employeeId,
-        date: form.date,
-        checkIn: shift2.checkIn,
-        checkOut: shift2.checkOut,
-        notes: null,
-      };
+    if (turno2) {
       const result2 = await postEntry(turno2);
       if (!result2.ok) {
         setLoading(false);
@@ -184,7 +260,30 @@ export function TimeEntryForm({ employees, entry }: TimeEntryFormProps) {
     router.refresh();
   }
 
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+
+    const prepared = prepareSave();
+    if (!prepared) return;
+
+    const pendingRanges: ShiftRange[] = [
+      { checkIn: new Date(prepared.turno1.checkIn), checkOut: prepared.turno1.checkOut ? new Date(prepared.turno1.checkOut) : null },
+      ...(prepared.turno2
+        ? [{ checkIn: new Date(prepared.turno2.checkIn), checkOut: prepared.turno2.checkOut ? new Date(prepared.turno2.checkOut) : null }]
+        : []),
+    ];
+
+    const warning = buildOvertimeWarning(savedDayShifts, pendingRanges);
+    if (warning) {
+      setPending({ save: prepared, warning });
+      return;
+    }
+
+    await save(prepared);
+  }
+
   return (
+    <>
     <form onSubmit={handleSubmit} className="space-y-5 max-w-xl">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
@@ -343,5 +442,72 @@ export function TimeEntryForm({ employees, entry }: TimeEntryFormProps) {
         </Button>
       </div>
     </form>
+
+    {pending && (
+      <ConfirmDialog
+        open
+        variant="warning"
+        title={`Supera las ${DAILY_ALERT_HOURS} horas del día`}
+        description={`${employeeName} quedaría con ${formatHours(pending.warning.totalHours)} el ${formatDate(form.date)}.`}
+        details={<OvertimeDetails warning={pending.warning} />}
+        confirmLabel={
+          pending.warning.kind === "split" ? "Sí, registrar el turno" : "Sí, registrar"
+        }
+        cancelLabel="Revisar"
+        onConfirm={() => {
+          const { save: prepared } = pending;
+          setPending(null);
+          void save(prepared);
+        }}
+        onCancel={() => setPending(null)}
+      />
+    )}
+    </>
+  );
+}
+
+/**
+ * Contexto del aviso: los turnos del día en orden cronológico (Turno 1 = el más
+ * temprano) con el que se está registrando desglosado en entrada y salida.
+ */
+function OvertimeDetails({ warning }: { warning: OvertimeWarning }) {
+  const { shifts, pendingIndex, kind } = warning;
+  const pendingShift = shifts[pendingIndex];
+
+  const row = (label: string, value: string) => (
+    <div key={label} className="flex items-baseline justify-between gap-3">
+      <span className="text-[#7A6358]">{label}</span>
+      <span className="font-mono text-[#2C1F15]">{value}</span>
+    </div>
+  );
+
+  return (
+    <div className="space-y-1.5 rounded-lg border border-[#E0D5CA] bg-[#F2EDE6] p-3 text-xs">
+      {kind === "single" ? (
+        <>
+          {row("Entrada registrada", formatTime(pendingShift.checkIn))}
+          {row(
+            "Salida que se registra",
+            pendingShift.checkOut ? formatTime(pendingShift.checkOut) : "—"
+          )}
+        </>
+      ) : (
+        shifts.map((shift, i) =>
+          i === pendingIndex ? (
+            <div key={i} className="space-y-1.5">
+              {row(`Turno ${i + 1} — entrada`, formatTime(shift.checkIn))}
+              {shift.checkOut && row(`Turno ${i + 1} — salida`, formatTime(shift.checkOut))}
+            </div>
+          ) : (
+            <div key={i}>
+              {row(
+                `Turno ${i + 1}`,
+                `${formatTime(shift.checkIn)} → ${shift.checkOut ? formatTime(shift.checkOut) : "pendiente"}`
+              )}
+            </div>
+          )
+        )
+      )}
+    </div>
   );
 }
