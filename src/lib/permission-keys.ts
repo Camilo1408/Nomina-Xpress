@@ -90,6 +90,7 @@ export const PERMISSIONS = {
   INVENTORY_CATEGORIES_MANAGE:  "inventory:categories:manage",   // crear/editar categorías
   INVENTORY_STOCK_COUNT:        "inventory:stock:count",         // registrar movimientos / inventario diario
   INVENTORY_STOCK_ADJUST:       "inventory:stock:adjust",        // ajustes manuales de stock
+  INVENTORY_MOVEMENTS_EDIT:     "inventory:movements:edit",      // editar/eliminar movimientos manuales ya registrados
   INVENTORY_DAILY_REOPEN:       "inventory:daily:reopen",        // reabrir inventario diario cerrado
   INVENTORY_REPORTS_VIEW:       "inventory:reports:view",        // ver reportes de inventario
   INVENTORY_USERS_MANAGE:       "inventory:users:manage",        // gestionar usuarios del inventario (standalone)
@@ -207,6 +208,7 @@ export const BASE_ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
     PERMISSIONS.INVENTORY_CATEGORIES_MANAGE,
     PERMISSIONS.INVENTORY_STOCK_COUNT,
     PERMISSIONS.INVENTORY_STOCK_ADJUST,
+    PERMISSIONS.INVENTORY_MOVEMENTS_EDIT,
     PERMISSIONS.INVENTORY_DAILY_REOPEN,
     PERMISSIONS.INVENTORY_REPORTS_VIEW,
     PERMISSIONS.INVENTORY_USERS_MANAGE,
@@ -266,6 +268,7 @@ export const BASE_ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
     PERMISSIONS.INVENTORY_CATEGORIES_MANAGE,
     PERMISSIONS.INVENTORY_STOCK_COUNT,
     PERMISSIONS.INVENTORY_STOCK_ADJUST,
+    PERMISSIONS.INVENTORY_MOVEMENTS_EDIT,
     PERMISSIONS.INVENTORY_DAILY_REOPEN,
     PERMISSIONS.INVENTORY_REPORTS_VIEW,
     PERMISSIONS.INVENTORY_USERS_MANAGE,
@@ -421,6 +424,7 @@ export const PERMISSION_GROUPS: Array<{
       PERMISSIONS.INVENTORY_CATEGORIES_MANAGE,
       PERMISSIONS.INVENTORY_STOCK_COUNT,
       PERMISSIONS.INVENTORY_STOCK_ADJUST,
+      PERMISSIONS.INVENTORY_MOVEMENTS_EDIT,
       PERMISSIONS.INVENTORY_DAILY_REOPEN,
       PERMISSIONS.INVENTORY_REPORTS_VIEW,
       PERMISSIONS.INVENTORY_USERS_MANAGE,
@@ -497,6 +501,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
   "inventory:categories:manage": "Gestionar categorías",
   "inventory:stock:count":       "Registrar movimientos / inventario diario",
   "inventory:stock:adjust":      "Ajustar stock manualmente",
+  "inventory:movements:edit":    "Corregir movimientos",
   "inventory:daily:reopen":      "Reabrir inventario diario",
   "inventory:reports:view":      "Ver reportes de inventario",
   "inventory:users:manage":      "Gestionar usuarios del inventario",
