@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "docs:screenshots": "node scripts/capture-docs-screenshots.mjs",
+    "docs:pdf": "node scripts/build-docs-pdf.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -53,6 +55,7 @@
     "@vitejs/plugin-react": "^6.0.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "marked": "^18.0.7",
     "prisma": "^7.8.0",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",

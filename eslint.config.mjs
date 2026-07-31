@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Copias de trabajo de agentes: no son código del proyecto y ensuciaban el lint.
+    ".claude/**",
+    // Cliente Prisma generado (output custom): no se edita ni se versiona.
+    "src/generated/**",
   ]),
 ]);
 

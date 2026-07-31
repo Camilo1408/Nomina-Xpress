@@ -54,4 +54,10 @@ next-env.d.ts
 # Uploaded files
 /public/uploads/
 
+# Herramientas locales del agente (no son del proyecto)
+.claude/skills/
+.claude/worktrees/
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+
 .vercel

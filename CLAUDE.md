@@ -57,17 +57,18 @@ efectivos, no del rol base.
 ### Directory Structure
 
 - `src/app/(auth)/` — Rutas de autenticación (login) — único route group
-- `src/app/admin/` — Portal de administración (dashboard, personal, horas, horarios, propinas, reportes, roles, usuarios, auditoría, configuración). Acceso por permisos efectivos.
+- `src/app/admin/` — Portal de administración (dashboard, personal, horas, horarios, propinas, reportes, roles, usuarios, auditoría, festivos, configuración). Acceso por permisos efectivos.
 - `src/app/portal/` — Portal de empleado (mi quincena, mi horario, perfil). Rol EMPLOYEE.
 - `src/app/api/` — API routes (`admin/*`, `employee/*`, `auth/*`, `cron/*`, `inventory-permissions/*`)
 - `src/components/ui/` — shadcn/ui primitives
 - `src/components/admin/` — Componentes específicos del admin
 - `src/components/portal/` — Componentes del portal empleado
 - `src/components/shared/` — Componentes compartidos (AdminSidebar, PortalNav)
-- `src/lib/` — Utilidades core: auth.ts, db.ts, holidays.ts, payroll.ts, color-contrast.ts, utils.ts
+- `src/lib/` — Utilidades core: auth.ts, db.ts, holidays.ts, special-days.ts, shift-times.ts, payroll.ts, payroll-report.ts, feature-flags.ts, color-contrast.ts, utils.ts
 - `src/lib/pdf/` — Plantilla PDF de nómina
 - `src/lib/excel/` — Plantilla Excel de nómina
 - `src/types/` — Tipos TypeScript compartidos
+- `docs/img/` — Capturas del manual de usuario (**generadas** con `node scripts/capture-docs-screenshots.mjs`, no editar a mano)
 
 ### Data Flow
 
@@ -79,7 +80,10 @@ efectivos, no del rol base.
 ### Key Patterns
 
 - Aislamiento por `tenantId`: TODOS los modelos lo tienen y TODA query filtra por él desde session. **No es un SaaS multi-tenant compartido** — cada cliente se despliega aparte con su **propia base de datos** (un único tenant por BD); el `tenantId` es aislamiento de datos heredado del diseño.
-- `isSpecial` en TimeEntry se calcula en el servidor al crear/editar (nunca en cliente)
+- `isSpecial` en TimeEntry se calcula en el servidor al crear/editar (nunca en cliente) con `isSpecialDayForTenant()` de `@/lib/special-days` — domingo ∪ festivo nacional ∪ festivo personalizado del tenant (`Holiday`). NO usar `isSpecialDay` de `holidays.ts` en rutas nuevas: ignora los festivos del cliente.
+- Crear/editar/eliminar un `Holiday` dispara **recálculo retroactivo** de `isSpecial` y de las propinas de las fechas afectadas (`recalculateSpecialForDates`).
+- Reglas de turno en `@/lib/shift-times` (isomorfo cliente+servidor): cruce de medianoche hasta las **02:00**, tope de **15 h/día**, aviso (no bloqueo) a partir de **8 h/día**, máx. **2 turnos/día** sin solaparse. El servidor es la autoridad: revalidar también en el `PUT`.
+- Quincenas: usar los helpers de `utils.ts` (`getBiweeklyPeriodForDate`, `getCurrentBiweeklyPeriod`, `lastDayOfMonth`); no duplicar el cálculo ni usar `toISOString` para fechas.
 - Auto-contraste: usar `getContrastText(hex)` de `@/lib/color-contrast` para texto sobre fondos custom.
 
 ## Design System
@@ -119,7 +123,9 @@ Plantilla completa en `.env.example`. Matriz por cliente en [DESPLIEGUES.md](DES
 | `AUDIT_RETENTION_MONTHS` | Meses de retención de auditoría (opcional, def. 6) |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Web Push |
 | `NEXT_PUBLIC_INVENTARIO_APP_URL` | Feature flag del módulo inventario (si vacío/ausente = OFF) |
+| `AUTH_COOKIE_DOMAIN` | Dominio de la cookie de sesión compartida con inventario (p. ej. `.cucinadeifiori.com`). Sin definir = cookie host-only por defecto |
 | `BACKUP_GPG_PASSPHRASE` | (Secret de GitHub Actions, no de Vercel) cifra los backups |
+| `DB_TARGETS` | (Secret de GitHub Actions) JSON `[{name,url,token}]` por cliente; usado por backup-db.yml y migrate-db.yml |
 
 ## Reglas No Negociables
 

@@ -18,7 +18,13 @@ bonos y descuentos, y genera **reportes PDF/Excel** quincenales y mensuales.
 | [BACKUP.md](BACKUP.md) | DevOps | Backups cifrados de Turso (GitHub Actions) y restauración. |
 | [docs/INTEGRACION_INVENTARIO.md](docs/INTEGRACION_INVENTARIO.md) | Desarrolladores | Contrato de permisos con el módulo externo de inventario. |
 | [CLAUDE.md](CLAUDE.md) | Desarrolladores / agentes IA | Reglas de arquitectura y convenciones del proyecto. |
+| `docs/img/` | — | Capturas del manual. **Generadas** con `npm run docs:screenshots`; no editar a mano. |
 | `docs/superpowers/` | Referencia histórica | Planes y specs de implementación (fechados). |
+
+Los `.pdf` de ambos documentos se versionan como entregable para el cliente, pero el
+**Markdown es la fuente de verdad**: tras editar un `.md`, regenera los PDF con
+`npm run docs:pdf` antes de commitear (ver §23 del manual / §23 de la documentación
+técnica).
 
 ## Stack
 
