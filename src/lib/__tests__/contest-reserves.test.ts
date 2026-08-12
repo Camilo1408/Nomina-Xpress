@@ -183,6 +183,39 @@ describe("guardas de seguridad", () => {
   });
 });
 
+// ─── Reservas congeladas de concursos ya finalizados ────────────────────────
+
+describe("reservas congeladas (fixedAmount)", () => {
+  it("usa el monto congelado en vez de recalcularlo del porcentaje", () => {
+    // El concurso se finalizó cuando el día valía 1.000.000 → reservó 20.000.
+    // Después se corrige el total del día a 2.000.000: la reserva NO se mueve.
+    const calc = calculateTips(2_000_000, emps, [
+      { contestId: "c", contestItemId: "i", percent: 2, fixedAmount: 20_000 },
+    ]);
+    expect(calc.contestReserved).toBe(20_000);
+    expect(calc.netAmount).toBe(2_000_000 - 200_000 - 20_000);
+  });
+
+  it("mantiene la invariante con reservas congeladas y vivas mezcladas", () => {
+    const total = 1_000_000;
+    const calc = calculateTips(total, emps, [
+      { contestId: "c1", contestItemId: "congelada", percent: 2, fixedAmount: 33_333 },
+      { contestId: "c2", contestItemId: "viva", percent: 1 },
+    ]);
+    expect(calc.contestReserves.map((r) => r.amount)).toEqual([33_333, 10_000]);
+    expect(calc.menaje + calc.contestReserved + calc.netAmount).toBe(total);
+  });
+
+  it("rechaza el cálculo si lo congelado ya no cabe en el total del día", () => {
+    // Se baja el total a 50.000 pero hay 45.000 congelados + 5.000 de menaje.
+    expect(() =>
+      calculateTips(50_000, emps, [
+        { contestId: "c", contestItemId: "i", percent: 2, fixedAmount: 46_000 },
+      ])
+    ).toThrow(/supera las propinas del día/i);
+  });
+});
+
 // ─── Sin empleados ───────────────────────────────────────────────────────────
 
 describe("día sin empleados con horas", () => {

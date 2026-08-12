@@ -123,6 +123,44 @@ export function contestAppliesToDate(
   return date >= startDate && date <= endDate;
 }
 
+// ─── Iteración de fechas ─────────────────────────────────────────────────────
+
+/** Tope de seguridad: ningún concurso razonable dura más de dos años. */
+const MAX_RANGE_DAYS = 800;
+
+/**
+ * Todos los días del rango [start, end], extremos incluidos, como "YYYY-MM-DD".
+ *
+ * Se construye con fechas locales (`new Date(y, m-1, d)`) y se formatea a mano,
+ * nunca con `toISOString()`, para no depender de la zona horaria — el mismo
+ * criterio que sigue el resto del sistema con las quincenas.
+ */
+export function eachDateInRange(start: string, end: string): string[] {
+  if (start > end) return [];
+
+  const [sy, sm, sd] = start.split("-").map(Number);
+  const [ey, em, ed] = end.split("-").map(Number);
+  const cursor = new Date(sy, sm - 1, sd);
+  const last = new Date(ey, em - 1, ed);
+
+  const days = Math.round((last.getTime() - cursor.getTime()) / 86_400_000) + 1;
+  if (days > MAX_RANGE_DAYS) {
+    throw new Error(
+      `El rango de fechas es demasiado largo (${days} días, máximo ${MAX_RANGE_DAYS})`
+    );
+  }
+
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const out: string[] = [];
+  while (cursor <= last) {
+    out.push(
+      `${cursor.getFullYear()}-${pad(cursor.getMonth() + 1)}-${pad(cursor.getDate())}`
+    );
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return out;
+}
+
 // ─── Transiciones de estado ──────────────────────────────────────────────────
 
 const ALLOWED_TRANSITIONS: Record<ContestStatus, ContestStatus[]> = {

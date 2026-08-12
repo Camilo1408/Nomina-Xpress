@@ -2,8 +2,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { calculateTips, getPeriodForDate } from "@/lib/tips";
-import { calculateHours } from "@/lib/payroll";
+import { getPeriodForDate } from "@/lib/tips";
+import { computeTipsForDate, persistTipCalculation } from "@/lib/recalculate-tips";
 import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
@@ -64,69 +64,70 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: { message: `Ya existe un registro de propinas para ${date}` } }, { status: 409 });
   }
 
-  // Get time entries for the day to calculate hours per employee
-  const timeEntries = await prisma.timeEntry.findMany({
-    where: { tenantId, date },
-    include: { employee: { select: { id: true, name: true, tipPercent: true, active: true } } },
-  });
-
-  // Aggregate hours per employee
-  const hoursMap = new Map<string, { employee: { id: string; name: string; tipPercent: number }; hours: number }>();
-  for (const te of timeEntries) {
-    if (!te.employee.active) continue;
-    const prev = hoursMap.get(te.employeeId) ?? { employee: te.employee, hours: 0 };
-    let h = 0;
-    if (te.checkOut) h += calculateHours(te.checkIn, te.checkOut);
-    if (te.checkIn2 && te.checkOut2) h += calculateHours(te.checkIn2, te.checkOut2);
-    hoursMap.set(te.employeeId, { employee: te.employee, hours: prev.hours + h });
+  // Horas del día por empleado + porcentajes de concursos activos que reservan
+  // sobre este día. Un solo punto de entrada, compartido con el recálculo.
+  let calc;
+  try {
+    ({ calc } = await computeTipsForDate(tenantId, date, totalAmount));
+  } catch (err) {
+    return NextResponse.json({ error: { message: (err as Error).message } }, { status: 400 });
   }
 
-  const employeeInputs = Array.from(hoursMap.values()).map((v) => ({
-    id: v.employee.id,
-    name: v.employee.name,
-    hoursWorked: Math.round(v.hours * 100) / 100,
-    tipPercent: Number(v.employee.tipPercent),
-  }));
-
-  const calc = calculateTips(totalAmount, employeeInputs);
   const { periodStart, periodEnd } = getPeriodForDate(date);
 
-  const entry = await prisma.tipEntry.create({
-    data: {
+  const entry = await prisma.$transaction(async (tx) => {
+    const created = await tx.tipEntry.create({
+      data: {
+        tenantId,
+        date,
+        totalAmount,
+        menaje: calc.menaje,
+        netAmount: calc.netAmount,
+        contestReserved: calc.contestReserved,
+        periodStart,
+        periodEnd,
+        notes: notes ?? null,
+      },
+    });
+
+    await persistTipCalculation(tx, {
       tenantId,
+      tipEntryId: created.id,
       date,
-      totalAmount,
-      menaje: calc.menaje,
-      netAmount: calc.netAmount,
-      periodStart,
-      periodEnd,
-      notes: notes ?? null,
-      distributions: {
-        create: calc.distributions.map((d) => ({
-          tenantId,
-          employeeId: d.employeeId,
-          hoursWorked: d.hoursWorked,
-          tipPercent: d.tipPercent,
-          effectiveHours: d.effectiveHours,
-          amount: d.amount,
-        })),
+      calc,
+      reason: `Registro de propinas del ${date}`,
+    });
+
+    return tx.tipEntry.findUniqueOrThrow({
+      where: { id: created.id },
+      include: {
+        distributions: {
+          include: { employee: { select: { id: true, name: true } } },
+          orderBy: { amount: "desc" },
+        },
       },
-    },
-    include: {
-      distributions: {
-        include: { employee: { select: { id: true, name: true } } },
-        orderBy: { amount: "desc" },
-      },
-    },
+    });
   });
+
+  const reservaTexto =
+    calc.contestReserved > 0
+      ? `, reservando ${calc.contestReserved} para ${calc.contestReserves.length} ítem(s) de concurso`
+      : "";
 
   await logAudit(req, session, {
     action: "CREATE",
     module: "TIPS",
     entityId: entry.id,
     entityLabel: `Propinas ${date}`,
-    description: `Registró propinas del ${date} por un total de ${totalAmount}, distribuidas a ${entry.distributions.length} empleado(s)`,
-    after: { date, totalAmount, menaje: calc.menaje, netAmount: calc.netAmount, notes },
+    description: `Registró propinas del ${date} por un total de ${totalAmount}, distribuidas a ${entry.distributions.length} empleado(s)${reservaTexto}`,
+    after: {
+      date,
+      totalAmount,
+      menaje: calc.menaje,
+      contestReserved: calc.contestReserved,
+      netAmount: calc.netAmount,
+      notes,
+    },
   });
 
   return NextResponse.json({ entry }, { status: 201 });

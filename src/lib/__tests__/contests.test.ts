@@ -14,7 +14,63 @@ import {
   qualifiesForGoal,
   resolveWinners,
   formatGoalSnapshot,
+  eachDateInRange,
 } from "../contests";
+
+// ─── Iteración de fechas del rango ───────────────────────────────────────────
+
+describe("eachDateInRange", () => {
+  it("incluye los dos extremos", () => {
+    expect(eachDateInRange("2026-08-01", "2026-08-03")).toEqual([
+      "2026-08-01",
+      "2026-08-02",
+      "2026-08-03",
+    ]);
+  });
+
+  it("un rango de un solo día devuelve ese día", () => {
+    expect(eachDateInRange("2026-08-05", "2026-08-05")).toEqual(["2026-08-05"]);
+  });
+
+  it("cruza el cambio de mes", () => {
+    expect(eachDateInRange("2026-08-30", "2026-09-02")).toEqual([
+      "2026-08-30",
+      "2026-08-31",
+      "2026-09-01",
+      "2026-09-02",
+    ]);
+  });
+
+  it("cruza el cambio de año", () => {
+    expect(eachDateInRange("2026-12-30", "2027-01-02")).toEqual([
+      "2026-12-30",
+      "2026-12-31",
+      "2027-01-01",
+      "2027-01-02",
+    ]);
+  });
+
+  it("cuenta bien febrero bisiesto", () => {
+    expect(eachDateInRange("2028-02-27", "2028-03-01")).toEqual([
+      "2028-02-27",
+      "2028-02-28",
+      "2028-02-29",
+      "2028-03-01",
+    ]);
+  });
+
+  it("un rango invertido devuelve lista vacía", () => {
+    expect(eachDateInRange("2026-08-10", "2026-08-01")).toEqual([]);
+  });
+
+  it("rechaza rangos absurdamente largos en vez de colgarse", () => {
+    expect(() => eachDateInRange("2020-01-01", "2030-01-01")).toThrow(/rango/i);
+  });
+
+  it("un año completo cabe sin problema", () => {
+    expect(eachDateInRange("2026-01-01", "2026-12-31")).toHaveLength(365);
+  });
+});
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
 

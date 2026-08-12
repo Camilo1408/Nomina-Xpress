@@ -69,6 +69,16 @@ export const PERMISSIONS = {
   DISCOUNTS_DELETE:         "discounts:delete",
   DISCOUNTS_ASSIGN:         "discounts:assign",
 
+  // ── Concursos e incentivos ────────────────────────────────────────────────
+  CONTESTS_VIEW:            "contests:view",
+  CONTESTS_CREATE:          "contests:create",
+  CONTESTS_EDIT:            "contests:edit",
+  CONTESTS_DELETE:          "contests:delete",
+  // Registrar resultados, adjudicar ganadores y declarar ítems desiertos
+  CONTESTS_AWARD:           "contests:award",
+  // Marcar cuotas de bonos como pagadas
+  CONTESTS_PAY:             "contests:pay",
+
   // ── Festivos personalizados ───────────────────────────────────────────────
   HOLIDAYS_VIEW:            "holidays:view",
   HOLIDAYS_CREATE:          "holidays:create",
@@ -200,6 +210,8 @@ export const BASE_ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
     PERMISSIONS.PAYROLL_GENERATE,
     PERMISSIONS.PAYROLL_EXPORT_PDF,
     PERMISSIONS.PAYROLL_EXPORT_EXCEL,
+    // Concursos: solo lectura. Crear, adjudicar y pagar quedan en SUPERADMIN.
+    PERMISSIONS.CONTESTS_VIEW,
     // Inventario: gestión completa (regla de negocio — ADMIN gestiona todo)
     PERMISSIONS.INVENTORY_VIEW,
     PERMISSIONS.INVENTORY_PRODUCTS_CREATE,
@@ -253,6 +265,12 @@ export const BASE_ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
     PERMISSIONS.DISCOUNTS_EDIT,
     PERMISSIONS.DISCOUNTS_DELETE,
     PERMISSIONS.DISCOUNTS_ASSIGN,
+    PERMISSIONS.CONTESTS_VIEW,
+    PERMISSIONS.CONTESTS_CREATE,
+    PERMISSIONS.CONTESTS_EDIT,
+    PERMISSIONS.CONTESTS_DELETE,
+    PERMISSIONS.CONTESTS_AWARD,
+    PERMISSIONS.CONTESTS_PAY,
     // Festivos personalizados: solo SUPERADMIN (y PROPRIETARY por acceso total)
     PERMISSIONS.HOLIDAYS_VIEW,
     PERMISSIONS.HOLIDAYS_CREATE,
@@ -394,6 +412,18 @@ export const PERMISSION_GROUPS: Array<{
     ],
   },
   {
+    module: "contests",
+    label: "Concursos e incentivos",
+    keys: [
+      PERMISSIONS.CONTESTS_VIEW,
+      PERMISSIONS.CONTESTS_CREATE,
+      PERMISSIONS.CONTESTS_EDIT,
+      PERMISSIONS.CONTESTS_DELETE,
+      PERMISSIONS.CONTESTS_AWARD,
+      PERMISSIONS.CONTESTS_PAY,
+    ],
+  },
+  {
     module: "holidays",
     label: "Festivos",
     keys: [
@@ -487,6 +517,12 @@ export const PERMISSION_LABELS: Record<string, string> = {
   "discounts:edit":           "Editar descuentos",
   "discounts:delete":         "Eliminar descuentos",
   "discounts:assign":         "Asignar descuentos al personal",
+  "contests:view":            "Ver concursos",
+  "contests:create":          "Crear concursos",
+  "contests:edit":            "Editar concursos",
+  "contests:delete":          "Eliminar concursos",
+  "contests:award":           "Registrar resultados y adjudicar ganadores",
+  "contests:pay":             "Marcar bonos de concurso como pagados",
   "holidays:view":            "Ver festivos",
   "holidays:create":          "Crear festivos",
   "holidays:edit":            "Editar festivos",

@@ -5,7 +5,7 @@ import { calculatePayroll } from "@/lib/payroll";
 import { resolveBonusesForEmployees } from "@/lib/bonus-service";
 import { resolveDiscountsForEmployees } from "@/lib/discount-service";
 import { clampFinalPay } from "@/lib/discounts";
-import { fetchPayrollPeriodData } from "@/lib/payroll-report";
+import { fetchPayrollPeriodData, mapContestBonuses } from "@/lib/payroll-report";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
 
@@ -48,12 +48,20 @@ export async function GET(req: Request) {
   const periodData = await fetchPayrollPeriodData(tenantId, from, to, employees.map((e) => e.id));
 
   const results = employees.map((emp) => {
-      const { entries, adjustments, tipDists } = periodData.get(emp.id)!;
+      const { entries, adjustments, tipDists, contestPayments } = periodData.get(emp.id)!;
       const payroll = calculatePayroll(emp, entries, adjustments);
       const totalTips = tipDists.reduce((s, d) => s + Number(d.amount), 0);
       const empBonuses = bonusMap.get(emp.id) ?? { bonuses: [], totalBonuses: 0 };
       const empDiscounts = discountMap.get(emp.id) ?? { discounts: [], totalDiscounts: 0 };
       const netPayWithTips = Math.round(payroll.netPay + totalTips);
+      const { contestBonuses, totalContestBonus } = mapContestBonuses(contestPayments);
+      // Las propinas son informativas y NO se suman al total final a pagar.
+      // Los bonos de concurso siguen exactamente la misma regla.
+      const finalPay = clampFinalPay(
+        payroll.netPay,
+        empBonuses.totalBonuses,
+        empDiscounts.totalDiscounts
+      );
       return {
         ...payroll,
         totalTips: Math.round(totalTips),
@@ -62,8 +70,10 @@ export async function GET(req: Request) {
         totalBonuses: empBonuses.totalBonuses,
         discounts: empDiscounts.discounts,
         totalDiscounts: empDiscounts.totalDiscounts,
-        // Las propinas son informativas y NO se suman al total final a pagar.
-        finalPay: clampFinalPay(payroll.netPay, empBonuses.totalBonuses, empDiscounts.totalDiscounts),
+        finalPay,
+        contestBonuses,
+        totalContestBonus,
+        totalInformativeReceived: finalPay + Math.round(totalTips) + totalContestBonus,
         tipDistributions: tipDists.map((d) => ({
           date: d.tipEntry.date,
           amount: Number(d.amount),

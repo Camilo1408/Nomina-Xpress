@@ -2,8 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { calculateTips } from "@/lib/tips";
-import { calculateHours } from "@/lib/payroll";
+import { computeTipsForDate, persistTipCalculation } from "@/lib/recalculate-tips";
 import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
@@ -33,72 +32,40 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
   const { totalAmount, notes } = parsed.data;
 
-  // Recalculate distribution with new amount
-  const timeEntries = await prisma.timeEntry.findMany({
-    where: { tenantId, date: existing.date },
-    include: { employee: { select: { id: true, name: true, tipPercent: true, active: true } } },
-  });
-
-  const hoursMap = new Map<string, { employee: { id: string; name: string; tipPercent: number }; hours: number }>();
-  for (const te of timeEntries) {
-    if (!te.employee.active) continue;
-    const prev = hoursMap.get(te.employeeId) ?? { employee: te.employee, hours: 0 };
-    let h = 0;
-    if (te.checkOut) h += calculateHours(te.checkIn, te.checkOut);
-    if (te.checkIn2 && te.checkOut2) h += calculateHours(te.checkIn2, te.checkOut2);
-    hoursMap.set(te.employeeId, { employee: te.employee, hours: prev.hours + h });
+  // Recalcula con el nuevo total, respetando las reservas de concurso del día.
+  // Si el total nuevo no alcanza para cubrir el menaje más lo ya congelado por un
+  // concurso finalizado, computeTipsForDate lanza y la edición se rechaza en vez
+  // de dejar un neto negativo.
+  let calc;
+  try {
+    ({ calc } = await computeTipsForDate(tenantId, existing.date, totalAmount));
+  } catch (err) {
+    return NextResponse.json({ error: { message: (err as Error).message } }, { status: 400 });
   }
 
-  const employeeInputs = Array.from(hoursMap.values()).map((v) => ({
-    id: v.employee.id,
-    name: v.employee.name,
-    hoursWorked: Math.round(v.hours * 100) / 100,
-    tipPercent: Number(v.employee.tipPercent),
-  }));
-
-  const calc = calculateTips(totalAmount, employeeInputs);
-
-  // Update entry and rebuild distributions
-  const [updated] = await prisma.$transaction([
-    prisma.tipEntry.update({
+  const fresh = await prisma.$transaction(async (tx) => {
+    await tx.tipEntry.update({
       where: { id },
-      data: {
-        totalAmount,
-        menaje: calc.menaje,
-        netAmount: calc.netAmount,
-        notes: notes ?? null,
-      },
+      data: { totalAmount, notes: notes ?? null },
+    });
+
+    await persistTipCalculation(tx, {
+      tenantId,
+      tipEntryId: id,
+      date: existing.date,
+      calc,
+      reason: `Edición de las propinas del ${existing.date}`,
+    });
+
+    return tx.tipEntry.findUniqueOrThrow({
+      where: { id },
       include: {
         distributions: {
           include: { employee: { select: { id: true, name: true } } },
           orderBy: { amount: "desc" },
         },
       },
-    }),
-    prisma.tipDistribution.deleteMany({ where: { tipEntryId: id } }),
-  ]);
-
-  // Re-create distributions
-  await prisma.tipDistribution.createMany({
-    data: calc.distributions.map((d) => ({
-      tenantId,
-      tipEntryId: id,
-      employeeId: d.employeeId,
-      hoursWorked: d.hoursWorked,
-      tipPercent: d.tipPercent,
-      effectiveHours: d.effectiveHours,
-      amount: d.amount,
-    })),
-  });
-
-  const fresh = await prisma.tipEntry.findUnique({
-    where: { id },
-    include: {
-      distributions: {
-        include: { employee: { select: { id: true, name: true } } },
-        orderBy: { amount: "desc" },
-      },
-    },
+    });
   });
 
   await logAudit(req, session, {
@@ -107,11 +74,23 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     entityId: id,
     entityLabel: `Propinas ${existing.date}`,
     description: `Editó las propinas del ${existing.date}: total ${existing.totalAmount} → ${totalAmount}`,
-    before: { totalAmount: existing.totalAmount, menaje: existing.menaje, netAmount: existing.netAmount, notes: existing.notes },
-    after: { totalAmount, menaje: calc.menaje, netAmount: calc.netAmount, notes },
+    before: {
+      totalAmount: existing.totalAmount,
+      menaje: existing.menaje,
+      contestReserved: existing.contestReserved,
+      netAmount: existing.netAmount,
+      notes: existing.notes,
+    },
+    after: {
+      totalAmount,
+      menaje: calc.menaje,
+      contestReserved: calc.contestReserved,
+      netAmount: calc.netAmount,
+      notes,
+    },
   });
 
-  return NextResponse.json({ entry: fresh ?? updated });
+  return NextResponse.json({ entry: fresh });
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {

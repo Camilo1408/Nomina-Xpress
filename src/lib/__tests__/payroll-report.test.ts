@@ -6,6 +6,7 @@ vi.mock("@/lib/db", () => ({
     timeEntry: { findMany: vi.fn() },
     payAdjustment: { findMany: vi.fn() },
     tipDistribution: { findMany: vi.fn() },
+    contestBonusPayment: { findMany: vi.fn() },
   },
 }));
 
@@ -15,12 +16,14 @@ import { fetchPayrollPeriodData } from "../payroll-report";
 const tEntry = prisma.timeEntry.findMany as unknown as ReturnType<typeof vi.fn>;
 const tAdj = prisma.payAdjustment.findMany as unknown as ReturnType<typeof vi.fn>;
 const tTip = prisma.tipDistribution.findMany as unknown as ReturnType<typeof vi.fn>;
+const tContest = prisma.contestBonusPayment.findMany as unknown as ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   vi.clearAllMocks();
   tEntry.mockResolvedValue([]);
   tAdj.mockResolvedValue([]);
   tTip.mockResolvedValue([]);
+  tContest.mockResolvedValue([]);
 });
 
 describe("fetchPayrollPeriodData", () => {
@@ -30,13 +33,15 @@ describe("fetchPayrollPeriodData", () => {
     expect(tEntry).not.toHaveBeenCalled();
     expect(tAdj).not.toHaveBeenCalled();
     expect(tTip).not.toHaveBeenCalled();
+    expect(tContest).not.toHaveBeenCalled();
   });
 
-  it("hace exactamente 3 consultas (no N+1) sin importar cuántos empleados", async () => {
+  it("hace exactamente 4 consultas (no N+1) sin importar cuántos empleados", async () => {
     await fetchPayrollPeriodData("t1", "2026-07-01", "2026-07-15", ["e1", "e2", "e3"]);
     expect(tEntry).toHaveBeenCalledTimes(1);
     expect(tAdj).toHaveBeenCalledTimes(1);
     expect(tTip).toHaveBeenCalledTimes(1);
+    expect(tContest).toHaveBeenCalledTimes(1);
   });
 
   it("filtra por employeeId IN, tenant y rango de fechas", async () => {
@@ -90,7 +95,12 @@ describe("fetchPayrollPeriodData", () => {
     tEntry.mockResolvedValue([{ id: "a", employeeId: "e1" }]);
     const map = await fetchPayrollPeriodData("t1", "2026-07-01", "2026-07-15", ["e1", "e2"]);
     expect(map.has("e2")).toBe(true);
-    expect(map.get("e2")).toEqual({ entries: [], adjustments: [], tipDists: [] });
+    expect(map.get("e2")).toEqual({
+      entries: [],
+      adjustments: [],
+      tipDists: [],
+      contestPayments: [],
+    });
   });
 
   it("ignora filas de empleados que no están en la lista pedida (defensivo)", async () => {

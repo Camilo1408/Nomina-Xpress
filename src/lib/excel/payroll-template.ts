@@ -33,6 +33,7 @@ export async function generatePayrollExcel(
     { key: "adjustments", width: 18 },
     { key: "net", width: 18 },
     { key: "tips", width: 18 },
+    { key: "contestBonus", width: 18 },
     { key: "bonuses", width: 16 },
     { key: "discounts", width: 16 },
     { key: "total", width: 18 },
@@ -48,21 +49,21 @@ export async function generatePayrollExcel(
     // ExcelJS espera Buffer pero define tipo restringido; cast seguro.
     const imageId = workbook.addImage({ buffer: logo.data as unknown as ExcelJS.Buffer, extension: ext });
     summary.addImage(imageId, {
-      tl: { col: 9.05, row: 0.05 }, // col 9 = J (base 0); offset pequeño para no pegarse al borde
+      tl: { col: 10.05, row: 0.05 }, // col 10 = K (base 0); offset pequeño para no pegarse al borde
       ext: { width: LOGO_SIZE, height: LOGO_SIZE },
       editAs: "oneCell",
     });
   }
 
-  // Título (merge sobre las primeras 9 columnas para no tapar logo)
-  summary.mergeCells("A1:I1");
+  // Título (merge sobre las primeras 10 columnas para no tapar logo)
+  summary.mergeCells("A1:J1");
   const titleCell = summary.getCell("A1");
   titleCell.value = `${tenantName} — ${reportTitle} ${data.period.from} al ${data.period.to}`;
   titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + hex } };
   titleCell.font = { bold: true, size: 14, color: { argb: "FFFAF7F2" } };
   titleCell.alignment = { horizontal: "center", vertical: "middle" };
 
-  const headers = ["Personal", "Horas Normales", "Horas Especiales", "Bruto", "Ajustes", "Neto", "Propinas *", "Bonos", "Descuentos", "Total Final"];
+  const headers = ["Personal", "Horas Normales", "Horas Especiales", "Bruto", "Ajustes", "Neto", "Propinas *", "Bono Concurso *", "Bonos", "Descuentos", "Total Final"];
   const headerRow = summary.addRow(headers);
   headerRow.eachCell((cell) => {
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF2EDE6" } };
@@ -80,6 +81,7 @@ export async function generatePayrollExcel(
       emp.totalAdjustments,
       emp.netPay,
       emp.totalTips,
+      emp.totalContestBonus,
       emp.totalBonuses,
       emp.totalDiscounts,
       emp.finalPay,
@@ -89,7 +91,7 @@ export async function generatePayrollExcel(
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF9F5F0" } };
       });
     }
-    ["D", "E", "F", "G", "H", "I", "J"].forEach((col) => {
+    ["D", "E", "F", "G", "H", "I", "J", "K"].forEach((col) => {
       const cell = row.getCell(col);
       cell.numFmt = '"$"#,##0';
     });
@@ -97,8 +99,8 @@ export async function generatePayrollExcel(
     // Detalle de bonos aplicados (una fila por bono): solo concepto + valor
     emp.bonuses.forEach((b) => {
       const detailText = `   • Bono: ${b.name}: +${formatCurrency(b.appliedAmount)}`;
-      const bRow = summary.addRow([detailText, "", "", "", "", "", "", "", "", ""]);
-      summary.mergeCells(`A${bRow.number}:J${bRow.number}`);
+      const bRow = summary.addRow([detailText, "", "", "", "", "", "", "", "", "", ""]);
+      summary.mergeCells(`A${bRow.number}:K${bRow.number}`);
       const bCell = bRow.getCell(1);
       bCell.font = { color: { argb: "FF6B8E6B" }, size: 9 };
       bCell.alignment = { horizontal: "left", vertical: "middle" };
@@ -107,8 +109,8 @@ export async function generatePayrollExcel(
     // Detalle de descuentos aplicados (una fila por descuento): solo concepto + valor
     emp.discounts.forEach((d) => {
       const detailText = `   • Descuento: ${d.name}: −${formatCurrency(d.appliedAmount)}`;
-      const dRow = summary.addRow([detailText, "", "", "", "", "", "", "", "", ""]);
-      summary.mergeCells(`A${dRow.number}:J${dRow.number}`);
+      const dRow = summary.addRow([detailText, "", "", "", "", "", "", "", "", "", ""]);
+      summary.mergeCells(`A${dRow.number}:K${dRow.number}`);
       const dCell = dRow.getCell(1);
       dCell.font = { color: { argb: "FFB94040" }, size: 9 };
       dCell.alignment = { horizontal: "left", vertical: "middle" };
@@ -118,9 +120,9 @@ export async function generatePayrollExcel(
     const sigLabel = reportType === "shifts" ? "Firma del contratista" : "Firma del personal";
     const sigRow = summary.addRow([
       `${sigLabel}: ______________________________`,
-      "", "", "", "", "", "", "", "", "",
+      "", "", "", "", "", "", "", "", "", "",
     ]);
-    summary.mergeCells(`A${sigRow.number}:J${sigRow.number}`);
+    summary.mergeCells(`A${sigRow.number}:K${sigRow.number}`);
     const sigCell = sigRow.getCell(1);
     sigCell.font = { italic: true, color: { argb: "FF7A6358" }, size: 10 };
     sigCell.alignment = { horizontal: "left", vertical: "middle" };
@@ -134,24 +136,25 @@ export async function generatePayrollExcel(
       adj: acc.adj + e.totalAdjustments,
       net: acc.net + e.netPay,
       tips: acc.tips + e.totalTips,
+      contestBonus: acc.contestBonus + e.totalContestBonus,
       bonuses: acc.bonuses + e.totalBonuses,
       discounts: acc.discounts + e.totalDiscounts,
       total: acc.total + e.finalPay,
     }),
-    { gross: 0, adj: 0, net: 0, tips: 0, bonuses: 0, discounts: 0, total: 0 }
+    { gross: 0, adj: 0, net: 0, tips: 0, contestBonus: 0, bonuses: 0, discounts: 0, total: 0 }
   );
-  const totalRow = summary.addRow(["TOTAL", "", "", totals.gross, totals.adj, totals.net, totals.tips, totals.bonuses, totals.discounts, totals.total]);
+  const totalRow = summary.addRow(["TOTAL", "", "", totals.gross, totals.adj, totals.net, totals.tips, totals.contestBonus, totals.bonuses, totals.discounts, totals.total]);
   totalRow.eachCell((cell) => {
     cell.font = { bold: true };
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF2EDE6" } };
   });
-  ["D", "E", "F", "G", "H", "I", "J"].forEach((col) => {
+  ["D", "E", "F", "G", "H", "I", "J", "K"].forEach((col) => {
     totalRow.getCell(col).numFmt = '"$"#,##0';
   });
 
   // Nota informativa sobre propinas
-  const noteRow = summary.addRow(["* Las propinas se muestran como valor informativo y no se suman al Total Final.", "", "", "", "", "", "", "", "", ""]);
-  summary.mergeCells(`A${noteRow.number}:J${noteRow.number}`);
+  const noteRow = summary.addRow(["* Las propinas y los bonos por concurso se muestran como valor informativo y NO se suman al Total Final.", "", "", "", "", "", "", "", "", "", ""]);
+  summary.mergeCells(`A${noteRow.number}:K${noteRow.number}`);
   noteRow.getCell(1).font = { italic: true, color: { argb: "FF7A6358" }, size: 9 };
   noteRow.getCell(1).alignment = { horizontal: "left", vertical: "middle" };
 

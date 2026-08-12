@@ -13,6 +13,7 @@
 
 import { prisma } from "@/lib/db";
 import type { TimeEntry, PayAdjustment } from "@/generated/prisma";
+import type { ContestBonusApplied } from "@/lib/report-types";
 
 export type TipDistributionWithDate = {
   id: string;
@@ -27,14 +28,39 @@ export type TipDistributionWithDate = {
   tipEntry: { date: string };
 };
 
+/**
+ * Cuota de un bono de concurso que cae en el período del reporte.
+ *
+ * Es un valor INFORMATIVO: se muestra junto a las propinas y, como ellas, no se
+ * suma al total de nómina.
+ */
+export type ContestBonusPaymentForReport = {
+  id: string;
+  installment: number;
+  amount: number;
+  status: string;
+  periodStart: string;
+  periodEnd: string;
+  contestBonus: {
+    contestName: string;
+    itemName: string;
+    totalAmount: number;
+    goalSnapshot: string;
+    resultValue: number;
+    /** Todas las cuotas del bono, para poder mostrar "cuota 1 de 2". */
+    _count: { payments: number };
+  };
+};
+
 export interface EmployeePeriodData {
   entries: TimeEntry[];
   adjustments: PayAdjustment[];
   tipDists: TipDistributionWithDate[];
+  contestPayments: ContestBonusPaymentForReport[];
 }
 
 function emptyBucket(): EmployeePeriodData {
-  return { entries: [], adjustments: [], tipDists: [] };
+  return { entries: [], adjustments: [], tipDists: [], contestPayments: [] };
 }
 
 /**
@@ -53,7 +79,7 @@ export async function fetchPayrollPeriodData(
 
   if (employeeIds.length === 0) return map;
 
-  const [entries, adjustments, tipDists] = await Promise.all([
+  const [entries, adjustments, tipDists, contestPayments] = await Promise.all([
     prisma.timeEntry.findMany({
       where: { tenantId, employeeId: { in: employeeIds }, date: { gte: from, lte: to } },
     }),
@@ -73,11 +99,72 @@ export async function fetchPayrollPeriodData(
       },
       include: { tipEntry: { select: { date: true } } },
     }),
+    // Cuotas de bonos de concurso que caen en esta quincena. Mismo criterio de
+    // período que payAdjustments. Se excluyen las ANULADO: no representan dinero.
+    prisma.contestBonusPayment.findMany({
+      where: {
+        tenantId,
+        employeeId: { in: employeeIds },
+        periodStart: { gte: from },
+        periodEnd: { lte: to },
+        status: { not: "ANULADO" },
+      },
+      select: {
+        id: true,
+        employeeId: true,
+        installment: true,
+        amount: true,
+        status: true,
+        periodStart: true,
+        periodEnd: true,
+        contestBonus: {
+          select: {
+            contestName: true,
+            itemName: true,
+            totalAmount: true,
+            goalSnapshot: true,
+            resultValue: true,
+            _count: { select: { payments: true } },
+          },
+        },
+      },
+      orderBy: { installment: "asc" },
+    }),
   ]);
 
   for (const e of entries) map.get(e.employeeId)?.entries.push(e);
   for (const a of adjustments) map.get(a.employeeId)?.adjustments.push(a);
   for (const t of tipDists) map.get(t.employeeId)?.tipDists.push(t as TipDistributionWithDate);
+  for (const p of contestPayments) map.get(p.employeeId)?.contestPayments.push(p);
 
   return map;
+}
+
+/**
+ * Convierte las cuotas de bono en las líneas informativas del reporte.
+ *
+ * Vive aquí, y no en cada ruta, porque pantalla, PDF y Excel deben mostrar
+ * exactamente lo mismo. Tres copias de este mapeo serían tres formas de que los
+ * tres reportes acabaran diciendo cosas distintas sobre el mismo dinero.
+ */
+export function mapContestBonuses(
+  payments: ContestBonusPaymentForReport[]
+): { contestBonuses: ContestBonusApplied[]; totalContestBonus: number } {
+  const contestBonuses: ContestBonusApplied[] = payments.map((p) => ({
+    paymentId: p.id,
+    contestName: p.contestBonus.contestName,
+    itemName: p.contestBonus.itemName,
+    goal: p.contestBonus.goalSnapshot,
+    resultValue: p.contestBonus.resultValue,
+    installment: p.installment,
+    totalInstallments: p.contestBonus._count.payments,
+    amount: p.amount,
+    bonusTotal: p.contestBonus.totalAmount,
+    status: p.status,
+  }));
+
+  return {
+    contestBonuses,
+    totalContestBonus: Math.round(contestBonuses.reduce((s, b) => s + b.amount, 0)),
+  };
 }

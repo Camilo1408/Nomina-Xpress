@@ -14,6 +14,15 @@ export interface ContestDeduction {
   contestId: string;
   contestItemId: string;
   percent: number;
+  /**
+   * Monto ya congelado, en pesos. Cuando viene, se usa tal cual en vez de
+   * derivarlo del porcentaje.
+   *
+   * Es lo que mantiene intactas las reservas de un concurso FINALIZADO: si más
+   * tarde se corrigen las horas o el total de propinas de un día de su rango, el
+   * recálculo no puede mover un dinero que ya respalda un bono adjudicado.
+   */
+  fixedAmount?: number;
 }
 
 /** Dinero efectivamente reservado para un ítem en un día concreto. */
@@ -90,7 +99,7 @@ export function calculateTips(
 
   const contestReserves: ContestReserveResult[] = deductions.map((d) => ({
     ...d,
-    amount: Math.round(totalAmount * (d.percent / 100)),
+    amount: d.fixedAmount ?? Math.round(totalAmount * (d.percent / 100)),
   }));
   const contestReserved = contestReserves.reduce((s, r) => s + r.amount, 0);
 

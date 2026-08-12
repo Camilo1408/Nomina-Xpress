@@ -4,7 +4,7 @@ import { calculatePayroll } from "@/lib/payroll";
 import { resolveBonusesForEmployees } from "@/lib/bonus-service";
 import { resolveDiscountsForEmployees } from "@/lib/discount-service";
 import { clampFinalPay } from "@/lib/discounts";
-import { fetchPayrollPeriodData } from "@/lib/payroll-report";
+import { fetchPayrollPeriodData, mapContestBonuses } from "@/lib/payroll-report";
 import { loadTenantLogo } from "@/lib/logo-loader";
 import { NextResponse } from "next/server";
 import { logAudit } from "@/lib/audit";
@@ -41,12 +41,20 @@ export async function GET(req: Request) {
   const periodData = await fetchPayrollPeriodData(tenantId, from, to, employees.map((e) => e.id));
 
   const results = employees.map((emp) => {
-      const { entries, adjustments, tipDists } = periodData.get(emp.id)!;
+      const { entries, adjustments, tipDists, contestPayments } = periodData.get(emp.id)!;
       const payroll = calculatePayroll(emp, entries, adjustments);
       const totalTips = Math.round(tipDists.reduce((s, d) => s + Number(d.amount), 0));
       const empBonuses = bonusMap.get(emp.id) ?? { bonuses: [], totalBonuses: 0 };
       const empDiscounts = discountMap.get(emp.id) ?? { discounts: [], totalDiscounts: 0 };
       const netPayWithTips = Math.round(payroll.netPay + totalTips);
+      const { contestBonuses, totalContestBonus } = mapContestBonuses(contestPayments);
+      // Las propinas NO entran en el total final: son informativas, igual que en
+      // el reporte de pantalla. Los bonos de concurso siguen la misma regla.
+      const finalPay = clampFinalPay(
+        payroll.netPay,
+        empBonuses.totalBonuses,
+        empDiscounts.totalDiscounts
+      );
       return {
         ...payroll,
         totalTips,
@@ -55,7 +63,10 @@ export async function GET(req: Request) {
         totalBonuses: empBonuses.totalBonuses,
         discounts: empDiscounts.discounts,
         totalDiscounts: empDiscounts.totalDiscounts,
-        finalPay: clampFinalPay(netPayWithTips, empBonuses.totalBonuses, empDiscounts.totalDiscounts),
+        finalPay,
+        contestBonuses,
+        totalContestBonus,
+        totalInformativeReceived: finalPay + totalTips + totalContestBonus,
       };
     });
 
