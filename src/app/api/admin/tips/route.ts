@@ -36,6 +36,18 @@ export async function GET(req: Request) {
         include: { employee: { select: { id: true, name: true } } },
         orderBy: { amount: "desc" },
       },
+      // Desglose de lo reservado por cada ítem de concurso ese día, para que en
+      // la pantalla de propinas se vea de dónde sale cada peso descontado.
+      contestReserves: {
+        where: { status: "RESERVADA" },
+        select: {
+          id: true,
+          contestItemId: true,
+          percent: true,
+          amount: true,
+          contestItem: { select: { name: true, contest: { select: { name: true } } } },
+        },
+      },
     },
     orderBy: { date: "desc" },
   });

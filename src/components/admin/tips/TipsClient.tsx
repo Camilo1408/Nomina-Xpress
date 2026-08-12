@@ -20,16 +20,26 @@ interface Distribution {
   employee: { id: string; name: string };
 }
 
+interface ContestReserve {
+  id: string;
+  contestItemId: string;
+  percent: number;
+  amount: number;
+  contestItem: { name: string; contest: { name: string } };
+}
+
 interface TipEntry {
   id: string;
   date: string;
   totalAmount: number;
   menaje: number;
+  contestReserved: number;
   netAmount: number;
   periodStart: string;
   periodEnd: string;
   notes: string | null;
   distributions: Distribution[];
+  contestReserves?: ContestReserve[];
 }
 
 interface TipsClientProps {
@@ -124,6 +134,7 @@ export function TipsClient({ canCreate, canEdit, canDelete }: TipsClientProps) {
   const totalTips = entries.reduce((s, e) => s + e.totalAmount, 0);
   const totalNet = entries.reduce((s, e) => s + e.netAmount, 0);
   const totalMenaje = entries.reduce((s, e) => s + e.menaje, 0);
+  const totalConcursos = entries.reduce((s, e) => s + (e.contestReserved ?? 0), 0);
   const employeeSummaries = aggregateByEmployee(entries);
 
   return (
@@ -170,10 +181,11 @@ export function TipsClient({ canCreate, canEdit, canDelete }: TipsClientProps) {
       </div>
 
       {/* Summary cards — siempre visibles */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: "Total propinas brutas", value: formatCurrency(totalTips), color: "#2C1F15" },
           { label: "Provisión menaje (10%)", value: formatCurrency(totalMenaje), color: "#B94040" },
+          { label: "Reservado a concursos", value: formatCurrency(totalConcursos), color: "#C1643F" },
           { label: "Total distribuido", value: formatCurrency(totalNet), color: "#6B8E6B" },
         ].map((card) => (
           <Card key={card.label} className="shadow-[0_1px_3px_rgba(44,31,21,0.08)]">
@@ -282,8 +294,32 @@ export function TipsClient({ canCreate, canEdit, canDelete }: TipsClientProps) {
                         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#7A6358] mb-3">
                           <span>Bruto: <strong className="text-[#2C1F15]">{formatCurrency(entry.totalAmount)}</strong></span>
                           <span>Menaje 10%: <strong className="text-[#B94040]">{formatCurrency(entry.menaje)}</strong></span>
+                          {(entry.contestReserved ?? 0) > 0 && (
+                            <span>
+                              Concursos:{" "}
+                              <strong className="text-[#C1643F]">{formatCurrency(entry.contestReserved)}</strong>
+                            </span>
+                          )}
                           <span>A distribuir: <strong className="text-[#6B8E6B]">{formatCurrency(entry.netAmount)}</strong></span>
                         </div>
+                        {(entry.contestReserves?.length ?? 0) > 0 && (
+                          <div className="mb-3 rounded-md border border-[#E0D5CA] bg-white px-3 py-2">
+                            <p className="text-[11px] font-medium text-[#7A6358] mb-1">
+                              Reservado para concursos
+                            </p>
+                            {entry.contestReserves!.map((r) => (
+                              <div key={r.id} className="flex justify-between text-xs py-0.5">
+                                <span className="text-[#7A6358]">
+                                  {r.contestItem.contest.name} · {r.contestItem.name}{" "}
+                                  <span className="text-[#A08878]">({r.percent}%)</span>
+                                </span>
+                                <span className="font-mono text-[#C1643F]">
+                                  −{formatCurrency(r.amount)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                         {entry.distributions.length === 0 ? (
                           <p className="text-xs text-[#7A6358] italic">
                             Sin horas registradas ese día — no se distribuyó.
