@@ -37,6 +37,14 @@ Next.js 16 App Router + TypeScript + Tailwind CSS v4 + shadcn/ui + SQLite local 
 Prisma 7 usa un nuevo motor "client" que requiere un adapter. Aquí usamos **`@prisma/adapter-libsql`** (`@libsql/client`) para local y producción por igual: en local `TURSO_DATABASE_URL` apunta a `file:./dev.db`; en producción a la URL `libsql://…` de Turso.
 El cliente se inicializa en `src/lib/db.ts` pasando el adapter. El `schema.prisma` NO tiene `url` en el datasource — va en `prisma.config.ts` (lee `TURSO_DATABASE_URL`).
 
+**Migraciones — no usar `prisma migrate deploy`.** El historial de `prisma/migrations/`
+está desincronizado desde junio de 2026: `Bonus`, `Discount`, `Holiday`,
+`InventoryCategory` y los modelos `Contest*` no están ahí, y la tabla
+`_prisma_migrations` del `dev.db` local está vacía (se construyó con `db push`).
+Los cambios de esquema se aplican con scripts idempotentes propios
+(`prisma/turso-migrate-*.mjs`), cada uno con su rollback. Es el patrón a seguir para
+cualquier cambio nuevo de base de datos.
+
 El cliente generado está en `src/generated/prisma/` (custom output).
 
 El cliente generado está en `src/generated/prisma/` (custom output).
@@ -84,6 +92,17 @@ efectivos, no del rol base.
 - Crear/editar/eliminar un `Holiday` dispara **recálculo retroactivo** de `isSpecial` y de las propinas de las fechas afectadas (`recalculateSpecialForDates`).
 - Reglas de turno en `@/lib/shift-times` (isomorfo cliente+servidor): cruce de medianoche hasta las **02:00**, tope de **15 h/día**, aviso (no bloqueo) a partir de **8 h/día**, máx. **2 turnos/día** sin solaparse. El servidor es la autoridad: revalidar también en el `PUT`.
 - Quincenas: usar los helpers de `utils.ts` (`getBiweeklyPeriodForDate`, `getCurrentBiweeklyPeriod`, `lastDayOfMonth`); no duplicar el cálculo ni usar `toISOString` para fechas.
+- **Concursos e incentivos** (`/admin/contests`): premios financiados con un % adicional
+  de las propinas. La invariante que sostiene el módulo, por día, es
+  `TipEntry.totalAmount = menaje + contestReserved + netAmount`; el neto se obtiene
+  **por resta**, nunca por porcentaje, para que la suma cuadre al peso. Solo un concurso
+  `ACTIVO` reserva; al `FINALIZAR` su reserva se congela (`fixedAmount`) y ya no la mueve
+  un recálculo posterior. Cancelar un concurso o declarar un ítem desierto **no tienen
+  código propio**: cambian el estado y recalculan, la reserva queda `DEVUELTA` y el dinero
+  vuelve al reparto. El único punto que decide qué descuenta un día es
+  `resolveContestDeductionsForDate()` en `contest-service.ts`.
+- El bono de concurso es **informativo**: aparece en reportes y portal junto a las
+  propinas, pero NUNCA entra en `finalPay`.
 - Auto-contraste: usar `getContrastText(hex)` de `@/lib/color-contrast` para texto sobre fondos custom.
 
 ## Design System
