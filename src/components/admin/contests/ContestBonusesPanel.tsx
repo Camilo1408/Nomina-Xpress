@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { ReasonDialog } from "@/components/shared/ReasonDialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { CONTEST_BONUS_STATUS_LABELS, type ContestBonusStatus } from "@/lib/contests";
 import { BadgeDollarSign, Ban, Check } from "lucide-react";
@@ -30,6 +32,8 @@ export function ContestBonusesPanel({
   const [totals, setTotals] = useState({ total: 0, paid: 0, pending: 0 });
   const [loading, setLoading] = useState(true);
   const [payingId, setPayingId] = useState<string | null>(null);
+  const [payTarget, setPayTarget] = useState<{ bonus: ContestBonus; paymentId: string; amount: number } | null>(null);
+  const [voidTarget, setVoidTarget] = useState<ContestBonus | null>(null);
 
   const [reloadKey, setReloadKey] = useState(0);
   const fetchBonuses = useCallback(() => setReloadKey((k) => k + 1), []);
@@ -47,12 +51,10 @@ export function ContestBonusesPanel({
     return () => { cancelado = true; };
   }, [reloadKey, refreshKey]);
 
-  async function pay(bonus: ContestBonus, paymentId: string, amount: number) {
-    if (!window.confirm(
-      `¿Marcar como pagada la cuota de ${formatCurrency(amount)} a ${bonus.employee.name}?\n\n` +
-      `Esta acción no se puede deshacer.`
-    )) return;
-
+  async function confirmPay() {
+    if (!payTarget) return;
+    const { bonus, paymentId } = payTarget;
+    setPayTarget(null);
     setPayingId(paymentId);
     const res = await fetch(`/api/admin/contest-bonuses/${bonus.id}/payments/${paymentId}/pay`, {
       method: "POST",
@@ -74,13 +76,14 @@ export function ContestBonusesPanel({
     fetchBonuses();
   }
 
-  async function voidBonus(bonus: ContestBonus) {
-    const reason = window.prompt(`Motivo para anular el bono de ${bonus.employee.name}:`);
-    if (!reason || reason.trim().length < 3) return;
+  async function confirmVoid(reason: string) {
+    if (!voidTarget) return;
+    const bonus = voidTarget;
+    setVoidTarget(null);
     const res = await fetch(`/api/admin/contest-bonuses/${bonus.id}/void`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reason: reason.trim() }),
+      body: JSON.stringify({ reason }),
     });
     const data = await res.json().catch(() => null);
     if (!res.ok) return toast.error(data?.error?.message ?? "No se pudo anular");
@@ -181,7 +184,7 @@ export function ContestBonusesPanel({
                             ) : anulada ? (
                               <span className="text-xs text-[#B94040]">anulada</span>
                             ) : canPay ? (
-                              <Button size="sm" onClick={() => pay(b, p.id, p.amount)}
+                              <Button size="sm" onClick={() => setPayTarget({ bonus: b, paymentId: p.id, amount: p.amount })}
                                 disabled={payingId === p.id}
                                 className="h-7 text-xs bg-[#6B8E6B] hover:bg-[#5A7A5A] text-white">
                                 {payingId === p.id ? "..." : "Marcar pagada"}
@@ -194,7 +197,7 @@ export function ContestBonusesPanel({
                       })}
 
                       {canAward && b.status !== "ANULADO" && (
-                        <Button size="sm" variant="outline" onClick={() => voidBonus(b)}
+                        <Button size="sm" variant="outline" onClick={() => setVoidTarget(b)}
                           className="h-auto gap-1.5 border-[#B94040] text-[#B94040] hover:bg-[#B94040]/10">
                           <Ban className="w-3.5 h-3.5" /> Anular
                         </Button>
@@ -207,6 +210,30 @@ export function ContestBonusesPanel({
           )}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={payTarget !== null}
+        variant="success"
+        title="Marcar cuota como pagada"
+        description={
+          payTarget
+            ? `¿Marcar como pagada la cuota de ${formatCurrency(payTarget.amount)} a ${payTarget.bonus.employee.name}? Esta acción no se puede deshacer.`
+            : ""
+        }
+        confirmLabel="Marcar pagada"
+        onConfirm={confirmPay}
+        onCancel={() => setPayTarget(null)}
+      />
+
+      <ReasonDialog
+        open={voidTarget !== null}
+        title="Anular bono"
+        description={voidTarget ? `Motivo para anular el bono de ${voidTarget.employee.name}:` : ""}
+        placeholder="Motivo de la anulación"
+        confirmLabel="Anular bono"
+        onConfirm={confirmVoid}
+        onCancel={() => setVoidTarget(null)}
+      />
     </div>
   );
 }

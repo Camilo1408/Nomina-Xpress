@@ -535,10 +535,13 @@ async function main() {
   }
   {
     // La quincena del concurso: el bono NO debe aparecer aquí (se paga después).
+    // Se busca la cuota de ESTE bono, no el total del empleado: la base local
+    // puede tener otros bonos de otras pruebas/otros concursos ajenos a este E2E.
     const r = await call("GET", `/api/admin/reports/payroll?from=${PERIOD.from}&to=${PERIOD.to}`);
     const ganador = r.data?.employees?.find((e) => e.employeeId === B.id);
+    const mia = (ganador?.contestBonuses ?? []).find((b) => b.paymentId === pay1?.id);
     check(19.2, "El bono no aparece en la quincena en que se generó",
-      ganador?.totalContestBonus === 0, `total=${ganador?.totalContestBonus}`);
+      mia === undefined, `encontrada=${!!mia}`);
   }
 
   // ═══════════ 20: las propinas siguen funcionando ═══════════

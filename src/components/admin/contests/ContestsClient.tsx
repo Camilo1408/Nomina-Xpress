@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   CONTEST_ITEM_OUTCOME_LABELS,
@@ -73,6 +74,9 @@ export function ContestsClient({
   const [preview, setPreview] = useState<ImpactPreview | null>(null);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+
+  const [finalizeTarget, setFinalizeTarget] = useState<{ contest: Contest; message: string } | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<Contest | null>(null);
 
   // La recarga se dispara subiendo reloadKey, y el estado se actualiza DENTRO
   // del efecto tras el await, con guarda de cancelación. Así no hay setState
@@ -165,9 +169,7 @@ export function ContestsClient({
     const data = await res.json().catch(() => null);
 
     if (res.status === 409 && data?.error?.earlyFinalize) {
-      if (window.confirm(`${data.error.message}\n\n¿Finalizar de todos modos?`)) {
-        return finalize(contest, true);
-      }
+      setFinalizeTarget({ contest, message: data.error.message });
       return;
     }
     if (!res.ok) return toast.error(data?.error?.message ?? "No se pudo finalizar");
@@ -177,8 +179,17 @@ export function ContestsClient({
     fetchContests();
   }
 
-  async function remove(contest: Contest) {
-    if (!window.confirm(`¿Eliminar el borrador "${contest.name}"?`)) return;
+  async function confirmFinalizeEarly() {
+    if (!finalizeTarget) return;
+    const contest = finalizeTarget.contest;
+    setFinalizeTarget(null);
+    return finalize(contest, true);
+  }
+
+  async function confirmRemove() {
+    if (!removeTarget) return;
+    const contest = removeTarget;
+    setRemoveTarget(null);
     const res = await fetch(`/api/admin/contests/${contest.id}`, { method: "DELETE" });
     const data = await res.json().catch(() => null);
     if (!res.ok) return toast.error(data?.error?.message ?? "No se pudo eliminar");
@@ -371,7 +382,7 @@ export function ContestsClient({
                         </Button>
                       )}
                       {canDelete && c.status === "BORRADOR" && (
-                        <Button size="sm" variant="outline" onClick={() => remove(c)}
+                        <Button size="sm" variant="outline" onClick={() => setRemoveTarget(c)}
                           className="gap-1.5 border-[#B94040] text-[#B94040] hover:bg-[#B94040]/10">
                           <Trash2 className="w-3.5 h-3.5" /> Eliminar borrador
                         </Button>
@@ -437,6 +448,25 @@ export function ContestsClient({
         reasonLabel="Motivo (queda en la auditoría)"
         onConfirm={confirmAction}
         onCancel={() => setPending(null)}
+      />
+
+      <ConfirmDialog
+        open={finalizeTarget !== null}
+        variant="warning"
+        title="Finalizar antes de tiempo"
+        description={finalizeTarget?.message ?? ""}
+        confirmLabel="Finalizar de todos modos"
+        onConfirm={confirmFinalizeEarly}
+        onCancel={() => setFinalizeTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={removeTarget !== null}
+        title="Eliminar borrador"
+        description={removeTarget ? `¿Eliminar el borrador "${removeTarget.name}"? Esta acción no se puede deshacer.` : ""}
+        confirmLabel="Eliminar"
+        onConfirm={confirmRemove}
+        onCancel={() => setRemoveTarget(null)}
       />
     </div>
   );
