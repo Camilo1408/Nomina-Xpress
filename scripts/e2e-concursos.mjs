@@ -671,7 +671,12 @@ async function main() {
   // ── Limpieza ──
   section("LIMPIEZA");
   await cleanup(call);
-  lines.push("  · datos del escenario eliminados");
+  // cleanup() cancela por API lo que no puede borrar, y eso deja el concurso en
+  // la base. Purgar también AL FINAL evita que esos restos contaminen consultas
+  // posteriores: un total global de bonos que incluyera datos de prueba ya causó
+  // un falso fallo en el caso 19.2.
+  const restos = await purgeLeftovers();
+  lines.push(`  · datos del escenario eliminados${restos > 0 ? ` (${restos} concurso(s) purgados)` : ""}`);
 
   console.log(lines.join("\n"));
   console.log(`\n${"═".repeat(60)}`);
