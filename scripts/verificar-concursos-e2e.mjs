@@ -254,7 +254,8 @@ check("La redistribución bajó exactamente lo reservado (45.000)",
 const reservas = await sql(
   `SELECT r.date, i.name item, r.percent, r.amount, r.status, r.tipTotalAmount
    FROM ContestTipReserve r JOIN ContestItem i ON i.id = r.contestItemId
-   ORDER BY r.date, i.name`);
+   WHERE r.contestId = ?
+   ORDER BY r.date, i.name`, [contest.id]);
 console.log("  Reservas registradas (trazabilidad):");
 reservas.forEach(r => console.log(`    ${r.date}  ${String(r.item).padEnd(10)} ${r.percent}%  ${money(r.amount)}  ${r.status}  base=${money(r.tipTotalAmount)}`));
 check("4 reservas (2 días × 2 ítems), todas RESERVADA",
@@ -280,7 +281,9 @@ const [rep3] = await sql(
    JOIN TipEntry t ON t.id = td.tipEntryId WHERE t.date = '2026-10-06'`);
 check("Se repartió el neto completo del día nuevo", Number(rep3.s) === 261_000, money(rep3.s));
 
-const [resTotal] = await sql(`SELECT COALESCE(SUM(amount),0) s FROM ContestTipReserve WHERE status='RESERVADA'`);
+const [resTotal] = await sql(
+  `SELECT COALESCE(SUM(amount),0) s FROM ContestTipReserve WHERE status='RESERVADA' AND contestId = ?`,
+  [contest.id]);
 check("Reserva acumulada = 30.000 + 15.000 + 9.000 = 54.000", Number(resTotal.s) === 54_000, money(resTotal.s));
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -302,17 +305,43 @@ check("Reserva de Vinos (1%) = 18.000", Math.round(itemVinos?.reserve?.reservedA
 
 // El de NÓMINA gana cervezas; el de TURNOS gana vinos. Así el bono debe salir
 // en los dos reportes distintos.
-await api("PUT", `/api/admin/contests/${contest.id}/items/${itemCervezas.id}/results`, {
+// Se comprueba el estado de CADA llamada. Sin esto, un 404 de ruta pasaba
+// inadvertido: la adjudicación seguía funcionando con resultados de una corrida
+// anterior y el fallo solo aparecía al usar la aplicación a mano.
+const resCervezas = await api("PUT", `/api/admin/contests/${contest.id}/items/${itemCervezas.id}/results`, {
   results: [{ employeeId: A.id, value: 150 }, { employeeId: B.id, value: 80 }],
 });
-await api("PUT", `/api/admin/contests/${contest.id}/items/${itemVinos.id}/results`, {
+check("Resultados de Cervezas guardados", resCervezas.ok,
+  `status=${resCervezas.status} ${JSON.stringify(resCervezas.data).slice(0, 120)}`);
+
+const resVinos = await api("PUT", `/api/admin/contests/${contest.id}/items/${itemVinos.id}/results`, {
   results: [{ employeeId: A.id, value: 20 }, { employeeId: B.id, value: 90 }],
 });
+check("Resultados de Vinos guardados", resVinos.ok,
+  `status=${resVinos.status} ${JSON.stringify(resVinos.data).slice(0, 120)}`);
+
+// Las rutas anidadas bajo dos segmentos dinámicos son las que el dev server de
+// Next deja de registrar cuando se crean con el servidor ya arrancado. Se
+// comprueba sobre un ítem DESECHABLE, para no alterar el escenario: basta con
+// que respondan cualquier cosa que no sea el 404 de "ruta inexistente".
 const awA = await api("POST", `/api/admin/contests/${contest.id}/items/${itemCervezas.id}/award`, {});
 const awB = await api("POST", `/api/admin/contests/${contest.id}/items/${itemVinos.id}/award`, {});
 check("Cervezas adjudicado al empleado de NÓMINA", awA.ok, `status=${awA.status}`);
 check("Vinos adjudicado al empleado de TURNOS", awB.ok, `status=${awB.status}`);
 
+
+// Se prueban sobre el ítem YA ADJUDICADO y con cargas inofensivas: las tres
+// deben rechazar por regla de negocio (4xx), nunca con el 404 de ruta ausente.
+// Así se comprueba el registro de la ruta sin mutar nada.
+for (const [m, sufijo, body] of [
+  ["PUT", "results", { results: [] }],                              // 400: sin resultados
+  ["POST", "award", {}],                                            // 409: ya adjudicado
+  ["POST", "void", { reason: "sonda", confirmImpact: true }],       // 409: ya adjudicado
+]) {
+  const r = await api(m, `/api/admin/contests/${contest.id}/items/${itemCervezas.id}/${sufijo}`, body);
+  check(`Ruta ${m} .../${sufijo} registrada (responde ${r.status}, no 404)`,
+    r.status !== 404 && r.status >= 400, `status=${r.status}`);
+}
 const bonos = await sql(
   `SELECT b.totalAmount, b.periodStart, b.periodEnd, e.name, e.payType,
           p.installment, p.periodStart pStart, p.periodEnd pEnd, p.amount pAmount, p.status pStatus
@@ -459,7 +488,7 @@ check("La invariante se cumple en TODA la tabla de propinas", Number(invariante[
 // ═══════════════════════════════════════════════════════════════════════════
 seccion("LIMPIEZA");
 await limpiar();
-const quedan = await sql(`SELECT COUNT(*) n FROM Contest`);
+const quedan = await sql(`SELECT COUNT(*) n FROM Contest WHERE name LIKE ?`, [`${MARCA}%`]);
 const empsQuedan = await sql(`SELECT COUNT(*) n FROM Employee WHERE name LIKE ?`, [`${MARCA}%`]);
 check("Concursos de prueba eliminados", Number(quedan[0].n) === 0, `${quedan[0].n}`);
 check("Empleados de prueba eliminados", Number(empsQuedan[0].n) === 0, `${empsQuedan[0].n}`);
