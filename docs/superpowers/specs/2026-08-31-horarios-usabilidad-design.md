@@ -136,16 +136,37 @@ zona horaria. Cubierta por tests en `src/lib/__tests__/shift-times.test.ts`.
 No se reutiliza `formatTime` de `src/lib/utils.ts` porque esa recibe un `Date`
 y convierte a `America/Bogota`; aquí la entrada es un `"HH:mm"` sin fecha.
 
-### Captura — `TimePicker12`
+### Captura — `TimeInput12`
 
-Componente nuevo `src/components/ui/time-picker-12.tsx`.
+Componente nuevo `src/components/ui/time-input-12.tsx`.
 
 - Interfaz: `value: string` (`"HH:mm"` de 24 h, o `""`), `onChange(value: string)`.
-- Tres controles: hora (1–12), minutos (00, 05, …, 55) y AM/PM.
+- Un campo de **texto que se escribe** más dos botones a. m. / p. m.
 - **Emite y recibe siempre 24 h.** El contrato con la API, con
   `shift-times.ts` y con el cálculo de nómina no cambia.
-- Un valor vacío deja los tres controles en blanco y `onChange("")`.
-- Accesible por teclado: son `<select>` nativos, no un popover custom.
+
+Se probó primero con tres desplegables (hora / minutos / AM-PM). Garantizaba
+el formato, pero obligaba a tres clics por hora y armar una semana entera se
+volvía lento. El propietario pidió volver a poder escribir la hora, como con
+el `<input type="time">` anterior, sin perder las 12 horas.
+
+La interpretación de lo escrito vive en `src/lib/time-input-12.ts`, que es
+puro y está cubierto por tests. Acepta lo que la gente escribe de verdad:
+
+| Escribe | Resultado |
+|---|---|
+| `3` | 3:00, conserva el a. m./p. m. que ya tuviera |
+| `300` | 3:00 |
+| `3:5` | 3:05 |
+| `3:30`, `3.30` | 3:30 |
+| `3pm`, `3 p.m.`, `3p` | 3:00 p. m. |
+| `15:30`, `1530` | 3:30 p. m. (las 24 h se convierten solas) |
+| `0830` | 8:30 a. m. (cuatro dígitos con cero delante = 24 h) |
+| `12am` / `12pm` | 12:00 a. m. / 12:00 m. |
+
+Los dígitos de 13 a 23 mandan sobre un sufijo contradictorio: `15:00 am` no
+existe, así que se guarda como 3:00 p. m. Un texto que no es una hora marca el
+campo en rojo y no emite valor, sin borrar lo que la persona escribió.
 
 Sustituye los cuatro `<input type="time">` de `ScheduleGrid.tsx`.
 
@@ -188,6 +209,21 @@ refinamiento: si `restDay` es `true`, `startTime2`/`endTime2` deben venir
 nulos. Una fila con `restDay: true` se persiste siempre a través de
 `buildRestDayShift`, ignorando cualquier hora que llegue en el payload — el
 servidor no confía en que el cliente respete el centinela.
+
+### Un solo horario publicado a la vez
+
+`POST /api/admin/schedules/[id]/publish` despublica los demás horarios del
+tenant al publicar uno. Antes podían quedar varios publicados a la vez: el
+portal del empleado muestra el publicado más reciente, así que con dos vigentes
+el personal podía estar mirando una semana vieja, o mezclar turnos de dos
+horarios distintos.
+
+La despublicación y la publicación van en una única `prisma.$transaction`, de
+modo que no existe ni un instante con dos horarios publicados. La respuesta
+devuelve `unpublished: string[]` y el aviso del admin lo dice explícitamente;
+la auditoría registra qué horarios se desplazaron.
+
+Despublicar a mano sigue funcionando igual y no toca a los demás.
 
 ### Notificaciones — sin cambios
 
@@ -313,6 +349,9 @@ que no hay que revertir el esquema para volver atrás.
 
 - `formatTime12`: mediodía, medianoche, 1 p. m., 11:59 p. m., minutos con cero
   a la izquierda, string vacío.
+- `parseTypedTime`: cada fila de la tabla de formatos aceptados, el sufijo
+  contradictorio, el texto que no es una hora, y la ida y vuelta
+  `fromValue24` → `parseTypedTime`.
 - `suggestWeekStart`: sin horarios previos; último día en el futuro; último día
   hoy; último día ya pasado; el caso del domingo asignado.
 - `dayLabelFor`: los siete días, y una semana que empieza en domingo.
