@@ -68,10 +68,11 @@ export async function GET(req: Request) {
     netPayWithTips,
     bonuses: empBonuses.bonuses,
     totalBonuses: empBonuses.totalBonuses,
-    netPayWithBonuses: netPayWithTips + empBonuses.totalBonuses,
+    netPayWithBonuses: Math.round(result.netPay + empBonuses.totalBonuses),
     discounts: empDiscounts.discounts,
     totalDiscounts: empDiscounts.totalDiscounts,
-    netPayWithBonusesAndDiscounts: clampFinalPay(netPayWithTips, empBonuses.totalBonuses, empDiscounts.totalDiscounts),
+    // Las propinas son informativas y NO se suman al total final a pagar.
+    netPayWithBonusesAndDiscounts: clampFinalPay(result.netPay, empBonuses.totalBonuses, empDiscounts.totalDiscounts),
     tipDistributions,
   });
 }

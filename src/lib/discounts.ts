@@ -46,9 +46,9 @@ export interface DiscountApplied {
  * Nunca queda negativo: si los descuentos superan el resto, se deja en 0.
  */
 export function clampFinalPay(
-  netWithTips: number,
+  netBase: number,
   totalBonuses: number,
   totalDiscounts: number
 ): number {
-  return Math.max(0, Math.round(netWithTips + totalBonuses - totalDiscounts));
+  return Math.max(0, Math.round(netBase + totalBonuses - totalDiscounts));
 }
