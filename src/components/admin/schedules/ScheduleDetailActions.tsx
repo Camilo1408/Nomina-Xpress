@@ -27,7 +27,17 @@ export function ScheduleDetailActions({ scheduleId, published, canEdit, canPubli
     setPubLoading(false);
     if (res.ok) {
       const data = await res.json();
-      toast.success(data.published ? "Horario publicado" : "Horario despublicado");
+      const desplazados: string[] = data.unpublished ?? [];
+      toast.success(
+        data.published ? "Horario publicado" : "Horario despublicado",
+        desplazados.length > 0
+          ? {
+              description: `Se despublicó ${desplazados
+                .map((n) => `«${n}»`)
+                .join(", ")} para que solo haya un horario vigente.`,
+            }
+          : undefined
+      );
       router.refresh();
     } else {
       toast.error("Error al cambiar estado");

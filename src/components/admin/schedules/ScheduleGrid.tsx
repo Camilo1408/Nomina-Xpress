@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { TimePicker12 } from "@/components/ui/time-picker-12";
+import { TimeInput12 } from "@/components/ui/time-input-12";
 import { ScrollableWeek } from "@/components/shared/ScrollableWeek";
 import { Plus, X, Moon, AlertTriangle } from "lucide-react";
 import {
@@ -63,6 +63,41 @@ const EMPTY_SHIFT: ShiftData = {
 
 function defaultName(weekStart: string) {
   return `Horario semana ${weekStart}`;
+}
+
+/**
+ * Una hora del turno con su etiqueta. Sin la etiqueta, las dos filas de
+ * selectores de una celda son indistinguibles y no se sabe cuál es la entrada.
+ */
+function TimeField({
+  label,
+  value,
+  onChange,
+  ariaLabel,
+  accent = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  ariaLabel: string;
+  accent?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <span
+        aria-hidden
+        className={`w-8 shrink-0 text-[10px] ${accent ? "text-[#C1643F]/80" : "text-[#7A6358]"}`}
+      >
+        {label}
+      </span>
+      <TimeInput12
+        value={value}
+        onChange={onChange}
+        ariaLabel={ariaLabel}
+        accent={accent}
+      />
+    </div>
+  );
 }
 
 export function ScheduleGrid({
@@ -262,8 +297,8 @@ export function ScheduleGrid({
   return (
     <div className="space-y-4">
       {/* Nombre y fecha de inicio */}
-      <div className="flex flex-col sm:flex-row sm:items-end gap-3">
-        <div className="flex-1 min-w-0 space-y-1">
+      <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+        <div className="space-y-1">
           <label
             htmlFor="schedule-name"
             className="block text-xs font-medium text-[#7A6358]"
@@ -277,7 +312,7 @@ export function ScheduleGrid({
               setScheduleName(e.target.value);
               setNameEdited(true);
             }}
-            className="max-w-xs"
+            className="w-full sm:w-64"
             placeholder="Nombre del horario"
           />
         </div>
@@ -294,10 +329,10 @@ export function ScheduleGrid({
             type="date"
             value={weekStart}
             onChange={(e) => handleWeekStartChange(e.target.value)}
-            className="rounded-md border border-[#E0D5CA] bg-white px-3 py-2 text-sm text-[#2C1F15] focus:outline-none focus:border-[#C1643F]"
+            className="w-full sm:w-auto rounded-md border border-[#E0D5CA] bg-white px-3 py-2 text-sm text-[#2C1F15] focus:outline-none focus:border-[#C1643F]"
           />
           <p className="text-[11px] text-[#7A6358]">
-            {dayNameFor(weekStart)} {formatDayNumber(weekStart)} —{" "}
+            {dayNameFor(weekStart)} {formatDayNumber(weekStart)} al{" "}
             {dayNameFor(weekDates[6])} {formatDayNumber(weekDates[6])}
           </p>
         </div>
@@ -325,7 +360,7 @@ export function ScheduleGrid({
               {weekDates.map((date) => (
                 <th
                   key={date}
-                  className={`px-3 py-2 font-semibold bg-[#F2EDE6] border border-[#E0D5CA] min-w-40 text-center ${
+                  className={`px-3 py-2 font-semibold bg-[#F2EDE6] border border-[#E0D5CA] min-w-48 text-center ${
                     isSunday(date) ? "text-[#C1643F]" : "text-[#2C1F15]"
                   }`}
                 >
@@ -391,14 +426,16 @@ export function ScheduleGrid({
                       ) : (
                         <div className="space-y-1">
                           {/* Turno 1 */}
-                          <TimePicker12
+                          <TimeField
+                            label="Entra"
                             value={shift.startTime}
                             onChange={(v) =>
                               setShiftField(emp.id, date, "startTime", v)
                             }
                             ariaLabel={`Entrada de ${emp.name}, ${dayNameFor(date)} ${formatDayNumber(date)}`}
                           />
-                          <TimePicker12
+                          <TimeField
+                            label="Sale"
                             value={shift.endTime}
                             onChange={(v) =>
                               setShiftField(emp.id, date, "endTime", v)
@@ -408,17 +445,22 @@ export function ScheduleGrid({
 
                           {/* Turno 2 — solo visible cuando showSplit es true */}
                           {showSplit && (
-                            <div className="space-y-1 pt-1 border-t border-dashed border-[#C1643F]/30">
-                              <TimePicker12
+                            <div className="space-y-1 pt-1 mt-1 border-t border-dashed border-[#C1643F]/40">
+                              <p className="text-[9px] uppercase tracking-wide text-[#C1643F]/80">
+                                2.º turno
+                              </p>
+                              <TimeField
                                 accent
+                                label="Entra"
                                 value={shift.startTime2}
                                 onChange={(v) =>
                                   setShiftField(emp.id, date, "startTime2", v)
                                 }
                                 ariaLabel={`Entrada del 2.º turno de ${emp.name}, ${dayNameFor(date)} ${formatDayNumber(date)}`}
                               />
-                              <TimePicker12
+                              <TimeField
                                 accent
+                                label="Sale"
                                 value={shift.endTime2}
                                 onChange={(v) =>
                                   setShiftField(emp.id, date, "endTime2", v)
