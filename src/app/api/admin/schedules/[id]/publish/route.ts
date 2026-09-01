@@ -24,10 +24,38 @@ export async function POST(
 
   const newPublished = !schedule.published;
 
-  await prisma.schedule.update({
-    where: { id },
-    data: { published: newPublished },
-  });
+  // Solo puede haber UN horario publicado a la vez. Al publicar uno nuevo se
+  // despublican los demás: el portal del empleado muestra el horario publicado
+  // más reciente, y con dos publicados a la vez el personal podría estar
+  // mirando una semana vieja o quedarse con turnos de dos horarios distintos.
+  //
+  // Se hace en una transacción con la publicación para que no exista ni un
+  // instante con dos horarios publicados.
+  const desplazados = newPublished
+    ? await prisma.schedule.findMany({
+        where: {
+          tenantId: session.user.tenantId,
+          published: true,
+          id: { not: id },
+        },
+        select: { id: true, name: true },
+      })
+    : [];
+
+  await prisma.$transaction([
+    ...(desplazados.length > 0
+      ? [
+          prisma.schedule.updateMany({
+            where: { id: { in: desplazados.map((d) => d.id) } },
+            data: { published: false },
+          }),
+        ]
+      : []),
+    prisma.schedule.update({
+      where: { id },
+      data: { published: newPublished },
+    }),
+  ]);
 
   // Send push notifications to all employees with shifts when publishing
   if (newPublished) {
@@ -67,15 +95,28 @@ export async function POST(
     }
   }
 
+  const desplazadosTexto = desplazados.map((d) => `"${d.name}"`).join(", ");
+
   await logAudit(req, session, {
     action: newPublished ? "PUBLISH" : "UNPUBLISH",
     module: "SCHEDULES",
     entityId: id,
     entityLabel: schedule.name,
-    description: `${newPublished ? "Publicó" : "Despublicó"} el horario "${schedule.name}"`,
+    description:
+      `${newPublished ? "Publicó" : "Despublicó"} el horario "${schedule.name}"` +
+      (desplazados.length > 0
+        ? ` y despublicó automáticamente ${desplazadosTexto}`
+        : ""),
     before: { published: schedule.published },
-    after: { published: newPublished },
+    after: {
+      published: newPublished,
+      despublicados: desplazados.map((d) => d.name),
+    },
   });
 
-  return NextResponse.json({ success: true, published: newPublished });
+  return NextResponse.json({
+    success: true,
+    published: newPublished,
+    unpublished: desplazados.map((d) => d.name),
+  });
 }

@@ -131,6 +131,7 @@ model ScheduleShift {
   endTime    String
   startTime2 String?
   endTime2   String?
+  restDay    Boolean  @default(false)
 
   @@index([scheduleId])
   @@index([employeeId])

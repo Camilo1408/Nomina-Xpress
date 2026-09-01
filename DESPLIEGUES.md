@@ -65,6 +65,31 @@ Convención para flags futuros: `NEXT_PUBLIC_FEATURE_*` (cliente) / sin prefijo
 5. Definir sus Environment Variables (matriz de arriba); activar/desactivar flags según necesidad.
 6. Deploy inicial y verificación.
 
+## Cambios de esquema (BD)
+
+**No usar `prisma migrate deploy` ni el workflow `migrate-db.yml`.** El historial
+de `prisma/migrations/` está desincronizado desde junio de 2026 y
+`prisma/run-migrations.mjs` lee de ahí (ver `CLAUDE.md`).
+
+Cada cambio de esquema lleva su propio script idempotente en `prisma/`, con el
+rollback documentado en la cabecera. Se ejecutan a mano, **antes** de desplegar
+el código que los necesita, contra la BD del demo primero y luego contra la de
+cada cliente que se vaya a promover:
+
+```bash
+TURSO_DATABASE_URL="libsql://<cliente>.turso.io" TURSO_AUTH_TOKEN="<token>"   node prisma/turso-migrate-<nombre>.mjs
+```
+
+| Script | Cambio |
+|---|---|
+| `turso-migrate-tips.mjs` | Propinas |
+| `turso-migrate-bonos-descuentos.mjs` | Bonos y descuentos |
+| `turso-migrate-concursos.mjs` | Concursos |
+| `turso-migrate-schedule-restday.mjs` | Día de descanso en horarios |
+
+Los scripts son seguros de ejecutar varias veces: si el cambio ya está aplicado,
+lo detectan y lo omiten.
+
 ## Backups de BD
 
 Ver `BACKUP.md` (dump Turso cifrado con GPG, workflow semanal + restauración).

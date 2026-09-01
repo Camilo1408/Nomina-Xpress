@@ -5,15 +5,30 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, X } from "lucide-react";
+import { TimeInput12 } from "@/components/ui/time-input-12";
+import { ScrollableWeek } from "@/components/shared/ScrollableWeek";
+import { Plus, X, Moon, AlertTriangle } from "lucide-react";
+import {
+  getWeekDates,
+  dayLabelFor,
+  dayNameFor,
+  isSunday,
+  formatDayNumber,
+  findOverlaps,
+  type WeekRange,
+} from "@/lib/schedule-week";
 
-interface Employee { id: string; name: string; }
+interface Employee {
+  id: string;
+  name: string;
+}
 
 interface ShiftData {
   startTime: string;
   endTime: string;
   startTime2: string;
   endTime2: string;
+  restDay: boolean;
 }
 
 interface ShiftInput {
@@ -23,11 +38,14 @@ interface ShiftInput {
   endTime: string;
   startTime2?: string | null;
   endTime2?: string | null;
+  restDay?: boolean;
 }
 
 interface ScheduleGridProps {
   employees: Employee[];
   weekStart: string;
+  /** Horarios ya existentes, para avisar de solapamientos. */
+  existingRanges?: WeekRange[];
   existingSchedule?: {
     id: string;
     name: string;
@@ -35,20 +53,60 @@ interface ScheduleGridProps {
   };
 }
 
-function getWeekDates(weekStart: string): string[] {
-  const start = new Date(weekStart + "T12:00:00Z");
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(start);
-    d.setUTCDate(start.getUTCDate() + i);
-    return d.toISOString().split("T")[0];
-  });
+const EMPTY_SHIFT: ShiftData = {
+  startTime: "",
+  endTime: "",
+  startTime2: "",
+  endTime2: "",
+  restDay: false,
+};
+
+function defaultName(weekStart: string) {
+  return `Horario semana ${weekStart}`;
 }
 
-const DAY_NAMES = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+/**
+ * Una hora del turno con su etiqueta. Sin la etiqueta, las dos filas de
+ * selectores de una celda son indistinguibles y no se sabe cuál es la entrada.
+ */
+function TimeField({
+  label,
+  value,
+  onChange,
+  ariaLabel,
+  accent = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  ariaLabel: string;
+  accent?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <span
+        aria-hidden
+        className={`w-8 shrink-0 text-[10px] ${accent ? "text-[#C1643F]/80" : "text-[#7A6358]"}`}
+      >
+        {label}
+      </span>
+      <TimeInput12
+        value={value}
+        onChange={onChange}
+        ariaLabel={ariaLabel}
+        accent={accent}
+      />
+    </div>
+  );
+}
 
-export function ScheduleGrid({ employees, weekStart, existingSchedule }: ScheduleGridProps) {
+export function ScheduleGrid({
+  employees,
+  weekStart: initialWeekStart,
+  existingRanges = [],
+  existingSchedule,
+}: ScheduleGridProps) {
   const router = useRouter();
-  const weekDates = getWeekDates(weekStart);
 
   const buildKey = (empId: string, date: string) => `${empId}__${date}`;
 
@@ -57,33 +115,80 @@ export function ScheduleGrid({ employees, weekStart, existingSchedule }: Schedul
 
   existingSchedule?.shifts.forEach((s) => {
     const key = buildKey(s.employeeId, s.date);
+    const restDay = s.restDay ?? false;
     initialShifts[key] = {
-      startTime: s.startTime,
-      endTime: s.endTime,
-      startTime2: s.startTime2 ?? "",
-      endTime2: s.endTime2 ?? "",
+      startTime: restDay ? "" : s.startTime,
+      endTime: restDay ? "" : s.endTime,
+      startTime2: restDay ? "" : s.startTime2 ?? "",
+      endTime2: restDay ? "" : s.endTime2 ?? "",
+      restDay,
     };
-    if (s.startTime2 || s.endTime2) {
+    if (!restDay && (s.startTime2 || s.endTime2)) {
       initialSplitKeys.add(key);
     }
   });
 
+  const [weekStart, setWeekStart] = useState(initialWeekStart);
   const [shifts, setShifts] = useState(initialShifts);
-  // splitKeys tracks which cells have the 2nd shift row visible
+  // splitKeys marca las celdas que tienen visible la fila del 2.º turno
   const [splitKeys, setSplitKeys] = useState<Set<string>>(initialSplitKeys);
   const [scheduleName, setScheduleName] = useState(
-    existingSchedule?.name ?? `Horario semana ${weekStart}`
+    existingSchedule?.name ?? defaultName(initialWeekStart)
   );
+  // Si el admin escribe su propio nombre, dejamos de sobrescribirlo al cambiar
+  // la fecha de inicio.
+  const [nameEdited, setNameEdited] = useState(Boolean(existingSchedule));
   const [loading, setLoading] = useState(false);
 
-  function setShiftField(empId: string, date: string, field: keyof ShiftData, value: string) {
+  const weekDates = getWeekDates(weekStart);
+  const overlaps = findOverlaps(weekStart, existingRanges, existingSchedule?.id);
+
+  /**
+   * Cambia la fecha de inicio. Las celdas cuya fecha sigue dentro de la semana
+   * nueva se conservan; si alguna quedaría fuera, se pide confirmación antes de
+   * descartarla — es trabajo que el admin ya había capturado.
+   */
+  function handleWeekStartChange(nextStart: string) {
+    if (!nextStart || nextStart === weekStart) return;
+
+    const nextDates = new Set(getWeekDates(nextStart));
+    const dropped = Object.keys(shifts).filter(
+      (key) => !nextDates.has(key.split("__")[1])
+    );
+
+    if (dropped.length > 0) {
+      const ok = window.confirm(
+        `Al cambiar la fecha de inicio, ${dropped.length} día(s) ya capturados ` +
+          `quedan fuera de la semana y se descartarán.\n\n¿Continuar?`
+      );
+      if (!ok) return;
+
+      setShifts((prev) => {
+        const next = { ...prev };
+        dropped.forEach((key) => delete next[key]);
+        return next;
+      });
+      setSplitKeys((prev) => {
+        const next = new Set(prev);
+        dropped.forEach((key) => next.delete(key));
+        return next;
+      });
+    }
+
+    setWeekStart(nextStart);
+    if (!nameEdited) setScheduleName(defaultName(nextStart));
+  }
+
+  function setShiftField(
+    empId: string,
+    date: string,
+    field: keyof ShiftData,
+    value: string
+  ) {
     const key = buildKey(empId, date);
     setShifts((prev) => ({
       ...prev,
-      [key]: {
-        ...(prev[key] ?? { startTime: "", endTime: "", startTime2: "", endTime2: "" }),
-        [field]: value,
-      },
+      [key]: { ...(prev[key] ?? EMPTY_SHIFT), [field]: value },
     }));
   }
 
@@ -93,10 +198,10 @@ export function ScheduleGrid({ employees, weekStart, existingSchedule }: Schedul
       const next = new Set(prev);
       if (next.has(key)) {
         next.delete(key);
-        // Clear 2nd shift data when hiding
+        // Limpiar el 2.º turno al ocultarlo
         setShifts((s) => ({
           ...s,
-          [key]: { ...(s[key] ?? { startTime: "", endTime: "", startTime2: "", endTime2: "" }), startTime2: "", endTime2: "" },
+          [key]: { ...(s[key] ?? EMPTY_SHIFT), startTime2: "", endTime2: "" },
         }));
       } else {
         next.add(key);
@@ -122,16 +227,39 @@ export function ScheduleGrid({ employees, weekStart, existingSchedule }: Schedul
   function addShift(empId: string, date: string) {
     setShifts((prev) => ({
       ...prev,
-      [buildKey(empId, date)]: { startTime: "", endTime: "", startTime2: "", endTime2: "" },
+      [buildKey(empId, date)]: { ...EMPTY_SHIFT },
     }));
+  }
+
+  /** Marca el día como descanso: el empleado lo verá, en vez de una celda vacía. */
+  function markRestDay(empId: string, date: string) {
+    const key = buildKey(empId, date);
+    setShifts((prev) => ({ ...prev, [key]: { ...EMPTY_SHIFT, restDay: true } }));
+    setSplitKeys((prev) => {
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
   }
 
   async function handleSave() {
     setLoading(true);
     const shiftArray: ShiftInput[] = Object.entries(shifts)
-      .filter(([, v]) => v.startTime && v.endTime)
+      // Un descanso se guarda aunque no tenga horas; un turno solo si las tiene.
+      .filter(([, v]) => v.restDay || (v.startTime && v.endTime))
       .map(([key, v]) => {
         const [empId, date] = key.split("__");
+        if (v.restDay) {
+          return {
+            employeeId: empId,
+            date,
+            startTime: "",
+            endTime: "",
+            startTime2: null,
+            endTime2: null,
+            restDay: true,
+          };
+        }
         const hasSplit = splitKeys.has(key);
         return {
           employeeId: empId,
@@ -140,11 +268,14 @@ export function ScheduleGrid({ employees, weekStart, existingSchedule }: Schedul
           endTime: v.endTime,
           startTime2: hasSplit && v.startTime2 ? v.startTime2 : null,
           endTime2: hasSplit && v.endTime2 ? v.endTime2 : null,
+          restDay: false,
         };
       });
 
     const payload = { name: scheduleName, weekStart, shifts: shiftArray };
-    const url = existingSchedule ? `/api/admin/schedules/${existingSchedule.id}` : "/api/admin/schedules";
+    const url = existingSchedule
+      ? `/api/admin/schedules/${existingSchedule.id}`
+      : "/api/admin/schedules";
     const method = existingSchedule ? "PUT" : "POST";
 
     const res = await fetch(url, {
@@ -165,26 +296,78 @@ export function ScheduleGrid({ employees, weekStart, existingSchedule }: Schedul
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <Input
-          value={scheduleName}
-          onChange={(e) => setScheduleName(e.target.value)}
-          className="max-w-xs"
-          placeholder="Nombre del horario"
-        />
+      {/* Nombre y fecha de inicio */}
+      <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+        <div className="space-y-1">
+          <label
+            htmlFor="schedule-name"
+            className="block text-xs font-medium text-[#7A6358]"
+          >
+            Nombre del horario
+          </label>
+          <Input
+            id="schedule-name"
+            value={scheduleName}
+            onChange={(e) => {
+              setScheduleName(e.target.value);
+              setNameEdited(true);
+            }}
+            className="w-full sm:w-64"
+            placeholder="Nombre del horario"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label
+            htmlFor="week-start"
+            className="block text-xs font-medium text-[#7A6358]"
+          >
+            La semana empieza el
+          </label>
+          <input
+            id="week-start"
+            type="date"
+            value={weekStart}
+            onChange={(e) => handleWeekStartChange(e.target.value)}
+            className="w-full sm:w-auto rounded-md border border-[#E0D5CA] bg-white px-3 py-2 text-sm text-[#2C1F15] focus:outline-none focus:border-[#C1643F]"
+          />
+          <p className="text-[11px] text-[#7A6358]">
+            {dayNameFor(weekStart)} {formatDayNumber(weekStart)} al{" "}
+            {dayNameFor(weekDates[6])} {formatDayNumber(weekDates[6])}
+          </p>
+        </div>
       </div>
 
-      <div className="overflow-x-auto">
+      {/* Aviso de solapamiento — informativo, no bloquea */}
+      {overlaps.length > 0 && (
+        <div className="flex items-start gap-2 rounded-md border border-[#C1643F]/30 bg-[#FDF5F2] px-3 py-2 text-xs text-[#8B4A2B]">
+          <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <p>
+            Esta semana se solapa con{" "}
+            {overlaps.map((r) => `«${r.name}»`).join(", ")}. Puedes continuar si
+            es a propósito.
+          </p>
+        </div>
+      )}
+
+      <ScrollableWeek>
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr>
-              <th className="text-left px-3 py-2 font-semibold text-[#2C1F15] bg-[#F2EDE6] border border-[#E0D5CA] min-w-32">
+              <th className="sticky left-0 z-10 text-left px-3 py-2 font-semibold text-[#2C1F15] bg-[#F2EDE6] border border-[#E0D5CA] min-w-32">
                 Personal
               </th>
-              {weekDates.map((date, i) => (
-                <th key={date} className="px-3 py-2 font-semibold text-[#2C1F15] bg-[#F2EDE6] border border-[#E0D5CA] min-w-36 text-center">
-                  <div>{DAY_NAMES[i]}</div>
-                  <div className="text-xs font-normal text-[#7A6358]">{date.slice(5)}</div>
+              {weekDates.map((date) => (
+                <th
+                  key={date}
+                  className={`px-3 py-2 font-semibold bg-[#F2EDE6] border border-[#E0D5CA] min-w-48 text-center ${
+                    isSunday(date) ? "text-[#C1643F]" : "text-[#2C1F15]"
+                  }`}
+                >
+                  <div>{dayLabelFor(date)}</div>
+                  <div className="text-xs font-normal text-[#7A6358]">
+                    {formatDayNumber(date)}
+                  </div>
                 </th>
               ))}
             </tr>
@@ -192,7 +375,7 @@ export function ScheduleGrid({ employees, weekStart, existingSchedule }: Schedul
           <tbody>
             {employees.map((emp) => (
               <tr key={emp.id}>
-                <td className="px-3 py-2 border border-[#E0D5CA] font-medium text-[#2C1F15] bg-white">
+                <td className="sticky left-0 z-10 px-3 py-2 border border-[#E0D5CA] font-medium text-[#2C1F15] bg-white">
                   {emp.name}
                 </td>
                 {weekDates.map((date) => {
@@ -201,50 +384,88 @@ export function ScheduleGrid({ employees, weekStart, existingSchedule }: Schedul
                   const showSplit = splitKeys.has(key);
 
                   return (
-                    <td key={date} className="border border-[#E0D5CA] p-1.5 bg-white align-top">
+                    <td
+                      key={date}
+                      className="border border-[#E0D5CA] p-1.5 bg-white align-top"
+                    >
                       {!shift ? (
-                        <button
-                          type="button"
-                          onClick={() => addShift(emp.id, date)}
-                          className="w-full flex items-center justify-center py-2 text-[#E0D5CA] hover:text-[#7A6358] transition-colors"
-                          title="Agregar turno"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
+                        // Celda vacía: asignar turno, o marcar descanso.
+                        <div className="flex flex-col items-stretch gap-1">
+                          <button
+                            type="button"
+                            onClick={() => addShift(emp.id, date)}
+                            className="flex items-center justify-center gap-1 py-1.5 rounded text-[#C1643F] hover:bg-[#FDF5F2] transition-colors text-[11px]"
+                            title="Asignar turno"
+                          >
+                            <Plus className="w-3.5 h-3.5" /> Turno
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => markRestDay(emp.id, date)}
+                            className="flex items-center justify-center gap-1 py-1.5 rounded text-[#6B8E6B] hover:bg-[#6B8E6B]/10 transition-colors text-[11px]"
+                            title="Marcar como día de descanso"
+                          >
+                            <Moon className="w-3.5 h-3.5" /> Descansa
+                          </button>
+                        </div>
+                      ) : shift.restDay ? (
+                        // Día de descanso: el empleado lo ve explícitamente.
+                        <div className="flex items-center justify-between gap-1 rounded bg-[#6B8E6B]/12 border border-[#6B8E6B]/30 px-2 py-2">
+                          <span className="flex items-center gap-1 text-xs font-medium text-[#4F704F]">
+                            <Moon className="w-3.5 h-3.5" /> Descansa
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => clearShift(emp.id, date)}
+                            className="text-[#B94040] hover:opacity-70"
+                            title="Quitar"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
                       ) : (
                         <div className="space-y-1">
                           {/* Turno 1 */}
-                          <div className="flex items-center gap-0.5">
-                            <input
-                              type="time"
-                              value={shift.startTime}
-                              onChange={(e) => setShiftField(emp.id, date, "startTime", e.target.value)}
-                              className="flex-1 min-w-0 border border-[#E0D5CA] rounded px-1 py-0.5 text-xs focus:outline-none focus:border-[#C1643F]"
-                            />
-                            <span className="text-[10px] text-[#7A6358]">–</span>
-                            <input
-                              type="time"
-                              value={shift.endTime}
-                              onChange={(e) => setShiftField(emp.id, date, "endTime", e.target.value)}
-                              className="flex-1 min-w-0 border border-[#E0D5CA] rounded px-1 py-0.5 text-xs focus:outline-none focus:border-[#C1643F]"
-                            />
-                          </div>
+                          <TimeField
+                            label="Entra"
+                            value={shift.startTime}
+                            onChange={(v) =>
+                              setShiftField(emp.id, date, "startTime", v)
+                            }
+                            ariaLabel={`Entrada de ${emp.name}, ${dayNameFor(date)} ${formatDayNumber(date)}`}
+                          />
+                          <TimeField
+                            label="Sale"
+                            value={shift.endTime}
+                            onChange={(v) =>
+                              setShiftField(emp.id, date, "endTime", v)
+                            }
+                            ariaLabel={`Salida de ${emp.name}, ${dayNameFor(date)} ${formatDayNumber(date)}`}
+                          />
 
                           {/* Turno 2 — solo visible cuando showSplit es true */}
                           {showSplit && (
-                            <div className="flex items-center gap-0.5">
-                              <input
-                                type="time"
+                            <div className="space-y-1 pt-1 mt-1 border-t border-dashed border-[#C1643F]/40">
+                              <p className="text-[9px] uppercase tracking-wide text-[#C1643F]/80">
+                                2.º turno
+                              </p>
+                              <TimeField
+                                accent
+                                label="Entra"
                                 value={shift.startTime2}
-                                onChange={(e) => setShiftField(emp.id, date, "startTime2", e.target.value)}
-                                className="flex-1 min-w-0 border border-[#C1643F]/40 rounded px-1 py-0.5 text-xs focus:outline-none focus:border-[#C1643F] bg-[#FDF5F2]"
+                                onChange={(v) =>
+                                  setShiftField(emp.id, date, "startTime2", v)
+                                }
+                                ariaLabel={`Entrada del 2.º turno de ${emp.name}, ${dayNameFor(date)} ${formatDayNumber(date)}`}
                               />
-                              <span className="text-[10px] text-[#7A6358]">–</span>
-                              <input
-                                type="time"
+                              <TimeField
+                                accent
+                                label="Sale"
                                 value={shift.endTime2}
-                                onChange={(e) => setShiftField(emp.id, date, "endTime2", e.target.value)}
-                                className="flex-1 min-w-0 border border-[#C1643F]/40 rounded px-1 py-0.5 text-xs focus:outline-none focus:border-[#C1643F] bg-[#FDF5F2]"
+                                onChange={(v) =>
+                                  setShiftField(emp.id, date, "endTime2", v)
+                                }
+                                ariaLabel={`Salida del 2.º turno de ${emp.name}, ${dayNameFor(date)} ${formatDayNumber(date)}`}
                               />
                             </div>
                           )}
@@ -277,6 +498,22 @@ export function ScheduleGrid({ employees, weekStart, existingSchedule }: Schedul
             ))}
           </tbody>
         </table>
+      </ScrollableWeek>
+
+      {/* Leyenda de los tres estados de una celda */}
+      <div className="flex flex-wrap gap-4 text-[11px] text-[#7A6358]">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-sm border border-[#E0D5CA] bg-white" />
+          Sin asignar — el empleado no ve nada
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-sm border border-[#6B8E6B]/40 bg-[#6B8E6B]/20" />
+          Descansa — el empleado lo ve en su horario
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-sm border border-[#C1643F]/40 bg-[#FDF5F2]" />
+          2.º turno
+        </span>
       </div>
 
       <div className="flex gap-3">

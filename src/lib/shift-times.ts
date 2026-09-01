@@ -28,6 +28,46 @@ const CHECKOUT_BEFORE_ERROR =
 
 export type ShiftKind = "same-day" | "overnight" | "invalid";
 
+/**
+ * Presenta un `"HH:mm"` de 24 horas en formato de 12 horas para el UI.
+ *
+ * El restaurante razona en 12 horas ("3 p. m."), pero todo lo que cruza la API,
+ * la base de datos y el cálculo de nómina sigue siendo 24 horas. Esta función
+ * es exclusivamente de presentación.
+ *
+ * Trabaja sobre el string, sin construir un `Date`, para no arrastrar zona
+ * horaria: la hora de un turno no lleva fecha asociada.
+ *
+ *   "15:00" → "3:00 p. m."   "00:30" → "12:30 a. m."   "12:00" → "12:00 m."
+ */
+export function formatTime12(hhmm: string | null | undefined): string {
+  if (!hhmm) return "";
+  const [rawH, rawM] = hhmm.split(":");
+  const hours = Number(rawH);
+  const minutes = Number(rawM);
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return "";
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return "";
+
+  const mm = String(minutes).padStart(2, "0");
+  // Mediodía en punto se escribe "m." en español; las 00:00 son "12:00 a. m."
+  if (hours === 12 && minutes === 0) return "12:00 m.";
+
+  const suffix = hours < 12 ? "a. m." : "p. m.";
+  const h12 = hours % 12 === 0 ? 12 : hours % 12;
+  return `${h12}:${mm} ${suffix}`;
+}
+
+/** Rango en 12 horas, o cadena vacía si falta alguno de los extremos. */
+export function formatRange12(
+  start: string | null | undefined,
+  end: string | null | undefined
+): string {
+  const a = formatTime12(start);
+  const b = formatTime12(end);
+  if (!a || !b) return a || b;
+  return `${a} – ${b}`;
+}
+
 export type BuildShiftResult =
   | { ok: true; checkIn: string; checkOut: string | null; crossesMidnight: boolean }
   | { ok: false; error: string };
