@@ -9,6 +9,8 @@ import {
   sumDailyHours,
   flattenEntryShifts,
   buildOvertimeWarning,
+  formatTime12,
+  formatRange12,
 } from "../shift-times";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -313,5 +315,58 @@ describe("buildOvertimeWarning", () => {
     // El aviso lo dispara el último de los que se están registrando.
     expect(warning!.pendingIndex).toBe(2);
     expect(warning!.shifts.map((r) => r.pending)).toEqual([true, false, true]);
+  });
+});
+
+describe("formatTime12", () => {
+  it("convierte la tarde a 12 horas", () => {
+    expect(formatTime12("15:00")).toBe("3:00 p. m.");
+    expect(formatTime12("13:05")).toBe("1:05 p. m.");
+    expect(formatTime12("23:59")).toBe("11:59 p. m.");
+  });
+
+  it("convierte la mañana a 12 horas", () => {
+    expect(formatTime12("09:30")).toBe("9:30 a. m.");
+    expect(formatTime12("11:59")).toBe("11:59 a. m.");
+  });
+
+  it("trata la medianoche como 12 a. m.", () => {
+    expect(formatTime12("00:00")).toBe("12:00 a. m.");
+    expect(formatTime12("00:30")).toBe("12:30 a. m.");
+  });
+
+  it("escribe el mediodía en punto como 12:00 m.", () => {
+    expect(formatTime12("12:00")).toBe("12:00 m.");
+  });
+
+  it("las 12:xx siguen siendo p. m.", () => {
+    expect(formatTime12("12:30")).toBe("12:30 p. m.");
+  });
+
+  it("conserva el cero a la izquierda en los minutos", () => {
+    expect(formatTime12("08:05")).toBe("8:05 a. m.");
+  });
+
+  it("tolera segundos en la entrada", () => {
+    expect(formatTime12("15:00:00")).toBe("3:00 p. m.");
+  });
+
+  it("devuelve cadena vacía para entradas vacías o inválidas", () => {
+    expect(formatTime12("")).toBe("");
+    expect(formatTime12(null)).toBe("");
+    expect(formatTime12(undefined)).toBe("");
+    expect(formatTime12("no-es-hora")).toBe("");
+    expect(formatTime12("25:00")).toBe("");
+  });
+});
+
+describe("formatRange12", () => {
+  it("une los dos extremos con un guion", () => {
+    expect(formatRange12("15:00", "23:00")).toBe("3:00 p. m. – 11:00 p. m.");
+  });
+
+  it("devuelve el extremo disponible si falta el otro", () => {
+    expect(formatRange12("15:00", null)).toBe("3:00 p. m.");
+    expect(formatRange12(null, null)).toBe("");
   });
 });
