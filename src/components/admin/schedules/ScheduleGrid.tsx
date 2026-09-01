@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { TimeInput12 } from "@/components/ui/time-input-12";
 import { ScrollableWeek } from "@/components/shared/ScrollableWeek";
 import { Plus, X, Moon, AlertTriangle } from "lucide-react";
 import {
@@ -66,8 +65,13 @@ function defaultName(weekStart: string) {
 }
 
 /**
- * Una hora del turno con su etiqueta. Sin la etiqueta, las dos filas de
- * selectores de una celda son indistinguibles y no se sabe cuál es la entrada.
+ * Una hora del turno, con el mismo campo que el registro de horas
+ * (`TimeEntryForm`): el `<input type="time">` nativo, que en español muestra
+ * 12 horas con a. m./p. m. Mantener los dos formularios idénticos evita que el
+ * admin tenga que aprender dos formas distintas de escribir una hora.
+ *
+ * La etiqueta "Entra"/"Sale" es necesaria aquí porque en la parrilla las dos
+ * filas de una celda quedarían si no indistinguibles.
  */
 function TimeField({
   label,
@@ -90,11 +94,16 @@ function TimeField({
       >
         {label}
       </span>
-      <TimeInput12
+      <input
+        type="time"
+        aria-label={ariaLabel}
         value={value}
-        onChange={onChange}
-        ariaLabel={ariaLabel}
-        accent={accent}
+        onChange={(e) => onChange(e.target.value)}
+        className={`flex-1 min-w-0 rounded border px-1.5 py-1 text-xs text-[#2C1F15] focus:outline-none focus:border-[#C1643F] ${
+          accent
+            ? "border-[#C1643F]/40 bg-[#FDF5F2]"
+            : "border-[#E0D5CA] bg-white"
+        }`}
       />
     </div>
   );

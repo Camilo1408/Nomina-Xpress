@@ -136,39 +136,32 @@ zona horaria. Cubierta por tests en `src/lib/__tests__/shift-times.test.ts`.
 No se reutiliza `formatTime` de `src/lib/utils.ts` porque esa recibe un `Date`
 y convierte a `America/Bogota`; aquí la entrada es un `"HH:mm"` sin fecha.
 
-### Captura — `TimeInput12`
+### Captura — el mismo campo que el registro de horas
 
-Componente nuevo `src/components/ui/time-input-12.tsx`.
+La parrilla usa el **`<input type="time">` nativo**, exactamente el mismo campo
+que `TimeEntryForm` en `/admin/time-entries`. En español el navegador lo pinta
+en 12 horas con a. m./p. m., que es lo que se buscaba, y el admin no tiene que
+aprender dos formas distintas de escribir una hora en la misma aplicación.
 
-- Interfaz: `value: string` (`"HH:mm"` de 24 h, o `""`), `onChange(value: string)`.
-- Un campo de **texto que se escribe** más dos botones a. m. / p. m.
-- **Emite y recibe siempre 24 h.** El contrato con la API, con
-  `shift-times.ts` y con el cálculo de nómina no cambia.
+Cada campo lleva su etiqueta "Entra" / "Sale", necesaria aquí porque en una
+celda de la parrilla las dos filas quedarían si no indistinguibles.
 
-Se probó primero con tres desplegables (hora / minutos / AM-PM). Garantizaba
-el formato, pero obligaba a tres clics por hora y armar una semana entera se
-volvía lento. El propietario pidió volver a poder escribir la hora, como con
-el `<input type="time">` anterior, sin perder las 12 horas.
+Se probaron antes dos alternativas y ambas se descartaron:
 
-La interpretación de lo escrito vive en `src/lib/time-input-12.ts`, que es
-puro y está cubierto por tests. Acepta lo que la gente escribe de verdad:
+1. **Tres desplegables** (hora / minutos / AM-PM). Garantizaban el formato con
+   independencia del idioma del navegador, pero costaban tres clics por hora y
+   armar una semana entera se hacía lento.
+2. **Campo de texto libre** con parser propio (`3`, `300`, `3pm`, `15:30`). Era
+   rápido de escribir, pero introducía un campo que no existía en ninguna otra
+   parte del sistema.
 
-| Escribe | Resultado |
-|---|---|
-| `3` | 3:00, conserva el a. m./p. m. que ya tuviera |
-| `300` | 3:00 |
-| `3:5` | 3:05 |
-| `3:30`, `3.30` | 3:30 |
-| `3pm`, `3 p.m.`, `3p` | 3:00 p. m. |
-| `15:30`, `1530` | 3:30 p. m. (las 24 h se convierten solas) |
-| `0830` | 8:30 a. m. (cuatro dígitos con cero delante = 24 h) |
-| `12am` / `12pm` | 12:00 a. m. / 12:00 m. |
+El propietario decidió priorizar la consistencia con el formulario que el
+equipo ya usa a diario. La contrapartida conocida: el formato del campo lo
+decide el idioma del navegador, así que en un equipo configurado en inglés se
+vería en 24 horas. Es la misma contrapartida que ya tenía el registro de horas.
 
-Los dígitos de 13 a 23 mandan sobre un sufijo contradictorio: `15:00 am` no
-existe, así que se guarda como 3:00 p. m. Un texto que no es una hora marca el
-campo en rojo y no emite valor, sin borrar lo que la persona escribió.
-
-Sustituye los cuatro `<input type="time">` de `ScheduleGrid.tsx`.
+**Las vistas de lectura siguen usando `formatTime12`**, así que el horario
+publicado se ve en 12 horas siempre, sin depender del navegador.
 
 ### Alcance de la sustitución
 
@@ -349,9 +342,6 @@ que no hay que revertir el esquema para volver atrás.
 
 - `formatTime12`: mediodía, medianoche, 1 p. m., 11:59 p. m., minutos con cero
   a la izquierda, string vacío.
-- `parseTypedTime`: cada fila de la tabla de formatos aceptados, el sufijo
-  contradictorio, el texto que no es una hora, y la ida y vuelta
-  `fromValue24` → `parseTypedTime`.
 - `suggestWeekStart`: sin horarios previos; último día en el futuro; último día
   hoy; último día ya pasado; el caso del domingo asignado.
 - `dayLabelFor`: los siete días, y una semana que empieza en domingo.
