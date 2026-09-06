@@ -7,7 +7,7 @@ import {
   DiscountValueType,
   discountAppliesToEmployee,
   computeDiscountApplied,
-  isFirstHalf,
+  biweeklyPeriodsInRange,
 } from "@/lib/discounts";
 
 interface EmployeeLike {
@@ -22,15 +22,17 @@ export interface EmployeeDiscounts {
 
 /**
  * Resuelve los descuentos activos aplicables a un conjunto de empleados para el
- * período [from] (una quincena). Devuelve un mapa employeeId -> EmployeeDiscounts.
+ * período [from, to]. Devuelve un mapa employeeId -> EmployeeDiscounts.
  *
  * Mismas reglas que los bonos: solo activos, solo si appliedAmount > 0,
  * STANDARD usa Discount.amount, PER_EMPLOYEE usa DiscountAssignment.amount,
- * SPECIFIC solo a empleados asignados. Cálculo determinista por quincena.
+ * SPECIFIC solo a empleados asignados. El rango se descompone en las quincenas
+ * que abarca y el descuento se aplica una vez por quincena.
  */
 export async function resolveDiscountsForEmployees(
   tenantId: string,
   from: string,
+  to: string,
   employees: EmployeeLike[]
 ): Promise<Map<string, EmployeeDiscounts>> {
   const result = new Map<string, EmployeeDiscounts>();
@@ -47,7 +49,7 @@ export async function resolveDiscountsForEmployees(
 
   if (discounts.length === 0) return result;
 
-  const firstHalf = isFirstHalf(from);
+  const periods = biweeklyPeriodsInRange(from, to);
 
   for (const emp of employees) {
     const applied: DiscountApplied[] = [];
@@ -76,7 +78,15 @@ export async function resolveDiscountsForEmployees(
 
       if (configuredAmount <= 0) continue;
 
-      const appliedAmount = computeDiscountApplied(configuredAmount, frequency, monthlyMode, firstHalf);
+      // Una aplicación por cada quincena que abarque el rango consultado.
+      let appliedAmount = 0;
+      let periodsCount = 0;
+      for (const period of periods) {
+        const perPeriod = computeDiscountApplied(configuredAmount, frequency, monthlyMode, period.firstHalf);
+        if (perPeriod <= 0) continue;
+        appliedAmount += perPeriod;
+        periodsCount += 1;
+      }
       if (appliedAmount <= 0) continue;
 
       applied.push({
@@ -88,6 +98,7 @@ export async function resolveDiscountsForEmployees(
         valueType,
         configuredAmount: Math.round(configuredAmount),
         appliedAmount,
+        periodsCount,
       });
       total += appliedAmount;
     }

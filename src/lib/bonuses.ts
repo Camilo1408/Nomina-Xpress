@@ -41,8 +41,11 @@ export interface BonusApplied {
   valueType: BonusValueType;
   // Valor total configurado del bono para ese empleado (mensual o quincenal según frecuencia)
   configuredAmount: number;
-  // Valor efectivamente aplicado en el período/quincena actual
+  // Valor efectivamente aplicado en el rango consultado. Para una quincena es el
+  // valor de esa quincena; para un rango de varias quincenas es la suma de todas.
   appliedAmount: number;
+  // Cuántas quincenas del rango aportaron valor (1 en un reporte quincenal normal).
+  periodsCount: number;
 }
 
 /**
@@ -53,6 +56,56 @@ export interface BonusApplied {
 export function isFirstHalf(fromDate: string): boolean {
   const day = Number(fromDate.split("-")[2]);
   return day <= 15;
+}
+
+/** Una quincena cubierta por el rango de un reporte. */
+export interface RangePeriod {
+  /** Primer día de la quincena ("YYYY-MM-DD"). */
+  start: string;
+  /** true si es la primera quincena del mes (días 1–15). */
+  firstHalf: boolean;
+}
+
+// Tope defensivo: ~10 años de quincenas. Evita que un rango absurdo
+// (fecha mal tecleada) genere una iteración enorme.
+const MAX_RANGE_PERIODS = 240;
+
+/**
+ * Quincenas cubiertas por el rango [from, to] de un reporte.
+ *
+ * Una quincena cuenta si su PRIMER DÍA cae dentro del rango. Con esa regla:
+ *  - Un rango que ya es una quincena (01–15 o 16–fin de mes) devuelve exactamente
+ *    esa quincena → resultado idéntico al histórico.
+ *  - Un rango de varios meses devuelve todas las quincenas que empiezan dentro,
+ *    cada una UNA sola vez (los bonos recurrentes no se duplican ni se pierden).
+ *  - Un rango corto que no contiene ningún inicio de quincena (p. ej. 05–12, o
+ *    un rango invertido) cae al comportamiento histórico: se trata como una sola
+ *    quincena, la que contiene `from`. Ningún reporte existente cambia.
+ */
+export function biweeklyPeriodsInRange(from: string, to: string): RangePeriod[] {
+  const fallback: RangePeriod[] = [{ start: from, firstHalf: isFirstHalf(from) }];
+
+  const parse = (d: string) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d);
+    return m ? { year: Number(m[1]), month: Number(m[2]) } : null;
+  };
+  const a = parse(from);
+  const b = parse(to);
+  if (!a || !b || to < from) return fallback;
+
+  const periods: RangePeriod[] = [];
+  let { year, month } = a;
+  while ((year < b.year || (year === b.year && month <= b.month)) && periods.length <= MAX_RANGE_PERIODS) {
+    const mm = String(month).padStart(2, "0");
+    for (const [day, firstHalf] of [["01", true], ["16", false]] as const) {
+      const start = `${year}-${mm}-${day}`;
+      if (start >= from && start <= to) periods.push({ start, firstHalf });
+    }
+    month += 1;
+    if (month > 12) { month = 1; year += 1; }
+  }
+
+  return periods.length > 0 ? periods : fallback;
 }
 
 /**

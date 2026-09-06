@@ -34,7 +34,8 @@ export async function GET(req: Request) {
 
   const [entries, adjustments, tipDists] = await Promise.all([
     prisma.timeEntry.findMany({ where: { tenantId, employeeId, date: { gte: from, lte: to } } }),
-    prisma.payAdjustment.findMany({ where: { tenantId, employeeId, periodStart: { gte: from }, periodEnd: { lte: to } } }),
+    // Mismo criterio que fetchPayrollPeriodData: el ajuste se ancla en periodStart.
+    prisma.payAdjustment.findMany({ where: { tenantId, employeeId, periodStart: { gte: from, lte: to } } }),
     prisma.tipDistribution.findMany({
       where: { tenantId, employeeId, tipEntry: { date: { gte: from, lte: to } } },
       include: { tipEntry: { select: { date: true, totalAmount: true } } },
@@ -54,8 +55,8 @@ export async function GET(req: Request) {
   // Bonos y descuentos aplicados a este empleado en el período (quincena)
   const empRef = [{ id: employee.id, payType: employee.payType }];
   const [bonusMap, discountMap] = await Promise.all([
-    resolveBonusesForEmployees(tenantId, from, empRef),
-    resolveDiscountsForEmployees(tenantId, from, empRef),
+    resolveBonusesForEmployees(tenantId, from, to, empRef),
+    resolveDiscountsForEmployees(tenantId, from, to, empRef),
   ]);
   const empBonuses = bonusMap.get(employee.id) ?? { bonuses: [], totalBonuses: 0 };
   const empDiscounts = discountMap.get(employee.id) ?? { discounts: [], totalDiscounts: 0 };

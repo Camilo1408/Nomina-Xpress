@@ -54,6 +54,9 @@ export const PERMISSIONS = {
   PAY_ADJUSTMENTS_CREATE:   "pay_adjustments:create",
   PAY_ADJUSTMENTS_EDIT:     "pay_adjustments:edit",
   PAY_ADJUSTMENTS_DELETE:   "pay_adjustments:delete",
+  // Corregir el período (fechas) al que se imputa un ajuste ya creado.
+  // Reservado a PROPRIETARY y SUPERADMIN: mueve dinero de una quincena a otra.
+  PAY_ADJUSTMENTS_EDIT_PERIOD: "pay_adjustments:edit_period",
 
   // ── Bonos ─────────────────────────────────────────────────────────────────
   BONUSES_VIEW:             "bonuses:view",
@@ -243,6 +246,7 @@ export const BASE_ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
     PERMISSIONS.PAY_ADJUSTMENTS_CREATE,
     PERMISSIONS.PAY_ADJUSTMENTS_EDIT,
     PERMISSIONS.PAY_ADJUSTMENTS_DELETE,
+    PERMISSIONS.PAY_ADJUSTMENTS_EDIT_PERIOD,
     PERMISSIONS.BONUSES_VIEW,
     PERMISSIONS.BONUSES_CREATE,
     PERMISSIONS.BONUSES_EDIT,
@@ -369,6 +373,7 @@ export const PERMISSION_GROUPS: Array<{
       PERMISSIONS.PAY_ADJUSTMENTS_CREATE,
       PERMISSIONS.PAY_ADJUSTMENTS_EDIT,
       PERMISSIONS.PAY_ADJUSTMENTS_DELETE,
+      PERMISSIONS.PAY_ADJUSTMENTS_EDIT_PERIOD,
     ],
   },
   {
@@ -477,6 +482,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
   "pay_adjustments:create":   "Crear ajustes de pago",
   "pay_adjustments:edit":     "Editar ajustes de pago",
   "pay_adjustments:delete":   "Eliminar ajustes de pago",
+  "pay_adjustments:edit_period": "Corregir el período (fechas) de un ajuste de pago",
   "bonuses:view":             "Ver bonos",
   "bonuses:create":           "Crear bonos",
   "bonuses:edit":             "Editar bonos",
