@@ -57,12 +57,18 @@ export async function fetchPayrollPeriodData(
     prisma.timeEntry.findMany({
       where: { tenantId, employeeId: { in: employeeIds }, date: { gte: from, lte: to } },
     }),
+    // Un ajuste pertenece al rango si su periodStart cae dentro de [from, to].
+    // Anclar en el inicio (y no exigir que TODO el período esté contenido) hace
+    // que: (a) un ajuste guardado con un rango desalineado —p. ej. 01→16 cuando
+    // debía ser 01→15— siga apareciendo en su quincena en lugar de desaparecer
+    // sin aviso, y (b) un reporte de varios meses muestre los ajustes de todos
+    // esos meses, cada uno UNA sola vez (periodStart es un punto, no un rango,
+    // así que no puede caer en dos períodos consecutivos).
     prisma.payAdjustment.findMany({
       where: {
         tenantId,
         employeeId: { in: employeeIds },
-        periodStart: { gte: from },
-        periodEnd: { lte: to },
+        periodStart: { gte: from, lte: to },
       },
     }),
     prisma.tipDistribution.findMany({

@@ -20,6 +20,7 @@ export {
   computeBonusApplied as computeDiscountApplied,
   bonusAppliesToEmployee as discountAppliesToEmployee,
   isFirstHalf,
+  biweeklyPeriodsInRange,
 } from "@/lib/bonuses";
 
 export type DiscountValueType = BonusValueType;
@@ -37,8 +38,11 @@ export interface DiscountApplied {
   valueType: DiscountValueType;
   // Valor total configurado del descuento para ese empleado
   configuredAmount: number;
-  // Valor efectivamente descontado en la quincena actual
+  // Valor efectivamente descontado en el rango consultado (suma de las quincenas
+  // que abarque; en un reporte quincenal normal es el valor de esa quincena).
   appliedAmount: number;
+  // Cuántas quincenas del rango aportaron valor (1 en un reporte quincenal normal).
+  periodsCount: number;
 }
 
 /**

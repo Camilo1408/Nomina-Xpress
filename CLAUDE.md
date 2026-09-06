@@ -84,6 +84,9 @@ efectivos, no del rol base.
 - Crear/editar/eliminar un `Holiday` dispara **recálculo retroactivo** de `isSpecial` y de las propinas de las fechas afectadas (`recalculateSpecialForDates`).
 - Reglas de turno en `@/lib/shift-times` (isomorfo cliente+servidor): cruce de medianoche hasta las **02:00**, tope de **15 h/día**, aviso (no bloqueo) a partir de **8 h/día**, máx. **2 turnos/día** sin solaparse. El servidor es la autoridad: revalidar también en el `PUT`.
 - Quincenas: usar los helpers de `utils.ts` (`getBiweeklyPeriodForDate`, `getCurrentBiweeklyPeriod`, `lastDayOfMonth`); no duplicar el cálculo ni usar `toISOString` para fechas.
+- **Cadena del pago (invariante).** `grossPay` = horas × tarifa. `netPay` = `grossPay + totalAdjustments` (los ajustes YA están dentro del neto). `finalPay` = `clampFinalPay(netPay, bonos, descuentos)`. **Las propinas nunca entran en el total a pagar** — se informan aparte. Las cuatro superficies (pantalla, PDF, Excel, portal del empleado) deben pasar `netPay` a `clampFinalPay`, nunca `netPayWithTips`; hay pruebas que fallan si divergen.
+- **Ajustes de pago por período.** Un `PayAdjustment` pertenece a un reporte si su `periodStart` cae dentro de `[from, to]` (anclaje en el inicio, no contención). Así un ajuste con el rango desalineado no desaparece y un reporte de varios meses los trae todos sin duplicar. Corregir sus fechas exige `pay_adjustments:edit_period` (PROPRIETARY y SUPERADMIN).
+- **Bonos y descuentos recurrentes en rangos largos.** `biweeklyPeriodsInRange(from, to)` descompone el rango en quincenas y el bono se aplica una vez por quincena. Un rango que no contenga ningún inicio de quincena cae al comportamiento histórico (una sola aplicación).
 - Auto-contraste: usar `getContrastText(hex)` de `@/lib/color-contrast` para texto sobre fondos custom.
 
 ## Design System

@@ -35,8 +35,8 @@ export async function GET(req: Request) {
 
   const empRefs = employees.map((e) => ({ id: e.id, payType: e.payType }));
   const [bonusMap, discountMap] = await Promise.all([
-    resolveBonusesForEmployees(tenantId, from, empRefs),
-    resolveDiscountsForEmployees(tenantId, from, empRefs),
+    resolveBonusesForEmployees(tenantId, from, to, empRefs),
+    resolveDiscountsForEmployees(tenantId, from, to, empRefs),
   ]);
 
   const periodData = await fetchPayrollPeriodData(tenantId, from, to, employees.map((e) => e.id));
@@ -56,7 +56,9 @@ export async function GET(req: Request) {
         totalBonuses: empBonuses.totalBonuses,
         discounts: empDiscounts.discounts,
         totalDiscounts: empDiscounts.totalDiscounts,
-        finalPay: clampFinalPay(netPayWithTips, empBonuses.totalBonuses, empDiscounts.totalDiscounts),
+        // Las propinas son informativas y NO se suman al total final a pagar
+        // (misma base que el reporte en pantalla: netPay, no netPayWithTips).
+        finalPay: clampFinalPay(payroll.netPay, empBonuses.totalBonuses, empDiscounts.totalDiscounts),
       };
     });
 

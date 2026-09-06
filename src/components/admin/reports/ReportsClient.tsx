@@ -35,6 +35,8 @@ interface ReportsClientProps {
   canAddAdjustment: boolean;
   canEditAdjustment: boolean;
   canDeleteAdjustment: boolean;
+  /** Corregir las fechas de un ajuste ya creado (PROPRIETARY / SUPERADMIN). */
+  canEditAdjustmentPeriod: boolean;
   reportType?: ReportType;
 }
 
@@ -43,7 +45,7 @@ const REPORT_LABELS: Record<ReportType, { buttonLabel: string; fileSlug: string 
   shifts:  { buttonLabel: "Calcular turnos", fileSlug: "turnos" },
 };
 
-export function ReportsClient({ employees, canExportPdf, canExportExcel, canAddAdjustment, canEditAdjustment, canDeleteAdjustment, reportType = "payroll" }: ReportsClientProps) {
+export function ReportsClient({ employees, canExportPdf, canExportExcel, canAddAdjustment, canEditAdjustment, canDeleteAdjustment, canEditAdjustmentPeriod, reportType = "payroll" }: ReportsClientProps) {
   const labels = REPORT_LABELS[reportType];
   const period = getCurrentBiweeklyPeriod();
   const [from, setFrom] = useState(period.from);
@@ -54,8 +56,12 @@ export function ReportsClient({ employees, canExportPdf, canExportExcel, canAddA
   const [adjustmentTarget, setAdjustmentTarget] = useState<{ employeeId: string; name: string } | null>(null);
   const [editingAdjustment, setEditingAdjustment] = useState<{
     id: string; type: "DISCOUNT" | "BONUS"; amount: number; description: string;
+    periodStart: string; periodEnd: string;
     employeeId: string; name: string;
   } | null>(null);
+  // Período con el que se cargó el reporte en pantalla (no el de los inputs, que
+  // el usuario puede haber cambiado sin volver a calcular).
+  const [loadedPeriod, setLoadedPeriod] = useState<{ from: string; to: string } | null>(null);
 
   async function fetchReport() {
     setLoading(true);
@@ -65,6 +71,7 @@ export function ReportsClient({ employees, canExportPdf, canExportExcel, canAddA
       const res = await fetch(`/api/admin/reports/payroll?${params}`);
       const data = await res.json();
       setResults(data.employees);
+      setLoadedPeriod({ from, to });
     } catch {
       toast.error("Error al cargar el reporte");
     } finally {
@@ -88,6 +95,8 @@ export function ReportsClient({ employees, canExportPdf, canExportExcel, canAddA
     window.open(url, "_blank");
   }
 
+  const totalGross = results?.reduce((s, e) => s + e.grossPay, 0) ?? 0;
+  const totalAdjustments = results?.reduce((s, e) => s + e.totalAdjustments, 0) ?? 0;
   const totalNet = results?.reduce((s, e) => s + e.netPay, 0) ?? 0;
   const totalNormalH = results?.reduce((s, e) => s + e.normalHours, 0) ?? 0;
   const totalSpecialH = results?.reduce((s, e) => s + e.specialHours, 0) ?? 0;
@@ -142,10 +151,12 @@ export function ReportsClient({ employees, canExportPdf, canExportExcel, canAddA
       {results && (
         <>
           {/* Summary cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             {[
               { label: "Horas normales", value: formatHours(totalNormalH), color: "#6B8E6B" },
               { label: "Horas especiales", value: formatHours(totalSpecialH), color: "#C1643F" },
+              { label: "Total bruto", value: formatCurrency(totalGross), color: "#2C1F15" },
+              { label: "Ajustes", value: formatCurrency(totalAdjustments), color: totalAdjustments >= 0 ? "#6B8E6B" : "#B94040" },
               { label: "Total neto", value: formatCurrency(totalNet), color: "#2C1F15" },
               { label: "Bonos", value: formatCurrency(totalBonuses), color: "#6B8E6B" },
               { label: "Descuentos", value: formatCurrency(totalDiscounts), color: "#B94040" },
@@ -171,12 +182,22 @@ export function ReportsClient({ employees, canExportPdf, canExportExcel, canAddA
                   <th className="text-left px-4 py-3 font-semibold text-[#2C1F15]">Personal</th>
                   <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]">H. Normal</th>
                   <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]">H. Especial</th>
+                  <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]">Bruto</th>
                   <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]">Ajustes</th>
-                  <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]">Neto</th>
+                  <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]" title="Bruto + Ajustes">
+                    Neto
+                    <span className="block text-[10px] font-normal text-[#7A6358] whitespace-nowrap">bruto + ajustes</span>
+                  </th>
                   <th className="text-right px-4 py-3 font-semibold text-[#6B8E6B]">Bonos</th>
                   <th className="text-right px-4 py-3 font-semibold text-[#B94040]">Descuentos</th>
-                  <th className="text-right px-4 py-3 font-semibold text-[#6B8E6B]">Total final</th>
-                  <th className="text-right px-4 py-3 font-semibold text-[#C1643F]">Propinas</th>
+                  <th className="text-right px-4 py-3 font-semibold text-[#6B8E6B]" title="Neto + Bonos − Descuentos (las propinas no se suman)">
+                    Total final
+                    <span className="block text-[10px] font-normal text-[#7A6358] whitespace-nowrap">neto + bonos − desc.</span>
+                  </th>
+                  <th className="text-right px-4 py-3 font-semibold text-[#C1643F]" title="Informativo: no se suma al total final">
+                    Propinas
+                    <span className="block text-[10px] font-normal text-[#7A6358] whitespace-nowrap">no suman al total</span>
+                  </th>
                   {canAddAdjustment && <th className="text-right px-4 py-3 font-semibold text-[#2C1F15]">Acción</th>}
                 </tr>
               </thead>
@@ -193,6 +214,14 @@ export function ReportsClient({ employees, canExportPdf, canExportExcel, canAddA
                                 {adj.type === "BONUS" ? "+" : "-"}{formatCurrency(adj.amount)}
                               </span>
                               <span className="text-xs text-[#7A6358]">— {adj.description}</span>
+                              {loadedPeriod && (adj.periodStart !== loadedPeriod.from || adj.periodEnd !== loadedPeriod.to) && (
+                                <span
+                                  className="text-[10px] px-1.5 py-0.5 rounded bg-[#C1643F]/10 text-[#A8522F] font-mono"
+                                  title="El período de este ajuste no coincide con el rango consultado"
+                                >
+                                  {adj.periodStart} → {adj.periodEnd}
+                                </span>
+                              )}
                               {canEditAdjustment && (
                                 <button
                                   onClick={() => setEditingAdjustment({ ...adj, type: adj.type as "DISCOUNT" | "BONUS", employeeId: emp.employeeId, name: emp.employeeName })}
@@ -222,7 +251,10 @@ export function ReportsClient({ employees, canExportPdf, canExportExcel, canAddA
                               <span className="text-xs text-[#6B8E6B] font-medium">
                                 +{formatCurrency(b.appliedAmount)}
                               </span>
-                              <span className="text-xs text-[#7A6358]">— Bono: {b.name}</span>
+                              <span className="text-xs text-[#7A6358]">
+                                — Bono: {b.name}
+                                {b.periodsCount > 1 && ` (×${b.periodsCount} quincenas)`}
+                              </span>
                             </div>
                           ))}
                         </div>
@@ -234,7 +266,10 @@ export function ReportsClient({ employees, canExportPdf, canExportExcel, canAddA
                               <span className="text-xs text-[#B94040] font-medium">
                                 −{formatCurrency(d.appliedAmount)}
                               </span>
-                              <span className="text-xs text-[#7A6358]">— Descuento: {d.name}</span>
+                              <span className="text-xs text-[#7A6358]">
+                                — Descuento: {d.name}
+                                {d.periodsCount > 1 && ` (×${d.periodsCount} quincenas)`}
+                              </span>
                             </div>
                           ))}
                         </div>
@@ -246,6 +281,7 @@ export function ReportsClient({ employees, canExportPdf, canExportExcel, canAddA
                         <span className="text-[#C1643F]">{formatHours(emp.specialHours)}</span>
                       ) : <span className="text-[#7A6358]">—</span>}
                     </td>
+                    <td className="px-4 py-3 text-right font-mono text-[#2C1F15]">{formatCurrency(emp.grossPay)}</td>
                     <td className="px-4 py-3 text-right font-mono">
                       <span className={emp.totalAdjustments >= 0 ? "text-[#6B8E6B]" : "text-[#B94040]"}>
                         {emp.totalAdjustments >= 0 ? "+" : ""}{formatCurrency(emp.totalAdjustments)}
@@ -278,7 +314,7 @@ export function ReportsClient({ employees, canExportPdf, canExportExcel, canAddA
                 ))}
                 {results.length === 0 && (
                   <tr>
-                    <td colSpan={10} className="px-4 py-12 text-center text-[#7A6358]">
+                    <td colSpan={canAddAdjustment ? 11 : 10} className="px-4 py-12 text-center text-[#7A6358]">
                       No hay datos para este período.
                     </td>
                   </tr>
@@ -306,11 +342,14 @@ export function ReportsClient({ employees, canExportPdf, canExportExcel, canAddA
           employeeName={editingAdjustment.name}
           from={from}
           to={to}
+          canEditPeriod={canEditAdjustmentPeriod}
           editing={{
             id: editingAdjustment.id,
             type: editingAdjustment.type,
             amount: editingAdjustment.amount,
             description: editingAdjustment.description,
+            periodStart: editingAdjustment.periodStart,
+            periodEnd: editingAdjustment.periodEnd,
           }}
           onClose={() => setEditingAdjustment(null)}
           onSaved={() => { setEditingAdjustment(null); fetchReport(); }}

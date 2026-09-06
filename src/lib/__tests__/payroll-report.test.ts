@@ -44,12 +44,14 @@ describe("fetchPayrollPeriodData", () => {
     expect(tEntry).toHaveBeenCalledWith({
       where: { tenantId: "t1", employeeId: { in: ["e1", "e2"] }, date: { gte: "2026-07-01", lte: "2026-07-15" } },
     });
+    // Los ajustes se anclan en periodStart: basta con que el INICIO del ajuste
+    // caiga en el rango. Así no desaparece un ajuste cuyo periodEnd se pasó de
+    // la quincena, y un rango largo los trae todos sin duplicar.
     expect(tAdj).toHaveBeenCalledWith({
       where: {
         tenantId: "t1",
         employeeId: { in: ["e1", "e2"] },
-        periodStart: { gte: "2026-07-01" },
-        periodEnd: { lte: "2026-07-15" },
+        periodStart: { gte: "2026-07-01", lte: "2026-07-15" },
       },
     });
     expect(tTip).toHaveBeenCalledWith({

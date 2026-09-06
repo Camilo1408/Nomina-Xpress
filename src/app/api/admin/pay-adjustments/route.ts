@@ -13,6 +13,9 @@ const schema = z.object({
   description: z.string().min(1),
   periodStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   periodEnd: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+}).refine((d) => d.periodStart <= d.periodEnd, {
+  message: "La fecha de inicio no puede ser posterior a la fecha final",
+  path: ["periodEnd"],
 });
 
 export async function POST(req: Request) {

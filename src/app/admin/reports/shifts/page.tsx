@@ -29,6 +29,7 @@ export default async function ReportsShiftsPage() {
         canAddAdjustment={permissions.has(PERMISSIONS.PAY_ADJUSTMENTS_CREATE)}
         canEditAdjustment={permissions.has(PERMISSIONS.PAY_ADJUSTMENTS_EDIT)}
         canDeleteAdjustment={permissions.has(PERMISSIONS.PAY_ADJUSTMENTS_DELETE)}
+        canEditAdjustmentPeriod={permissions.has(PERMISSIONS.PAY_ADJUSTMENTS_EDIT_PERIOD)}
       />
     </div>
   );
