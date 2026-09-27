@@ -543,6 +543,19 @@ describe("Excel de propinas", () => {
     expect(total.getCell(4).value).toBe(108_000);
   });
 
+  it("reporte sin propinas: totales y total asignado en cero, con aviso en ambas hojas", async () => {
+    const buffer = await generateTipsExcel(aggregateTipsReport([]), { from: "2026-09-01", to: "2026-09-15" }, "X", "#C1643F", null);
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buffer as unknown as ArrayBuffer);
+    const ws = wb.getWorksheet("Asignación")!;
+    const val = (label: string) => rows(ws).find((r) => r.getCell(1).value === label)!.getCell(2).value;
+    expect(val("Total propinas brutas")).toBe(0);
+    expect(val("Total distribuido")).toBe(0);
+    expect(rows(ws).find((r) => r.getCell(1).value === "TOTAL ASIGNADO")!.getCell(4).value).toBe(0);
+    expect(text(ws)).toContain("No hay propinas registradas en este período.");
+    expect(text(wb.getWorksheet("Detalle por día")!)).toContain("No hay propinas registradas en este período.");
+  });
+
   it("detalle agrupado por día con reparto y aviso cuando no se distribuyó", async () => {
     const ws = (await load()).getWorksheet("Detalle por día")!;
     const t = text(ws);
@@ -647,6 +660,12 @@ export async function generateTipsExcel(
     if (i % 2 === 1) row.eachCell((cell) => { cell.fill = ALT_FILL; });
   });
 
+  if (report.byEmployee.length === 0) {
+    const empty = ws.addRow(["No hay propinas registradas en este período."]);
+    ws.mergeCells(`A${empty.number}:E${empty.number}`);
+    empty.getCell(1).font = { italic: true, color: { argb: "FF7A6358" } };
+  }
+
   const assigned = report.byEmployee.reduce((s, e) => s + e.totalAmount, 0);
   const totalRow = ws.addRow(["TOTAL ASIGNADO", "", "", assigned, ""]);
   totalRow.eachCell((cell) => {
@@ -665,6 +684,12 @@ export async function generateTipsExcel(
     { key: "rate", width: 14 },
     { key: "amount", width: 16 },
   ];
+
+  if (report.byDay.length === 0) {
+    const empty = detail.addRow(["No hay propinas registradas en este período."]);
+    detail.mergeCells(`A${empty.number}:F${empty.number}`);
+    empty.getCell(1).font = { italic: true, color: { argb: "FF7A6358" } };
+  }
 
   for (const day of report.byDay) {
     const titleText =
@@ -704,7 +729,7 @@ export async function generateTipsExcel(
 - [ ] **Step 4: Ejecutar y verificar que pasa**
 
 Run: `npx vitest run src/lib/excel/__tests__/tips-template.test.ts`
-Expected: PASS (5 tests).
+Expected: PASS (6 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -1188,6 +1213,8 @@ Estados nuevos, junto a los demás `useState`:
   // Rango con el que se cargó la lista: los reportes usan este, no lo escrito sin aplicar.
   const [appliedRange, setAppliedRange] = useState({ from: period.from, to: period.to });
   const [exporting, setExporting] = useState<"pdf" | "excel" | null>(null);
+  // Formato pendiente de confirmar cuando el rango no tiene propinas (reporte en ceros).
+  const [confirmEmptyExport, setConfirmEmptyExport] = useState<"pdf" | "excel" | null>(null);
 ```
 
 En `fetchTips`, después de `setEntries(data.entries ?? []);` añadir:
@@ -1224,20 +1251,49 @@ Nueva función, debajo de `deleteEntry`:
       setExporting(null);
     }
   }
+
+  // Si el rango aplicado no tiene propinas, se avisa y se pide confirmación
+  // antes de descargar un reporte en ceros.
+  function requestExport(format: "pdf" | "excel") {
+    if (entries.length === 0) {
+      setConfirmEmptyExport(format);
+      return;
+    }
+    downloadExport(format);
+  }
 ```
+
+Junto al `<ConfirmDialog>` existente (el de eliminar), añadir un segundo diálogo:
+
+```tsx
+      <ConfirmDialog
+        open={!!confirmEmptyExport}
+        title="No hay propinas en este período"
+        description={`No hay propinas registradas entre el ${formatDate(appliedRange.from)} y el ${formatDate(appliedRange.to)}. ¿Deseas descargar el reporte de todas formas? Todos los valores estarán en cero.`}
+        confirmLabel="Descargar de todas formas"
+        onConfirm={() => {
+          const format = confirmEmptyExport;
+          setConfirmEmptyExport(null);
+          if (format) downloadExport(format);
+        }}
+        onCancel={() => setConfirmEmptyExport(null)}
+      />
+```
+
+(`ConfirmDialog` sin `variant` usa su estilo por defecto; revisar `src/components/shared/ConfirmDialog.tsx` para confirmar que `variant` es opcional; si es obligatorio, pasar el valor no destructivo que acepte.)
 
 - [ ] **Step 4: `TipsClient.tsx` — botones**
 
 Dentro de la tarjeta de filtros, justo después del `</div>` que cierra el grid de inputs/botones (antes del `</div>` que cierra la tarjeta), añadir:
 
 ```tsx
-        {entries.length > 0 && (canExportExcel || canExportPdf) && (
+        {(canExportExcel || canExportPdf) && (
           <div className="flex flex-col sm:flex-row gap-2 pt-3 mt-3 border-t border-[#F2EDE6]">
             {canExportExcel && (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => downloadExport("excel")}
+                onClick={() => requestExport("excel")}
                 disabled={exporting !== null}
                 className="gap-1.5 border-[#6B8E6B] text-[#6B8E6B] w-full sm:w-auto justify-center"
               >
@@ -1249,7 +1305,7 @@ Dentro de la tarjeta de filtros, justo después del `</div>` que cierra el grid 
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => downloadExport("pdf")}
+                onClick={() => requestExport("pdf")}
                 disabled={exporting !== null}
                 className="gap-1.5 border-[#B94040] text-[#B94040] w-full sm:w-auto justify-center"
               >
@@ -1288,7 +1344,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 **Files:** ninguno (solo verificación; corregir en el archivo que corresponda si algo falla).
 
 - [ ] **Step 1:** Levantar el dev server con `preview_start` usando la configuración existente de `.claude/launch.json`.
-- [ ] **Step 2:** Iniciar sesión con el usuario demo SUPERADMIN del seed e ir a `/admin/tips`. Confirmar que aparecen "Exportar Excel (propinas)" y "Exportar PDF (propinas)" cuando hay registros, y que no aparecen con un rango sin registros.
+- [ ] **Step 2:** Iniciar sesión con el usuario demo SUPERADMIN del seed e ir a `/admin/tips`. Confirmar que aparecen "Exportar Excel (propinas)" y "Exportar PDF (propinas)". Filtrar un rango sin registros (p. ej. 2020-01-01 a 2020-01-15), pulsar un botón y confirmar que aparece el diálogo "No hay propinas en este período"; "Cancelar" lo cierra sin descargar y "Descargar de todas formas" pide la ruta (verificar con `read_network_requests` un 200).
 - [ ] **Step 3:** Con `javascript_tool`, pedir ambas rutas con el rango aplicado y comprobar `status 200`, `content-type` y `content-disposition` (`propinas_<from>_<to>.xlsx|pdf`); pedir `?from=2026-09-16&to=2026-09-15` y comprobar `400` con el mensaje "La fecha Desde no puede ser posterior a Hasta".
 - [ ] **Step 4:** Descargar el Excel desde la ruta (fetch → guardar en scratchpad no es posible desde el navegador; en su lugar, correr en Bash un script `npx tsx` en el scratchpad que llame a `fetchTipsReport` + `generateTipsExcel` para el mismo rango y abrir el archivo con ExcelJS para confirmar que el total de "TOTAL ASIGNADO" coincide con "Total distribuido" de la pantalla, vista "Por personal").
 - [ ] **Step 5:** Captura de pantalla de la pantalla de Propinas con los botones como prueba.
