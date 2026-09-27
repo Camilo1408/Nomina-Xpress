@@ -1271,6 +1271,7 @@ Junto al `<ConfirmDialog>` existente (el de eliminar), añadir un segundo diálo
         title="No hay propinas en este período"
         description={`No hay propinas registradas entre el ${formatDate(appliedRange.from)} y el ${formatDate(appliedRange.to)}. ¿Deseas descargar el reporte de todas formas? Todos los valores estarán en cero.`}
         confirmLabel="Descargar de todas formas"
+        variant="warning"
         onConfirm={() => {
           const format = confirmEmptyExport;
           setConfirmEmptyExport(null);
@@ -1279,9 +1280,6 @@ Junto al `<ConfirmDialog>` existente (el de eliminar), añadir un segundo diálo
         onCancel={() => setConfirmEmptyExport(null)}
       />
 ```
-
-(`ConfirmDialog` sin `variant` usa su estilo por defecto; revisar `src/components/shared/ConfirmDialog.tsx` para confirmar que `variant` es opcional; si es obligatorio, pasar el valor no destructivo que acepte.)
-
 - [ ] **Step 4: `TipsClient.tsx` — botones**
 
 Dentro de la tarjeta de filtros, justo después del `</div>` que cierra el grid de inputs/botones (antes del `</div>` que cierra la tarjeta), añadir:
