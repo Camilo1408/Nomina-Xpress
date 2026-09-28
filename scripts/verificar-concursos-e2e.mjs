@@ -342,12 +342,15 @@ for (const [m, sufijo, body] of [
   check(`Ruta ${m} .../${sufijo} registrada (responde ${r.status}, no 404)`,
     r.status !== 404 && r.status >= 400, `status=${r.status}`);
 }
+// Acotado al concurso de la prueba: la base local tiene concursos reales del
+// propietario, con sus propios bonos y cuotas, que falsearían estos recuentos.
 const bonos = await sql(
   `SELECT b.totalAmount, b.periodStart, b.periodEnd, e.name, e.payType,
           p.installment, p.periodStart pStart, p.periodEnd pEnd, p.amount pAmount, p.status pStatus
    FROM ContestBonus b JOIN Employee e ON e.id = b.employeeId
    LEFT JOIN ContestBonusPayment p ON p.contestBonusId = b.id
-   ORDER BY e.name, p.installment`);
+   WHERE b.contestId = ?
+   ORDER BY e.name, p.installment`, [contest.id]);
 console.log("\n  Bonos generados:");
 bonos.forEach(b => console.log(`    ${b.name} (${b.payType})  bono=${money(b.totalAmount)}  cuota ${b.installment}: ${money(b.pAmount)} en ${b.pStart}..${b.pEnd} [${b.pStatus}]`));
 check("Se generaron 2 bonos con 1 cuota cada uno", bonos.length === 2, `${bonos.length}`);

@@ -40,8 +40,8 @@ export async function GET(req: Request) {
   // Bonos y descuentos aplicables a los empleados del reporte para este período (quincena)
   const empRefs = employees.map((e) => ({ id: e.id, payType: e.payType }));
   const [bonusMap, discountMap] = await Promise.all([
-    resolveBonusesForEmployees(tenantId, from, empRefs),
-    resolveDiscountsForEmployees(tenantId, from, empRefs),
+    resolveBonusesForEmployees(tenantId, from, to, empRefs),
+    resolveDiscountsForEmployees(tenantId, from, to, empRefs),
   ]);
 
   // Carga en bloque (3 queries) en vez de 3 por empleado (N+1).

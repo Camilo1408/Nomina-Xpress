@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { toShiftDTO } from "@/lib/schedule-shifts";
 
 export async function GET() {
   const session = await auth();
@@ -27,5 +28,11 @@ export async function GET() {
     orderBy: { weekStart: "desc" },
   });
 
-  return NextResponse.json({ schedule });
+  if (!schedule) return NextResponse.json({ schedule: null });
+
+  // Un día de descanso guarda un centinela en sus horas; `toShiftDTO` lo
+  // convierte en null para que nunca llegue al cliente.
+  return NextResponse.json({
+    schedule: { ...schedule, shifts: schedule.shifts.map(toShiftDTO) },
+  });
 }

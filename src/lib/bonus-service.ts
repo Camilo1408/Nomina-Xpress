@@ -7,7 +7,7 @@ import {
   BonusValueType,
   bonusAppliesToEmployee,
   computeBonusApplied,
-  isFirstHalf,
+  biweeklyPeriodsInRange,
 } from "@/lib/bonuses";
 
 interface EmployeeLike {
@@ -22,19 +22,23 @@ export interface EmployeeBonuses {
 
 /**
  * Resuelve los bonos activos aplicables a un conjunto de empleados para el
- * período [from, to] (una quincena). Devuelve un mapa employeeId -> EmployeeBonuses.
+ * período [from, to]. Devuelve un mapa employeeId -> EmployeeBonuses.
  *
  * Reglas aplicadas:
  *  - Solo bonos activos.
- *  - Solo se incluye un bono en el detalle si appliedAmount > 0 en esta quincena
+ *  - Solo se incluye un bono en el detalle si appliedAmount > 0 en el rango
  *    (p. ej. un bono mensual de segunda quincena no aparece en la primera).
  *  - STANDARD usa Bonus.amount; PER_EMPLOYEE usa BonusAssignment.amount.
  *  - SPECIFIC aplica solo a empleados con asignación activa.
- *  - No se duplica: el cálculo es determinista por quincena.
+ *  - El rango se descompone en las quincenas que abarca (`biweeklyPeriodsInRange`)
+ *    y el bono se suma una vez por quincena. Para un reporte de una quincena el
+ *    resultado es idéntico al histórico; para un rango de dos meses se aplican
+ *    las cuatro quincenas, sin duplicar ninguna.
  */
 export async function resolveBonusesForEmployees(
   tenantId: string,
   from: string,
+  to: string,
   employees: EmployeeLike[]
 ): Promise<Map<string, EmployeeBonuses>> {
   const result = new Map<string, EmployeeBonuses>();
@@ -51,7 +55,7 @@ export async function resolveBonusesForEmployees(
 
   if (bonuses.length === 0) return result;
 
-  const firstHalf = isFirstHalf(from);
+  const periods = biweeklyPeriodsInRange(from, to);
 
   for (const emp of employees) {
     const applied: BonusApplied[] = [];
@@ -82,7 +86,15 @@ export async function resolveBonusesForEmployees(
 
       if (configuredAmount <= 0) continue;
 
-      const appliedAmount = computeBonusApplied(configuredAmount, frequency, monthlyMode, firstHalf);
+      // Una aplicación por cada quincena que abarque el rango consultado.
+      let appliedAmount = 0;
+      let periodsCount = 0;
+      for (const period of periods) {
+        const perPeriod = computeBonusApplied(configuredAmount, frequency, monthlyMode, period.firstHalf);
+        if (perPeriod <= 0) continue;
+        appliedAmount += perPeriod;
+        periodsCount += 1;
+      }
       if (appliedAmount <= 0) continue;
 
       applied.push({
@@ -94,6 +106,7 @@ export async function resolveBonusesForEmployees(
         valueType,
         configuredAmount: Math.round(configuredAmount),
         appliedAmount,
+        periodsCount,
       });
       total += appliedAmount;
     }

@@ -130,9 +130,14 @@ export default function AdminMyQuincenaPage() {
           {/* Total final con bonos y descuentos */}
           {(data.totalBonuses > 0 || data.totalDiscounts > 0) && (
             <Card className="shadow-[0_1px_3px_rgba(44,31,21,0.08)] border-[#6B8E6B]/40">
-              <CardContent className="flex items-center justify-between py-4">
-                <span className="text-sm font-medium text-[#7A6358]">Total estimado final</span>
-                <span className="text-xl font-bold font-mono text-[#6B8E6B]">{formatCurrency(data.netPayWithBonusesAndDiscounts)}</span>
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-[#7A6358]">Total estimado final</span>
+                  <span className="text-xl font-bold font-mono text-[#6B8E6B]">{formatCurrency(data.netPayWithBonusesAndDiscounts)}</span>
+                </div>
+                <p className="text-xs text-[#A08878] italic mt-2">
+                  Este total no incluye propinas: solo horas trabajadas, bonos y descuentos.
+                </p>
               </CardContent>
             </Card>
           )}

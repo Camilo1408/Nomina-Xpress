@@ -5,18 +5,30 @@ import { z } from "zod";
 import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
+import { buildRestDayShift, buildWorkShift } from "@/lib/schedule-shifts";
+
+const shiftSchema = z.object({
+  employeeId: z.string(),
+  date: z.string(),
+  startTime: z.string(),
+  endTime: z.string(),
+  startTime2: z.string().nullable().optional(),
+  endTime2: z.string().nullable().optional(),
+  restDay: z.boolean().optional().default(false),
+});
 
 const updateSchema = z.object({
   name: z.string().optional(),
-  shifts: z.array(z.object({
-    employeeId: z.string(),
-    date: z.string(),
-    startTime: z.string(),
-    endTime: z.string(),
-    startTime2: z.string().nullable().optional(),
-    endTime2: z.string().nullable().optional(),
-  })).optional(),
+  weekStart: z.string().optional(),
+  shifts: z.array(shiftSchema).optional(),
 });
+
+/** Igual que en la ruta de creación: el descanso se construye en el servidor. */
+function toShiftRow(s: z.infer<typeof shiftSchema>) {
+  return s.restDay
+    ? buildRestDayShift(s.employeeId, s.date)
+    : buildWorkShift(s);
+}
 
 export async function PUT(
   req: Request,
@@ -36,7 +48,7 @@ export async function PUT(
   const existing = await prisma.schedule.findFirst({ where: { id, tenantId: session.user.tenantId } });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { name, shifts } = parsed.data;
+  const { name, weekStart, shifts } = parsed.data;
   if (shifts) {
     // Validar que todos los empleados referenciados pertenezcan al tenant
     const shiftEmployeeIds = [...new Set(shifts.map((s) => s.employeeId))];
@@ -53,19 +65,14 @@ export async function PUT(
     }
     await prisma.scheduleShift.deleteMany({ where: { scheduleId: id } });
     await prisma.scheduleShift.createMany({
-      data: shifts.map((s) => ({
-        scheduleId: id,
-        employeeId: s.employeeId,
-        date: s.date,
-        startTime: s.startTime,
-        endTime: s.endTime,
-        startTime2: s.startTime2 ?? null,
-        endTime2: s.endTime2 ?? null,
-      })),
+      data: shifts.map((s) => ({ scheduleId: id, ...toShiftRow(s) })),
     });
   }
-  if (name) {
-    await prisma.schedule.update({ where: { id }, data: { name } });
+  if (name || weekStart) {
+    await prisma.schedule.update({
+      where: { id },
+      data: { ...(name ? { name } : {}), ...(weekStart ? { weekStart } : {}) },
+    });
   }
 
   await logAudit(req, session, {

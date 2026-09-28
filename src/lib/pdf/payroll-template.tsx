@@ -16,25 +16,25 @@ const styles = StyleSheet.create({
   logo: { maxWidth: 70, maxHeight: 70, objectFit: "contain" },
   section: { marginBottom: 16 },
   employeeName: { fontSize: 12, fontFamily: "Helvetica-Bold", marginBottom: 6, color: "#C1643F" },
-  table: { border: 1, borderColor: "#E0D5CA", borderRadius: 4 },
+  table: { borderWidth: 1, borderStyle: "solid", borderColor: "#E0D5CA", borderRadius: 4 },
   tableHeader: { flexDirection: "row", backgroundColor: "#F2EDE6", padding: "6 8" },
-  tableRow: { flexDirection: "row", padding: "5 8", borderTop: 1, borderColor: "#E0D5CA" },
-  tableRowAlt: { flexDirection: "row", padding: "5 8", borderTop: 1, borderColor: "#E0D5CA", backgroundColor: "#FDFAF7" },
+  tableRow: { flexDirection: "row", padding: "5 8", borderTopWidth: 1, borderTopStyle: "solid", borderTopColor: "#E0D5CA" },
+  tableRowAlt: { flexDirection: "row", padding: "5 8", borderTopWidth: 1, borderTopStyle: "solid", borderTopColor: "#E0D5CA", backgroundColor: "#FDFAF7" },
   col1: { flex: 3 },
   col2: { flex: 2, textAlign: "right" },
   col3: { flex: 2, textAlign: "right" },
   col4: { flex: 2, textAlign: "right" },
   headerText: { fontSize: 9, fontFamily: "Helvetica-Bold", color: "#7A6358" },
-  totalRow: { flexDirection: "row", padding: "6 8", borderTop: 2, borderColor: "#2C1F15", backgroundColor: "#F2EDE6" },
+  totalRow: { flexDirection: "row", padding: "6 8", borderTopWidth: 2, borderTopStyle: "solid", borderTopColor: "#2C1F15", backgroundColor: "#F2EDE6" },
   totalLabel: { flex: 5, fontFamily: "Helvetica-Bold", fontSize: 11 },
   totalValue: { flex: 2, fontFamily: "Helvetica-Bold", fontSize: 11, textAlign: "right" },
   netPay: { color: "#6B8E6B" },
-  footer: { position: "absolute", bottom: 24, left: 32, right: 32, borderTop: 1, borderColor: "#E0D5CA", paddingTop: 6 },
+  footer: { position: "absolute", bottom: 24, left: 32, right: 32, borderTopWidth: 1, borderTopStyle: "solid", borderTopColor: "#E0D5CA", paddingTop: 6 },
   footerText: { fontSize: 8, color: "#A08878", textAlign: "center" },
-  divider: { borderBottom: 1, borderColor: "#E0D5CA", marginVertical: 12 },
+  divider: { borderBottomWidth: 1, borderBottomStyle: "solid", borderBottomColor: "#E0D5CA", marginVertical: 12 },
   summaryLine: { flexDirection: "row", justifyContent: "space-between", marginBottom: 3 },
   signatureBlock: { marginTop: 10, paddingTop: 6 },
-  signatureLine: { borderBottom: 1, borderColor: "#7A6358", marginTop: 18, width: "70%" },
+  signatureLine: { borderBottomWidth: 1, borderBottomStyle: "solid", borderBottomColor: "#7A6358", marginTop: 18, width: "70%" },
   signatureLabel: { fontSize: 9, color: "#7A6358", marginTop: 4 },
 });
 
@@ -206,48 +206,51 @@ export function PayrollPDF({
           </View>
         ))}
 
-        <View style={styles.divider} />
-        <View style={[styles.summaryLine, { marginTop: 4 }]}>
-          <Text style={{ fontFamily: "Helvetica-Bold" }}>Total bruto del período</Text>
-          <Text style={{ fontFamily: "Helvetica-Bold" }}>{formatCurrency(totalGross)}</Text>
-        </View>
-        {totalBonuses > 0 && (
-          <View style={styles.summaryLine}>
-            <Text style={{ color: "#6B8E6B", fontFamily: "Helvetica-Bold" }}>Total bonos del período</Text>
-            <Text style={{ color: "#6B8E6B", fontFamily: "Helvetica-Bold" }}>{formatCurrency(totalBonuses)}</Text>
+        {/* Resumen del período: nunca partirlo entre páginas (el total quedaría separado de su etiqueta). */}
+        <View wrap={false}>
+          <View style={styles.divider} />
+          <View style={[styles.summaryLine, { marginTop: 4 }]}>
+            <Text style={{ fontFamily: "Helvetica-Bold" }}>Total bruto del período</Text>
+            <Text style={{ fontFamily: "Helvetica-Bold" }}>{formatCurrency(totalGross)}</Text>
           </View>
-        )}
-        {totalDiscounts > 0 && (
-          <View style={styles.summaryLine}>
-            <Text style={{ color: "#B94040", fontFamily: "Helvetica-Bold" }}>Total descuentos del período</Text>
-            <Text style={{ color: "#B94040", fontFamily: "Helvetica-Bold" }}>-{formatCurrency(totalDiscounts)}</Text>
-          </View>
-        )}
-        <View style={styles.summaryLine}>
-          <Text style={[{ fontFamily: "Helvetica-Bold" }, styles.netPay]}>Total final a pagar</Text>
-          <Text style={[{ fontFamily: "Helvetica-Bold", fontSize: 13 }, styles.netPay]}>{formatCurrency(totalNet)}</Text>
-        </View>
-        {(totalTips > 0 || totalContestBonus > 0) && (
-          <>
-            {totalTips > 0 && (
-              <View style={styles.summaryLine}>
-                <Text style={{ color: "#C1643F", fontSize: 9 }}>Propinas acumuladas del período (valor informativo)</Text>
-                <Text style={{ color: "#C1643F", fontSize: 9 }}>{formatCurrency(totalTips)}</Text>
-              </View>
-            )}
-            {totalContestBonus > 0 && (
-              <View style={styles.summaryLine}>
-                <Text style={{ color: "#C1643F", fontSize: 9 }}>Bonos por concurso del período (valor informativo)</Text>
-                <Text style={{ color: "#C1643F", fontSize: 9 }}>{formatCurrency(totalContestBonus)}</Text>
-              </View>
-            )}
-            <View style={[styles.summaryLine, { marginTop: 2 }]}>
-              <Text style={{ color: "#A08878", fontSize: 8, fontStyle: "italic" }}>
-                Las propinas y los bonos por concurso se muestran como valor informativo y no se suman al total final.
-              </Text>
+          {totalBonuses > 0 && (
+            <View style={styles.summaryLine}>
+              <Text style={{ color: "#6B8E6B", fontFamily: "Helvetica-Bold" }}>Total bonos del período</Text>
+              <Text style={{ color: "#6B8E6B", fontFamily: "Helvetica-Bold" }}>{formatCurrency(totalBonuses)}</Text>
             </View>
-          </>
-        )}
+          )}
+          {totalDiscounts > 0 && (
+            <View style={styles.summaryLine}>
+              <Text style={{ color: "#B94040", fontFamily: "Helvetica-Bold" }}>Total descuentos del período</Text>
+              <Text style={{ color: "#B94040", fontFamily: "Helvetica-Bold" }}>-{formatCurrency(totalDiscounts)}</Text>
+            </View>
+          )}
+          <View style={styles.summaryLine}>
+            <Text style={[{ fontFamily: "Helvetica-Bold" }, styles.netPay]}>Total final a pagar</Text>
+            <Text style={[{ fontFamily: "Helvetica-Bold", fontSize: 13 }, styles.netPay]}>{formatCurrency(totalNet)}</Text>
+          </View>
+          {(totalTips > 0 || totalContestBonus > 0) && (
+            <>
+              {totalTips > 0 && (
+                <View style={styles.summaryLine}>
+                  <Text style={{ color: "#C1643F", fontSize: 9 }}>Propinas acumuladas del período (valor informativo)</Text>
+                  <Text style={{ color: "#C1643F", fontSize: 9 }}>{formatCurrency(totalTips)}</Text>
+                </View>
+              )}
+              {totalContestBonus > 0 && (
+                <View style={styles.summaryLine}>
+                  <Text style={{ color: "#C1643F", fontSize: 9 }}>Bonos por concurso del período (valor informativo)</Text>
+                  <Text style={{ color: "#C1643F", fontSize: 9 }}>{formatCurrency(totalContestBonus)}</Text>
+                </View>
+              )}
+              <View style={[styles.summaryLine, { marginTop: 2 }]}>
+                <Text style={{ color: "#A08878", fontSize: 8, fontStyle: "italic" }}>
+                  Las propinas y los bonos por concurso se muestran como valor informativo y no se suman al total final.
+                </Text>
+              </View>
+            </>
+          )}
+        </View>
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>

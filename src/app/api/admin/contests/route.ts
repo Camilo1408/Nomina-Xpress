@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { contestInputSchema } from "@/lib/contest-validation";
-import { validateContestPercentages, summarizeItemReserves } from "@/lib/contest-service";
+import { validateContestPercentages } from "@/lib/contest-service";
 import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";

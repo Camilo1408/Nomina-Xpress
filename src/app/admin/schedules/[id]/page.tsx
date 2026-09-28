@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ScheduleGrid } from "@/components/admin/schedules/ScheduleGrid";
 import { requirePagePermission } from "@/lib/require-permission";
 import { PERMISSIONS } from "@/lib/permission-keys";
+import { addDays } from "@/lib/schedule-week";
 
 export default async function EditSchedulePage({
   params,
@@ -12,7 +13,7 @@ export default async function EditSchedulePage({
   const { session } = await requirePagePermission(PERMISSIONS.SCHEDULES_EDIT);
   const { id } = await params;
 
-  const [schedule, employees] = await Promise.all([
+  const [schedule, employees, schedules] = await Promise.all([
     prisma.schedule.findFirst({
       where: { id, tenantId: session.user.tenantId },
       include: { shifts: true },
@@ -21,6 +22,11 @@ export default async function EditSchedulePage({
       where: { tenantId: session.user.tenantId, active: true },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
+    }),
+    prisma.schedule.findMany({
+      where: { tenantId: session.user.tenantId },
+      select: { id: true, name: true, weekStart: true },
+      orderBy: { weekStart: "desc" },
     }),
   ]);
 
@@ -36,6 +42,12 @@ export default async function EditSchedulePage({
         <ScheduleGrid
           employees={employees}
           weekStart={schedule.weekStart}
+          existingRanges={schedules.map((s) => ({
+            id: s.id,
+            name: s.name,
+            start: s.weekStart,
+            end: addDays(s.weekStart, 6),
+          }))}
           existingSchedule={{
             id: schedule.id,
             name: schedule.name,

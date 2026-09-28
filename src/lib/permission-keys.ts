@@ -42,6 +42,8 @@ export const PERMISSIONS = {
   TIPS_CREATE:              "tips:create",
   TIPS_EDIT:                "tips:edit",
   TIPS_DELETE:              "tips:delete",
+  TIPS_EXPORT_PDF:          "tips:export_pdf",
+  TIPS_EXPORT_EXCEL:        "tips:export_excel",
 
   // ── Nómina y reportes ─────────────────────────────────────────────────────
   PAYROLL_VIEW:             "payroll:view",
@@ -54,6 +56,9 @@ export const PERMISSIONS = {
   PAY_ADJUSTMENTS_CREATE:   "pay_adjustments:create",
   PAY_ADJUSTMENTS_EDIT:     "pay_adjustments:edit",
   PAY_ADJUSTMENTS_DELETE:   "pay_adjustments:delete",
+  // Corregir el período (fechas) al que se imputa un ajuste ya creado.
+  // Reservado a PROPRIETARY y SUPERADMIN: mueve dinero de una quincena a otra.
+  PAY_ADJUSTMENTS_EDIT_PERIOD: "pay_adjustments:edit_period",
 
   // ── Bonos ─────────────────────────────────────────────────────────────────
   BONUSES_VIEW:             "bonuses:view",
@@ -206,6 +211,8 @@ export const BASE_ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
     PERMISSIONS.TIPS_VIEW,
     PERMISSIONS.TIPS_CREATE,
     PERMISSIONS.TIPS_EDIT,
+    PERMISSIONS.TIPS_EXPORT_PDF,
+    PERMISSIONS.TIPS_EXPORT_EXCEL,
     PERMISSIONS.PAYROLL_VIEW,
     PERMISSIONS.PAYROLL_GENERATE,
     PERMISSIONS.PAYROLL_EXPORT_PDF,
@@ -247,6 +254,8 @@ export const BASE_ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
     PERMISSIONS.TIPS_CREATE,
     PERMISSIONS.TIPS_EDIT,
     PERMISSIONS.TIPS_DELETE,
+    PERMISSIONS.TIPS_EXPORT_PDF,
+    PERMISSIONS.TIPS_EXPORT_EXCEL,
     PERMISSIONS.PAYROLL_VIEW,
     PERMISSIONS.PAYROLL_GENERATE,
     PERMISSIONS.PAYROLL_EXPORT_PDF,
@@ -255,6 +264,7 @@ export const BASE_ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
     PERMISSIONS.PAY_ADJUSTMENTS_CREATE,
     PERMISSIONS.PAY_ADJUSTMENTS_EDIT,
     PERMISSIONS.PAY_ADJUSTMENTS_DELETE,
+    PERMISSIONS.PAY_ADJUSTMENTS_EDIT_PERIOD,
     PERMISSIONS.BONUSES_VIEW,
     PERMISSIONS.BONUSES_CREATE,
     PERMISSIONS.BONUSES_EDIT,
@@ -367,6 +377,8 @@ export const PERMISSION_GROUPS: Array<{
       PERMISSIONS.TIPS_CREATE,
       PERMISSIONS.TIPS_EDIT,
       PERMISSIONS.TIPS_DELETE,
+      PERMISSIONS.TIPS_EXPORT_PDF,
+      PERMISSIONS.TIPS_EXPORT_EXCEL,
     ],
   },
   {
@@ -387,6 +399,7 @@ export const PERMISSION_GROUPS: Array<{
       PERMISSIONS.PAY_ADJUSTMENTS_CREATE,
       PERMISSIONS.PAY_ADJUSTMENTS_EDIT,
       PERMISSIONS.PAY_ADJUSTMENTS_DELETE,
+      PERMISSIONS.PAY_ADJUSTMENTS_EDIT_PERIOD,
     ],
   },
   {
@@ -499,6 +512,8 @@ export const PERMISSION_LABELS: Record<string, string> = {
   "tips:create":              "Registrar propinas",
   "tips:edit":                "Editar propinas",
   "tips:delete":              "Eliminar propinas",
+  "tips:export_pdf":          "Exportar PDF de propinas",
+  "tips:export_excel":        "Exportar Excel de propinas",
   "payroll:view":             "Ver nómina",
   "payroll:generate":         "Generar nómina",
   "payroll:export_pdf":       "Exportar PDF de nómina",
@@ -507,6 +522,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
   "pay_adjustments:create":   "Crear ajustes de pago",
   "pay_adjustments:edit":     "Editar ajustes de pago",
   "pay_adjustments:delete":   "Eliminar ajustes de pago",
+  "pay_adjustments:edit_period": "Corregir el período (fechas) de un ajuste de pago",
   "bonuses:view":             "Ver bonos",
   "bonuses:create":           "Crear bonos",
   "bonuses:edit":             "Editar bonos",

@@ -12,6 +12,8 @@ interface ExistingAdjustment {
   type: "DISCOUNT" | "BONUS";
   amount: number;
   description: string;
+  periodStart: string;
+  periodEnd: string;
 }
 
 interface AdjustmentModalProps {
@@ -22,6 +24,8 @@ interface AdjustmentModalProps {
   onClose: () => void;
   onSaved: () => void;
   editing?: ExistingAdjustment;
+  /** Habilita corregir las fechas del ajuste (PROPRIETARY / SUPERADMIN). */
+  canEditPeriod?: boolean;
 }
 
 export function AdjustmentModal({
@@ -32,12 +36,17 @@ export function AdjustmentModal({
   onClose,
   onSaved,
   editing,
+  canEditPeriod = false,
 }: AdjustmentModalProps) {
   const isEdit = !!editing;
   const [type, setType] = useState<"DISCOUNT" | "BONUS">(editing?.type ?? "DISCOUNT");
   const [amount, setAmount] = useState(editing ? String(editing.amount) : "");
   const [description, setDescription] = useState(editing?.description ?? "");
+  const [periodStart, setPeriodStart] = useState(editing?.periodStart ?? from);
+  const [periodEnd, setPeriodEnd] = useState(editing?.periodEnd ?? to);
   const [loading, setLoading] = useState(false);
+  const showPeriodFields = isEdit && canEditPeriod;
+  const periodInvalid = showPeriodFields && (!periodStart || !periodEnd || periodStart > periodEnd);
 
   function formatDisplay(raw: string): string {
     const digits = raw.replace(/\D/g, "");
@@ -55,6 +64,10 @@ export function AdjustmentModal({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!amountNum || amountNum < 1) return;
+    if (periodInvalid) {
+      toast.error("La fecha de inicio no puede ser posterior a la fecha final");
+      return;
+    }
     setLoading(true);
 
     let res: Response;
@@ -62,7 +75,12 @@ export function AdjustmentModal({
       res = await fetch(`/api/admin/pay-adjustments/${editing!.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, amount: amountNum, description }),
+        body: JSON.stringify({
+          type,
+          amount: amountNum,
+          description,
+          ...(showPeriodFields ? { periodStart, periodEnd } : {}),
+        }),
       });
     } else {
       res = await fetch("/api/admin/pay-adjustments", {
@@ -77,7 +95,15 @@ export function AdjustmentModal({
       toast.success(isEdit ? "Ajuste actualizado" : "Ajuste guardado");
       onSaved();
     } else {
-      toast.error(isEdit ? "Error al actualizar ajuste" : "Error al guardar ajuste");
+      const fallback = isEdit ? "Error al actualizar ajuste" : "Error al guardar ajuste";
+      let message = fallback;
+      try {
+        const body = await res.json();
+        if (typeof body?.error === "string") message = body.error;
+      } catch {
+        // respuesta sin cuerpo JSON: se queda el mensaje genérico
+      }
+      toast.error(message);
     }
   }
 
@@ -134,8 +160,43 @@ export function AdjustmentModal({
               placeholder="Ej: Descuento por inasistencia"
             />
           </div>
+          {showPeriodFields && (
+            <div className="space-y-1.5 rounded-md border border-[#E0D5CA] bg-[#F2EDE6]/50 p-3">
+              <Label>Período al que se imputa</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <span className="text-xs text-[#7A6358]">Desde</span>
+                  <Input
+                    type="date"
+                    value={periodStart}
+                    onChange={(e) => setPeriodStart(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <span className="text-xs text-[#7A6358]">Hasta</span>
+                  <Input
+                    type="date"
+                    value={periodEnd}
+                    onChange={(e) => setPeriodEnd(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+              {periodInvalid ? (
+                <p className="text-xs text-[#B94040]">
+                  La fecha de inicio no puede ser posterior a la fecha final.
+                </p>
+              ) : (
+                <p className="text-xs text-[#7A6358]">
+                  El ajuste se cuenta en el reporte cuya fecha de inicio quede dentro del rango
+                  consultado. Corrígelo si quedó en la quincena equivocada.
+                </p>
+              )}
+            </div>
+          )}
           <div className="flex gap-3 pt-2">
-            <Button type="submit" disabled={loading} className="flex-1 bg-[#C1643F] hover:bg-[#A8522F] text-white">
+            <Button type="submit" disabled={loading || periodInvalid} className="flex-1 bg-[#C1643F] hover:bg-[#A8522F] text-white">
               {loading ? "Guardando..." : isEdit ? "Actualizar ajuste" : "Guardar ajuste"}
             </Button>
             <Button type="button" variant="outline" onClick={onClose} className="border-[#E0D5CA]">

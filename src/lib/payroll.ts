@@ -8,7 +8,16 @@ export interface PayrollResult {
   hourlyRateNormal: number;
   hourlyRateSpecial: number;
   grossPay: number;
-  adjustments: { id: string; type: string; amount: number; description: string }[];
+  adjustments: {
+    id: string;
+    type: string;
+    amount: number;
+    description: string;
+    // Rango al que se imputó el ajuste. Se expone para poder corregirlo desde la
+    // UI cuando quedó desalineado con la quincena.
+    periodStart: string;
+    periodEnd: string;
+  }[];
   totalAdjustments: number;
   netPay: number;
   entries: TimeEntry[];
@@ -50,6 +59,8 @@ export function calculatePayroll(
     type: a.type,
     amount: Number(a.amount),
     description: a.description,
+    periodStart: a.periodStart,
+    periodEnd: a.periodEnd,
   }));
 
   const totalAdjustments = adjustmentDetails.reduce(

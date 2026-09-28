@@ -23,6 +23,8 @@ export default async function TipsPage() {
         canCreate={permissions.has(PERMISSIONS.TIPS_CREATE)}
         canEdit={permissions.has(PERMISSIONS.TIPS_EDIT)}
         canDelete={permissions.has(PERMISSIONS.TIPS_DELETE)}
+        canExportPdf={permissions.has(PERMISSIONS.TIPS_EXPORT_PDF)}
+        canExportExcel={permissions.has(PERMISSIONS.TIPS_EXPORT_EXCEL)}
       />
     </div>
   );

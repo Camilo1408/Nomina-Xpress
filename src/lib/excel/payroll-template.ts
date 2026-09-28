@@ -153,7 +153,7 @@ export async function generatePayrollExcel(
   });
 
   // Nota informativa sobre propinas
-  const noteRow = summary.addRow(["* Las propinas y los bonos por concurso se muestran como valor informativo y NO se suman al Total Final.", "", "", "", "", "", "", "", "", "", ""]);
+  const noteRow = summary.addRow(["* Las propinas y los bonos por concurso se muestran como valor informativo y no se suman al Total Final.", "", "", "", "", "", "", "", "", "", ""]);
   summary.mergeCells(`A${noteRow.number}:K${noteRow.number}`);
   noteRow.getCell(1).font = { italic: true, color: { argb: "FF7A6358" }, size: 9 };
   noteRow.getCell(1).alignment = { horizontal: "left", vertical: "middle" };

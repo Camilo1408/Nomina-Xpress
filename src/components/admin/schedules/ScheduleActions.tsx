@@ -28,7 +28,17 @@ export function ScheduleActions({
     const res = await fetch(`/api/admin/schedules/${scheduleId}/publish`, { method: "POST" });
     if (res.ok) {
       const data = await res.json();
-      toast.success(data.published ? "Horario publicado" : "Horario despublicado");
+      const desplazados: string[] = data.unpublished ?? [];
+      toast.success(
+        data.published ? "Horario publicado" : "Horario despublicado",
+        desplazados.length > 0
+          ? {
+              description: `Se despublicó ${desplazados
+                .map((n) => `«${n}»`)
+                .join(", ")} para que solo haya un horario vigente.`,
+            }
+          : undefined
+      );
       router.refresh();
     }
   }
