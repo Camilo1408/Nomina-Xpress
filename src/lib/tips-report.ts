@@ -1,6 +1,8 @@
 // Agregación del reporte de propinas. Función pura (sin Prisma) para que la
 // pantalla de Propinas y los reportes PDF/Excel usen exactamente los mismos números.
 
+import { z } from "zod";
+
 export interface TipDistributionInput {
   employeeId: string;
   hoursWorked: number;
@@ -114,17 +116,39 @@ export function aggregateTipsReport(entries: TipEntryInput[]): TipsReport {
   return { totals, byEmployee: aggregateByEmployee(entries), byDay };
 }
 
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
 export function parseTipsReportRange(
   params: URLSearchParams
 ): { ok: true; from: string; to: string } | { ok: false; error: string } {
   const from = params.get("from");
   const to = params.get("to");
-  if (!from || !to) return { ok: false, error: "Debes indicar las fechas Desde y Hasta" };
-  if (!DATE_RE.test(from) || !DATE_RE.test(to)) {
-    return { ok: false, error: "Formato de fecha inválido (usa AAAA-MM-DD)" };
+
+  // First check: missing dates
+  if (!from || !to) {
+    return { ok: false, error: "Debes indicar las fechas Desde y Hasta" };
   }
-  if (from > to) return { ok: false, error: "La fecha Desde no puede ser posterior a Hasta" };
+
+  // Zod schema for date format and comparison
+  const schema = z
+    .object({
+      from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    })
+    .refine(({ from, to }) => from <= to, {
+      message: "comparison_failed",
+    });
+
+  const result = schema.safeParse({ from, to });
+
+  if (!result.success) {
+    // Distinguish between format error and comparison error
+    const hasComparisonError = result.error.issues.some((issue) => issue.code === "custom");
+
+    if (hasComparisonError) {
+      return { ok: false, error: "La fecha Desde no puede ser posterior a Hasta" };
+    } else {
+      return { ok: false, error: "Formato de fecha inválido (usa AAAA-MM-DD)" };
+    }
+  }
+
   return { ok: true, from, to };
 }
