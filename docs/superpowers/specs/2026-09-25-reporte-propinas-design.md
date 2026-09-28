@@ -48,7 +48,7 @@ Plantillas propias para propinas (no se extienden las de nómina): mismo estilo 
 - **"Asignación"**: logo, nombre del restaurante, "Reporte de Propinas", período; bloque de
   totales (Total propinas brutas / Provisión menaje (10%) / Total distribuido); tabla
   `Personal · Horas trabajadas · % Asignación · Total recibido · Firma del personal`
-  y fila final "Total distribuido".
+  y fila final "TOTAL ASIGNADO" (suma asignada al personal).
 - **"Detalle por día"**: por cada día, fila de título con fecha, bruto, menaje y distribuido
   (y notas si hay); debajo `Personal · Horas · % Prop. · Hs. ef. · Prop./h · Propina`.
   Día sin reparto: fila "Sin horas registradas ese día — no se distribuyó".
@@ -82,7 +82,7 @@ archivo, registra `logAudit` como las exportaciones de nómina, y responde con
 
 - La página pasa `canExportPdf` / `canExportExcel`.
 - Botones "Exportar Excel" (verde `#6B8E6B`) y "Exportar PDF" (rojo `#B94040`) en la barra de
-  filtros, visibles solo si hay registros y el usuario tiene el permiso.
+  filtros, visibles siempre que el usuario tenga el permiso; si el rango aplicado no tiene propinas, se muestra un aviso de confirmación y, si acepta, se descarga el reporte en ceros.
 - Usan el rango **aplicado** (el del último "Filtrar" / carga inicial), guardado en un estado
   `appliedRange`, no lo que esté escrito sin aplicar.
 - Descarga vía `fetch` + blob (como `ReportsClient.downloadExport`); error → `toast.error`.

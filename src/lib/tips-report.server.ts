@@ -1,3 +1,5 @@
+import "server-only";
+
 // Solo servidor: carga las propinas del rango desde Prisma y las agrega.
 // Mismo filtro de fechas que GET /api/admin/tips.
 import { prisma } from "@/lib/db";
