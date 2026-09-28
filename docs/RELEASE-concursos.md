@@ -3,9 +3,10 @@
 Checklist de despliegue para la rama `feat/concursos`.
 Reglas generales en [DESPLIEGUES.md](../DESPLIEGUES.md).
 
-> **Estado: preparada, sin subir.** La rama existe solo en local; no está en
-> `origin`. El push, el merge y la promoción a producción quedan a cargo del
-> colaborador que firme el release (ver [Traspaso](#traspaso)).
+> **Estado: rama subida, pendiente de release.** `feat/concursos` está en
+> `origin`, al día con `main` y verificada en local. El merge a `main`, las
+> migraciones y la promoción a producción quedan a cargo de **@JulianDM22**
+> (ver [Traspaso](#traspaso)).
 
 ## Qué entra
 
@@ -157,18 +158,33 @@ restaurar el backup.
 
 ## Traspaso
 
-El trabajo está preparado pero **sin subir a `origin`**. Queda pendiente para
-quien firme el release:
+La rama ya está en `origin`. A partir de aquí lo toma **@JulianDM22** (acceso de
+escritura confirmado):
 
-- [ ] `git push -u origin feat/concursos`
-- [ ] Revisar el diff, en especial el merge `7b0aa4f` (reconciliación del
-      cálculo de nómina entre esta rama y `main`)
-- [ ] Correr la verificación por su cuenta: `npx vitest run`,
-      `node scripts/verificar-concursos-e2e.mjs`, `node scripts/e2e-concursos.mjs`
-- [ ] Ejecutar los pasos 2 a 10 de arriba
-- [ ] Firmar el commit de merge a `main` con su propia identidad de git
+```bash
+git fetch origin
+git checkout feat/concursos
+npm install
+```
 
-Para que sus aportes queden registrados a su nombre, tiene que trabajar con su
-propia cuenta de GitHub y su propio `user.name` / `user.email` en git. A día de
-hoy el repositorio tiene un único colaborador, así que habrá que darle acceso en
-`github.com/Camilo1408/Nomina-Xpress` antes de que pueda hacer push.
+- [ ] Revisar el diff contra `main`, en especial el merge `7b0aa4f`: es donde se
+      reconcilió el cálculo de nómina entre esta rama y los cambios que `main`
+      recibió mientras tanto. Es el punto con más riesgo de todo el release.
+- [ ] Correr la verificación por su cuenta, sin fiarse de la de aquí:
+      ```bash
+      npx tsc --noEmit
+      npm run build
+      npx vitest run                              # 423 esperados
+      npm run dev                                 # en otra terminal
+      node scripts/verificar-concursos-e2e.mjs    # 72/72 esperados
+      node scripts/e2e-concursos.mjs              # 77/77 esperados
+      ```
+- [ ] Probar a mano el flujo completo en `/admin/contests`: crear, activar,
+      registrar resultados, adjudicar, pagar una cuota. Comprobar que el PDF de
+      nómina sigue mostrando el total **sin** propinas ni bono.
+- [ ] Ejecutar los pasos 2 a 10 de [Pasos](#pasos).
+- [ ] Firmar el merge a `main` con su propia identidad de git.
+
+Su trabajo queda a su nombre porque lo hace con su cuenta: los commits de
+preparación de esta rama son de `Camilo1408`, y el merge, las migraciones y la
+promoción serán suyos.
