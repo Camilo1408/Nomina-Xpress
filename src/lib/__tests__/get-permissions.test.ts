@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { hasAdminAreaAccess } from "../get-permissions";
-import { PERMISSIONS, BASE_ROLE_PERMISSIONS } from "../permission-keys";
+import { PERMISSIONS, BASE_ROLE_PERMISSIONS, PERMISSION_LABELS } from "../permission-keys";
 
 describe("hasAdminAreaAccess", () => {
   it("empleado base (sin permisos) NO tiene acceso al área admin", () => {
@@ -57,5 +57,23 @@ describe("hasAdminAreaAccess", () => {
       PERMISSIONS.TIME_ENTRIES_VIEW,
     ]);
     expect(hasAdminAreaAccess(perms)).toBe(true);
+  });
+});
+
+describe("permisos de exportación de propinas", () => {
+  it("ADMIN y SUPERADMIN pueden exportar propinas por defecto", () => {
+    for (const role of ["ADMIN", "SUPERADMIN"]) {
+      expect(BASE_ROLE_PERMISSIONS[role]).toContain(PERMISSIONS.TIPS_EXPORT_PDF);
+      expect(BASE_ROLE_PERMISSIONS[role]).toContain(PERMISSIONS.TIPS_EXPORT_EXCEL);
+    }
+  });
+
+  it("EMPLOYEE no puede exportar propinas", () => {
+    expect(BASE_ROLE_PERMISSIONS.EMPLOYEE).not.toContain(PERMISSIONS.TIPS_EXPORT_PDF);
+  });
+
+  it("tienen etiqueta en español", () => {
+    expect(PERMISSION_LABELS["tips:export_pdf"]).toBe("Exportar PDF de propinas");
+    expect(PERMISSION_LABELS["tips:export_excel"]).toBe("Exportar Excel de propinas");
   });
 });

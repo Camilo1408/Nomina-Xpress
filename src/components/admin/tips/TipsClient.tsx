@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate, getCurrentBiweeklyPeriod } from "@/lib/utils";
-import { Plus, Pencil, Trash2, ChevronDown, ChevronRight, SlidersHorizontal, CalendarDays, Users } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronDown, ChevronRight, SlidersHorizontal, CalendarDays, Users, FileSpreadsheet, FileDown } from "lucide-react";
 import { toast } from "sonner";
 import { TipEntryModal } from "./TipEntryModal";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { aggregateTipsReport } from "@/lib/tips-report";
 
 interface Distribution {
   id: string;
@@ -36,49 +37,11 @@ interface TipsClientProps {
   canCreate: boolean;
   canEdit: boolean;
   canDelete: boolean;
+  canExportPdf: boolean;
+  canExportExcel: boolean;
 }
 
-interface EmployeeSummary {
-  employeeId: string;
-  employeeName: string;
-  totalHours: number;
-  avgTipPercent: number;
-  totalAmount: number;
-}
-
-function aggregateByEmployee(entries: TipEntry[]): EmployeeSummary[] {
-  const map = new Map<string, { name: string; hours: number; weightedPct: number; amount: number }>();
-
-  for (const entry of entries) {
-    for (const d of entry.distributions) {
-      const existing = map.get(d.employeeId);
-      if (existing) {
-        existing.hours += d.hoursWorked;
-        existing.weightedPct += d.tipPercent * d.hoursWorked;
-        existing.amount += d.amount;
-      } else {
-        map.set(d.employeeId, {
-          name: d.employee.name,
-          hours: d.hoursWorked,
-          weightedPct: d.tipPercent * d.hoursWorked,
-          amount: d.amount,
-        });
-      }
-    }
-  }
-
-  return Array.from(map.entries())
-    .map(([employeeId, v]) => ({
-      employeeId,
-      employeeName: v.name,
-      totalHours: Math.round(v.hours * 100) / 100,
-      avgTipPercent: v.hours > 0 ? Math.round(v.weightedPct / v.hours) : 0,
-      totalAmount: Math.round(v.amount),
-    }))
-    .sort((a, b) => b.totalAmount - a.totalAmount);
-}
-
-export function TipsClient({ canCreate, canEdit, canDelete }: TipsClientProps) {
+export function TipsClient({ canCreate, canEdit, canDelete, canExportPdf, canExportExcel }: TipsClientProps) {
   const period = getCurrentBiweeklyPeriod();
   const [from, setFrom] = useState(period.from);
   const [to, setTo] = useState(period.to);
@@ -89,6 +52,11 @@ export function TipsClient({ canCreate, canEdit, canDelete }: TipsClientProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [confirmEntry, setConfirmEntry] = useState<{ id: string; date: string } | null>(null);
   const [view, setView] = useState<"day" | "employee">("day");
+  // Rango con el que se cargó la lista: los reportes usan este, no lo escrito sin aplicar.
+  const [appliedRange, setAppliedRange] = useState({ from: period.from, to: period.to });
+  const [exporting, setExporting] = useState<"pdf" | "excel" | null>(null);
+  // Formato pendiente de confirmar cuando el rango no tiene propinas (reporte en ceros).
+  const [confirmEmptyExport, setConfirmEmptyExport] = useState<"pdf" | "excel" | null>(null);
 
   const fetchTips = useCallback(async (f = from, t = to) => {
     setLoading(true);
@@ -96,6 +64,7 @@ export function TipsClient({ canCreate, canEdit, canDelete }: TipsClientProps) {
       const res = await fetch(`/api/admin/tips?from=${f}&to=${t}`);
       const data = await res.json();
       setEntries(data.entries ?? []);
+      setAppliedRange({ from: f, to: t });
     } catch {
       toast.error("Error al cargar propinas");
     } finally {
@@ -121,10 +90,46 @@ export function TipsClient({ canCreate, canEdit, canDelete }: TipsClientProps) {
     }
   }
 
+  async function downloadExport(format: "pdf" | "excel") {
+    setExporting(format);
+    try {
+      const params = new URLSearchParams(appliedRange);
+      const res = await fetch(`/api/admin/tips/export/${format}?${params}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        toast.error(data?.error ?? "No se pudo generar el reporte");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `propinas_${appliedRange.from}_${appliedRange.to}.${format === "pdf" ? "pdf" : "xlsx"}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("No se pudo generar el reporte");
+    } finally {
+      setExporting(null);
+    }
+  }
+
+  // Si el rango aplicado no tiene propinas, se avisa y se pide confirmación
+  // antes de descargar un reporte en ceros.
+  function requestExport(format: "pdf" | "excel") {
+    if (entries.length === 0) {
+      setConfirmEmptyExport(format);
+      return;
+    }
+    downloadExport(format);
+  }
+
   const totalTips = entries.reduce((s, e) => s + e.totalAmount, 0);
   const totalNet = entries.reduce((s, e) => s + e.netAmount, 0);
   const totalMenaje = entries.reduce((s, e) => s + e.menaje, 0);
-  const employeeSummaries = aggregateByEmployee(entries);
+  const employeeSummaries = aggregateTipsReport(entries).byEmployee;
 
   return (
     <div className="space-y-5">
@@ -167,6 +172,34 @@ export function TipsClient({ canCreate, canEdit, canDelete }: TipsClientProps) {
             </Button>
           )}
         </div>
+        {(canExportExcel || canExportPdf) && (
+          <div className="flex flex-col sm:flex-row gap-2 pt-3 mt-3 border-t border-[#F2EDE6]">
+            {canExportExcel && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => requestExport("excel")}
+                disabled={exporting !== null}
+                className="gap-1.5 border-[#6B8E6B] text-[#6B8E6B] w-full sm:w-auto justify-center"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                {exporting === "excel" ? "Generando..." : "Exportar Excel (propinas)"}
+              </Button>
+            )}
+            {canExportPdf && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => requestExport("pdf")}
+                disabled={exporting !== null}
+                className="gap-1.5 border-[#B94040] text-[#B94040] w-full sm:w-auto justify-center"
+              >
+                <FileDown className="w-4 h-4" />
+                {exporting === "pdf" ? "Generando..." : "Exportar PDF (propinas)"}
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Summary cards — siempre visibles */}
@@ -381,6 +414,20 @@ export function TipsClient({ canCreate, canEdit, canDelete }: TipsClientProps) {
         variant="danger"
         onConfirm={deleteEntry}
         onCancel={() => setConfirmEntry(null)}
+      />
+
+      <ConfirmDialog
+        open={!!confirmEmptyExport}
+        title="No hay propinas en este período"
+        description={`No hay propinas registradas entre el ${formatDate(appliedRange.from)} y el ${formatDate(appliedRange.to)}. ¿Deseas descargar el reporte de todas formas? Todos los valores estarán en cero.`}
+        confirmLabel="Descargar de todas formas"
+        variant="warning"
+        onConfirm={() => {
+          const format = confirmEmptyExport;
+          setConfirmEmptyExport(null);
+          if (format) downloadExport(format);
+        }}
+        onCancel={() => setConfirmEmptyExport(null)}
       />
 
       {showModal && (
