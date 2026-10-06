@@ -28,16 +28,25 @@ export default function PortalReportPage() {
     entries: { id: string; date: string; checkIn: string; checkOut: string | null; isSpecial: boolean; notes: string | null }[];
   } | null>(null);
   const [tips, setTips] = useState<{ totalTips: number; distributions: { amount: number; tipEntry: { date: string } }[] } | null>(null);
+  const [contestBonuses, setContestBonuses] = useState<{
+    totalContestBonus: number;
+    bonuses: {
+      id: string; contestName: string; itemName: string; goal: string;
+      installment: number; totalInstallments: number; amount: number; status: string;
+    }[];
+  } | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function fetchReport(f: string, t: string) {
     setLoading(true);
-    const [reportRes, tipsRes] = await Promise.all([
+    const [reportRes, tipsRes, contestRes] = await Promise.all([
       fetch(`/api/employee/report?from=${f}&to=${t}`),
       fetch(`/api/employee/tips?from=${f}&to=${t}`),
+      fetch(`/api/employee/contest-bonuses?from=${f}&to=${t}`),
     ]);
     if (reportRes.ok) setData(await reportRes.json());
     if (tipsRes.ok) setTips(await tipsRes.json());
+    if (contestRes.ok) setContestBonuses(await contestRes.json());
     setLoading(false);
   }
 
@@ -162,6 +171,42 @@ export default function PortalReportPage() {
             </div>
           )}
 
+          {/* Bonos por concurso — informativos, igual que las propinas:
+              NO forman parte del pago de nómina de la quincena. */}
+          {contestBonuses !== null && contestBonuses.bonuses.length > 0 && (
+            <div className="bg-white rounded-lg border border-[#E0D5CA] overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 bg-[#FFF8F4] border-b border-[#E0D5CA]">
+                <h3 className="text-sm font-semibold text-[#2C1F15]">
+                  Bono por concurso — quincena actual
+                </h3>
+                <span className="text-lg font-bold font-mono text-[#C1643F]">
+                  {formatCurrency(contestBonuses.totalContestBonus)}
+                </span>
+              </div>
+              <div className="divide-y divide-[#E0D5CA]">
+                {contestBonuses.bonuses.map((b) => (
+                  <div key={b.id} className="flex items-start justify-between px-4 py-2.5 gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm text-[#2C1F15]">
+                        {b.contestName} · {b.itemName}
+                      </p>
+                      <p className="text-xs text-[#7A6358] mt-0.5">
+                        Meta: {b.goal}
+                        {b.totalInstallments > 1 && ` · cuota ${b.installment} de ${b.totalInstallments}`}
+                        {b.status === "PENDIENTE" && " · pendiente de pago"}
+                      </p>
+                    </div>
+                    <span className="font-mono text-[#C1643F] shrink-0">{formatCurrency(b.amount)}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="px-4 py-2 text-xs text-[#A08878] italic bg-[#FAF7F2]">
+                Las propinas y los bonos por concurso son valores informativos y no se suman al
+                total de nómina.
+              </p>
+            </div>
+          )}
+
           {/* Total final con bonos y descuentos */}
           {(data.totalBonuses > 0 || data.totalDiscounts > 0) && (
             <Card className="shadow-[0_1px_3px_rgba(44,31,21,0.08)] border-[#6B8E6B]/40">
@@ -171,7 +216,8 @@ export default function PortalReportPage() {
                   <span className="text-xl font-bold font-mono text-[#6B8E6B]">{formatCurrency(data.netPayWithBonusesAndDiscounts)}</span>
                 </div>
                 <p className="text-xs text-[#A08878] italic mt-2">
-                  Este total no incluye propinas: solo horas trabajadas, bonos y descuentos.
+                  Este total no incluye propinas ni bonos por concurso: solo horas trabajadas,
+                  bonos y descuentos.
                 </p>
               </CardContent>
             </Card>

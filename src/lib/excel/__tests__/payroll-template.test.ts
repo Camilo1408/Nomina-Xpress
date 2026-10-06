@@ -32,6 +32,12 @@ const EMPLEADO: PayrollWithExtras = {
   ],
   totalDiscounts: 28_470,
   finalPay: 1_257_225,
+  // Los bonos de concurso siguen la misma regla que las propinas: informativos,
+  // fuera del Total Final. Aquí van vacíos para que la prueba siga midiendo solo
+  // lo que le compete —que las propinas no se sumen— sin otra variable de por medio.
+  contestBonuses: [],
+  totalContestBonus: 0,
+  totalInformativeReceived: 1_257_225 + 298_443,
 };
 
 async function buildSheet() {
@@ -55,18 +61,21 @@ describe("Excel de nómina — columna Total Final", () => {
     const ajustes = row.getCell(5).value as number;
     const neto = row.getCell(6).value as number;
     const propinas = row.getCell(7).value as number;
-    const bonos = row.getCell(8).value as number;
-    const descuentos = row.getCell(9).value as number;
-    const total = row.getCell(10).value as number;
+    const bonoConcurso = row.getCell(8).value as number;
+    const bonos = row.getCell(9).value as number;
+    const descuentos = row.getCell(10).value as number;
+    const total = row.getCell(11).value as number;
 
     expect(bruto).toBe(908_120);
     expect(ajustes).toBe(-17_225);
     expect(neto).toBe(bruto + ajustes);
     expect(propinas).toBe(298_443);
+    expect(bonoConcurso).toBe(0);
     expect(total).toBe(neto + bonos - descuentos);
     expect(total).toBe(1_257_225);
-    // La comprobación que importa: el total NO incluye las propinas.
+    // La comprobación que importa: el total NO incluye propinas ni bonos de concurso.
     expect(total).not.toBe(neto + propinas + bonos - descuentos);
+    expect(total).not.toBe(neto + propinas + bonoConcurso + bonos - descuentos);
   });
 
   it("la nota al pie sigue siendo cierta", async () => {
@@ -79,7 +88,7 @@ describe("Excel de nómina — columna Total Final", () => {
     const sheet = await buildSheet();
     const rows = sheet.getRows(1, sheet.rowCount)!;
     const totalRow = rows.find((r) => r.getCell(1).value === "TOTAL")!;
-    expect(totalRow.getCell(10).value).toBe(1_257_225);
+    expect(totalRow.getCell(11).value).toBe(1_257_225);
     expect(totalRow.getCell(4).value).toBe(908_120);
     expect(totalRow.getCell(6).value).toBe(890_895);
   });

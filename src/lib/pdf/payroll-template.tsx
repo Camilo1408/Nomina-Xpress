@@ -70,6 +70,7 @@ export function PayrollPDF({
 }: PayrollPDFProps) {
   const totalGross = employees.reduce((s, e) => s + e.grossPay, 0);
   const totalTips = employees.reduce((s, e) => s + e.totalTips, 0);
+  const totalContestBonus = employees.reduce((s, e) => s + e.totalContestBonus, 0);
   const totalBonuses = employees.reduce((s, e) => s + e.totalBonuses, 0);
   const totalDiscounts = employees.reduce((s, e) => s + e.totalDiscounts, 0);
   const totalNet = employees.reduce((s, e) => s + e.finalPay, 0);
@@ -169,6 +170,32 @@ export function PayrollPDF({
                   <Text style={[styles.col4, { color: "#C1643F", fontSize: 9 }]}>{formatCurrency(emp.totalTips)}</Text>
                 </View>
               )}
+              {/* Bonos de concurso: mismo tratamiento informativo que las propinas.
+                  Nunca entran en TOTAL FINAL A PAGAR. */}
+              {emp.contestBonuses.map((cb) => (
+                <View key={cb.paymentId} style={[styles.tableRow, { backgroundColor: "#FFF8F4" }]}>
+                  <Text style={[styles.col1, { color: "#7A6358", fontSize: 9 }]}>
+                    Bono concurso: {cb.contestName} · {cb.itemName}
+                    {cb.totalInstallments > 1 ? ` (cuota ${cb.installment} de ${cb.totalInstallments})` : ""}
+                    {cb.status === "PENDIENTE" ? " — pendiente de pago" : ""}
+                  </Text>
+                  <Text style={styles.col2}></Text>
+                  <Text style={styles.col3}></Text>
+                  <Text style={[styles.col4, { color: "#C1643F", fontSize: 9 }]}>{formatCurrency(cb.amount)}</Text>
+                </View>
+              ))}
+              {(emp.totalTips > 0 || emp.totalContestBonus > 0) && (
+                <View style={[styles.tableRow, { backgroundColor: "#FFF8F4" }]}>
+                  <Text style={[styles.col1, { color: "#7A6358", fontSize: 9, fontFamily: "Helvetica-Bold" }]}>
+                    Total informativo recibido
+                  </Text>
+                  <Text style={styles.col2}></Text>
+                  <Text style={styles.col3}></Text>
+                  <Text style={[styles.col4, { color: "#C1643F", fontSize: 9, fontFamily: "Helvetica-Bold" }]}>
+                    {formatCurrency(emp.totalInformativeReceived)}
+                  </Text>
+                </View>
+              )}
             </View>
             <View style={styles.signatureBlock}>
               <View style={styles.signatureLine} />
@@ -202,15 +229,23 @@ export function PayrollPDF({
             <Text style={[{ fontFamily: "Helvetica-Bold" }, styles.netPay]}>Total final a pagar</Text>
             <Text style={[{ fontFamily: "Helvetica-Bold", fontSize: 13 }, styles.netPay]}>{formatCurrency(totalNet)}</Text>
           </View>
-          {totalTips > 0 && (
+          {(totalTips > 0 || totalContestBonus > 0) && (
             <>
-              <View style={styles.summaryLine}>
-                <Text style={{ color: "#C1643F", fontSize: 9 }}>Propinas acumuladas del período (valor informativo)</Text>
-                <Text style={{ color: "#C1643F", fontSize: 9 }}>{formatCurrency(totalTips)}</Text>
-              </View>
+              {totalTips > 0 && (
+                <View style={styles.summaryLine}>
+                  <Text style={{ color: "#C1643F", fontSize: 9 }}>Propinas acumuladas del período (valor informativo)</Text>
+                  <Text style={{ color: "#C1643F", fontSize: 9 }}>{formatCurrency(totalTips)}</Text>
+                </View>
+              )}
+              {totalContestBonus > 0 && (
+                <View style={styles.summaryLine}>
+                  <Text style={{ color: "#C1643F", fontSize: 9 }}>Bonos por concurso del período (valor informativo)</Text>
+                  <Text style={{ color: "#C1643F", fontSize: 9 }}>{formatCurrency(totalContestBonus)}</Text>
+                </View>
+              )}
               <View style={[styles.summaryLine, { marginTop: 2 }]}>
                 <Text style={{ color: "#A08878", fontSize: 8, fontStyle: "italic" }}>
-                  Las propinas se muestran como valor informativo y no se suman al total final.
+                  Las propinas y los bonos por concurso se muestran como valor informativo y no se suman al total final.
                 </Text>
               </View>
             </>

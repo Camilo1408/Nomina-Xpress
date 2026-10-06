@@ -32,6 +32,12 @@ model Tenant {
   userPermissions      UserPermission[]
   inventoryCategories  InventoryCategory[]
   holidays             Holiday[]
+  contests             Contest[]
+  contestItems         ContestItem[]
+  contestItemResults   ContestItemResult[]
+  contestTipReserves   ContestTipReserve[]
+  contestBonuses       ContestBonus[]
+  contestBonusPayments ContestBonusPayment[]
 }
 
 model User {
@@ -81,6 +87,8 @@ model Employee {
   tipDistributions TipDistribution[]
   bonusAssignments BonusAssignment[]
   discountAssignments DiscountAssignment[]
+  contestItemResults  ContestItemResult[]
+  contestBonuses      ContestBonus[]
 
   @@index([tenantId])
 }
@@ -180,10 +188,17 @@ model TipEntry {
   periodStart String
   periodEnd   String
   notes       String?
+  // Suma de las reservas de concurso RESERVADAS de este día.
+  // Invariante del módulo de concursos:
+  //   totalAmount = menaje + contestReserved + netAmount
+  // Las filas anteriores al módulo quedan en 0, por lo que su netAmount
+  // sigue siendo exactamente totalAmount − menaje (histórico intacto).
+  contestReserved Float @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  distributions TipDistribution[]
+  distributions   TipDistribution[]
+  contestReserves ContestTipReserve[]
 
   @@unique([tenantId, date])
   @@index([tenantId])
@@ -422,4 +437,228 @@ model Holiday {
 
   @@unique([tenantId, year, month, day])
   @@index([tenantId])
+}
+
+// ─── Concursos e incentivos ───────────────────────────────────────────────────
+// Concursos internos que premian a empleados por cumplir una meta. El premio NO
+// lo asume la empresa: se financia descontando un porcentaje ADICIONAL del fondo
+// bruto de propinas de los días del rango del concurso, encima del menaje del 10%.
+//
+// Invariante financiera, por día:
+//   TipEntry.totalAmount = menaje + Σ(ContestTipReserve.amount) + netAmount
+// El netAmount se obtiene por RESTA, nunca por porcentaje, para que la suma de
+// las partes sea siempre exacta al peso independientemente del redondeo.
+//
+// Diseño completo en docs/superpowers/specs/2026-08-12-concursos-incentivos-design.md
+
+model Contest {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  // Rango inclusive, formato YYYY-MM-DD (igual que TimeEntry.date y TipEntry.date)
+  startDate   String
+  endDate     String
+  // BORRADOR | PROGRAMADO | ACTIVO | FINALIZADO | PAGADO | CANCELADO
+  // Solo ACTIVO genera reservas sobre las propinas.
+  status      String   @default("BORRADOR")
+  // UNICO = todo en la quincena siguiente | DIVIDIDO = mitad en cada una de las dos siguientes
+  payoutMode  String   @default("UNICO")
+
+  activatedAt   DateTime?
+  activatedById String?
+  finalizedAt   DateTime?
+  finalizedById String?
+  cancelledAt   DateTime?
+  cancelledById String?
+  cancelReason  String?
+
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items ContestItem[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, startDate, endDate])
+}
+
+// Ítem o premio dentro de un concurso. Cada uno tiene su propio porcentaje y su
+// propia meta. Los ítems heredan el rango de fechas del concurso.
+model ContestItem {
+  id          String  @id @default(cuid())
+  tenantId    String
+  tenant      Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contestId   String
+  contest     Contest @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  // Meta a cumplir: valor numérico + unidad legible ("unidades", "COP", "botellas")
+  goalValue   Float
+  goalUnit    String  @default("unidades")
+  // MAYOR_VALOR | MENOR_VALOR | PRIMERO_EN_ALCANZAR | SELECCION_MANUAL
+  criteria    String  @default("MAYOR_VALOR")
+  // Porcentaje del bruto diario de propinas destinado a este ítem. > 0 y <= 20
+  percent     Float
+  // GANADOR_UNICO | REPARTIDO (partes iguales entre los ganadores registrados)
+  winnerMode  String  @default("GANADOR_UNICO")
+  // PENDIENTE | ADJUDICADO | DESIERTO
+  outcome     String  @default("PENDIENTE")
+
+  resolvedAt   DateTime?
+  resolvedById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  results  ContestItemResult[]
+  reserves ContestTipReserve[]
+  bonuses  ContestBonus[]
+
+  @@unique([contestId, name])
+  @@index([tenantId])
+  @@index([contestId])
+}
+
+// Resultado registrado manualmente por participante. Necesario para evaluar el
+// criterio (el ganador se determina comparando a TODOS) y para dejar rastro de
+// quienes no ganaron.
+model ContestItemResult {
+  id            String      @id @default(cuid())
+  tenantId      String
+  tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contestItemId String
+  contestItem   ContestItem @relation(fields: [contestItemId], references: [id], onDelete: Cascade)
+  employeeId    String
+  employee      Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  value         Float
+  // Momento en que alcanzó la meta. Solo lo usa el criterio PRIMERO_EN_ALCANZAR.
+  achievedAt    DateTime?
+  notes         String?
+
+  recordedById String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([contestItemId, employeeId])
+  @@index([tenantId])
+  @@index([contestItemId])
+}
+
+// Registro de trazabilidad del dinero: una fila por (día × ítem).
+// Los campos tipTotalAmount y percent son SNAPSHOTS congelados en el momento de
+// reservar, no referencias: si el ítem cambia su porcentaje mañana, lo ya
+// reservado no se mueve.
+model ContestTipReserve {
+  id            String      @id @default(cuid())
+  tenantId      String
+  tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  // Denormalizado desde contestItem.contestId para filtrar sin join
+  contestId     String
+  contestItemId String
+  contestItem   ContestItem @relation(fields: [contestItemId], references: [id], onDelete: Cascade)
+  tipEntryId    String
+  // Cascade: si se borra la propina del día, la reserva deja de existir porque el
+  // dinero del que salía ya no existe. El detalle queda en el AuditLog del borrado.
+  tipEntry      TipEntry    @relation(fields: [tipEntryId], references: [id], onDelete: Cascade)
+  // Denormalizado desde tipEntry.date para consultar por día sin join
+  date          String
+
+  tipTotalAmount Float
+  percent        Float
+  amount         Float
+  // RESERVADA | DEVUELTA
+  status         String    @default("RESERVADA")
+  refundedAt     DateTime?
+  refundReason   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tipEntryId, contestItemId])
+  @@index([tenantId])
+  @@index([contestItemId, status])
+  @@index([tenantId, date])
+}
+
+// Bono generado para un ganador. Todos los campos *Snapshot congelan el estado
+// del concurso al adjudicar, de modo que una liquidación histórica nunca depende
+// de la configuración vigente.
+model ContestBonus {
+  id            String      @id @default(cuid())
+  tenantId      String
+  tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contestId     String
+  contestItemId String
+  contestItem   ContestItem @relation(fields: [contestItemId], references: [id], onDelete: Cascade)
+  employeeId    String
+  employee      Employee    @relation(fields: [employeeId], references: [id])
+
+  contestName      String
+  itemName         String
+  goalSnapshot     String   // ej. "240 unidades"
+  criteriaSnapshot String
+  percentSnapshot  Float
+  // Base de propinas usada: Σ tipTotalAmount de los días con reserva del ítem
+  tipBaseSnapshot  Float
+  // Σ amount de las reservas RESERVADAS del ítem al momento de adjudicar
+  reservedAmount   Float
+  resultValue      Float
+  periodStart      String
+  periodEnd        String
+
+  // Parte de reservedAmount que corresponde a este ganador (1 si GANADOR_UNICO)
+  shareRatio  Float @default(1)
+  totalAmount Float
+  paidAmount  Float @default(0)
+  // El saldo pendiente NO se persiste: es siempre totalAmount − paidAmount.
+  // Una sola fuente de verdad evita que dos columnas se desincronicen.
+
+  // PENDIENTE | PARCIAL | PAGADO | ANULADO
+  status     String    @default("PENDIENTE")
+  voidedAt   DateTime?
+  voidReason String?
+
+  assignedAt   DateTime @default(now())
+  assignedById String?
+  updatedAt    DateTime @updatedAt
+
+  payments ContestBonusPayment[]
+
+  @@unique([contestItemId, employeeId])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, employeeId])
+}
+
+// Cuota de pago del bono (1 o 2 según payoutMode). El @@unique impide que existan
+// dos cuotas con el mismo número: primera barrera contra el doble pago.
+model ContestBonusPayment {
+  id             String       @id @default(cuid())
+  tenantId       String
+  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contestBonusId String
+  contestBonus   ContestBonus @relation(fields: [contestBonusId], references: [id], onDelete: Cascade)
+  // Denormalizado desde contestBonus.employeeId: permite filtrar las cuotas de un
+  // período por empleado sin join, en la query del reporte de nómina.
+  employeeId     String
+  installment    Int
+  // Quincena destino
+  periodStart    String
+  periodEnd      String
+  amount         Float
+  // PENDIENTE | PAGADO | ANULADO
+  status         String    @default("PENDIENTE")
+  paidAt         DateTime?
+  paidById       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([contestBonusId, installment])
+  @@index([tenantId])
+  @@index([tenantId, employeeId, periodStart, periodEnd])
+  @@index([tenantId, status])
 }

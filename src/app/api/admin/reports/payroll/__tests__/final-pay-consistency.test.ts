@@ -45,6 +45,7 @@ vi.mock("@/lib/db", () => ({
     timeEntry: { findMany: vi.fn() },
     payAdjustment: { findMany: vi.fn() },
     tipDistribution: { findMany: vi.fn() },
+    contestBonusPayment: { findMany: vi.fn() },
     bonus: { findMany: vi.fn() },
     discount: { findMany: vi.fn() },
   },
@@ -137,6 +138,10 @@ beforeEach(() => {
   (prisma.timeEntry.findMany as ReturnType<typeof vi.fn>).mockResolvedValue(ENTRIES);
   (prisma.payAdjustment.findMany as ReturnType<typeof vi.fn>).mockResolvedValue(ADJUSTMENTS);
   (prisma.tipDistribution.findMany as ReturnType<typeof vi.fn>).mockResolvedValue(TIPS);
+  // Sin bonos de concurso: esta prueba mide la cadena del pago, y un bono
+  // informativo de por medio solo añadiría ruido. Su exclusión del total tiene
+  // pruebas propias en scripts/verificar-concursos-e2e.mjs.
+  (prisma.contestBonusPayment.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
   (prisma.bonus.findMany as ReturnType<typeof vi.fn>).mockResolvedValue(BONUSES);
   (prisma.discount.findMany as ReturnType<typeof vi.fn>).mockResolvedValue(DISCOUNTS);
 });
