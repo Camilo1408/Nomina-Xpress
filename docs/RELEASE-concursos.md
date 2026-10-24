@@ -3,10 +3,10 @@
 Checklist de despliegue para la rama `feat/concursos`.
 Reglas generales en [DESPLIEGUES.md](../DESPLIEGUES.md).
 
-> **Estado: rama subida, pendiente de release.** `feat/concursos` está en
-> `origin`, al día con `main` y verificada en local. El merge a `main`, las
-> migraciones y la promoción a producción quedan a cargo de **@JulianDM22**
-> (ver [Traspaso](#traspaso)).
+> **Estado: desplegado en producción el 2026-10-05** (hora de Colombia).
+> `feat/concursos` se mergeó a `main` en `d477699` y esa misma noche quedaron
+> migrados y desplegados el demo y Cucina dei Fiori. El detalle está en
+> [Registro del release](#registro-del-release).
 
 ## Qué entra
 
@@ -126,6 +126,8 @@ queda pendiente para quien tenga un entorno con esos usuarios.
 | 2 | Activar un concurso reduce propinas ya mostradas al empleado. | Mismo diálogo de impacto. Recomendación operativa: activarlo antes de que empiece su rango. |
 | 3 | Un concurso activo y olvidado sigue descontando. | Aviso en la pantalla de concursos. |
 | 4 | El servidor de desarrollo de Next deja de registrar las rutas anidadas bajo dos segmentos dinámicos (`.../[id]/items/[itemId]/results`) si se crean con el servidor ya arrancado. | Solo afecta a desarrollo: `rm -rf .next && npm run dev`. La build de producción las registra correctamente. La verificación E2E ahora lo detecta. |
+| 5 | **Eliminar un empleado que tenga un bono de concurso responde error después de haberle borrado horas, propinas, ajustes y usuario.** Detectado en la revisión previa al merge y reproducido en local. | No eliminar a esos empleados: desactivarlos. Pendiente de corregir en `src/app/api/admin/employees/[id]/route.ts`. |
+| 6 | **Los scripts `e2e-concursos.mjs`, `verificar-concursos-e2e.mjs` y `limpiar-datos-concursos.mjs` ejecutan SQL destructivo contra la base que indique `TURSO_DATABASE_URL`.** Detectado en la misma revisión. | Correrlos solo contra la base local, nunca en una terminal con credenciales de Turso exportadas. Pendiente de añadir una guarda. |
 
 ## Pasos
 
@@ -167,10 +169,10 @@ git checkout feat/concursos
 npm install
 ```
 
-- [ ] Revisar el diff contra `main`, en especial el merge `7b0aa4f`: es donde se
+- [x] Revisar el diff contra `main`, en especial el merge `7b0aa4f`: es donde se
       reconcilió el cálculo de nómina entre esta rama y los cambios que `main`
       recibió mientras tanto. Es el punto con más riesgo de todo el release.
-- [ ] Correr la verificación por su cuenta, sin fiarse de la de aquí:
+- [x] Correr la verificación por su cuenta, sin fiarse de la de aquí:
       ```bash
       npx tsc --noEmit
       npm run build
@@ -182,9 +184,49 @@ npm install
 - [ ] Probar a mano el flujo completo en `/admin/contests`: crear, activar,
       registrar resultados, adjudicar, pagar una cuota. Comprobar que el PDF de
       nómina sigue mostrando el total **sin** propinas ni bono.
-- [ ] Ejecutar los pasos 2 a 10 de [Pasos](#pasos).
-- [ ] Firmar el merge a `main` con su propia identidad de git.
+- [x] Ejecutar los pasos 2 a 10 de [Pasos](#pasos), salvo la prueba manual del
+      paso 5, que no quedó registrada.
+- [x] Firmar el merge a `main` con su propia identidad de git (`d477699`).
 
 Su trabajo queda a su nombre porque lo hace con su cuenta: los commits de
 preparación de esta rama son de `Camilo1408`, y el merge, las migraciones y la
 promoción serán suyos.
+
+## Registro del release
+
+Hecho por **@JulianDM22** el 2026-10-05, hora de Colombia. Las horas de la tabla
+van en UTC, ya del 2026-10-06. La promoción a producción la autorizó
+`Camilo1408`.
+
+| Paso | Qué se hizo | Resultado |
+|---|---|---|
+| 1 | Revisión de `main...feat/concursos` | 15 hallazgos documentados para `Camilo1408`. Se mergeó tal cual; los dos más serios son los riesgos 5 y 6 de arriba |
+| 2 y 7 | Backup de las bases | Workflow `backup-db.yml`, ejecución #23 a las 04:10, correcta. Incluye el demo y Cucina dei Fiori |
+| 3 | Migrar el demo | `turso-migrate-concursos.mjs`: 6 tablas, 21 índices y la columna. Conteos iguales antes y después: 4 empleados, 1 día de propinas, 18 registros de horas |
+| 4 | Merge a `main` y push | `d477699`, merge `--no-ff`. Demo desplegado a las 04:21 |
+| 5 | Verificar el demo | Sin sesión responde con el build nuevo. La prueba manual del flujo en `/admin/contests` no quedó registrada |
+| 6 | Aprobación | `Camilo1408` autorizó pasar a producción |
+| 8 | Migrar Cucina dei Fiori | Mismo script y mismo resultado. Conteos de empleados, días de propinas y registros de horas iguales antes y después |
+| 9 | Promover el cliente | `client/cucina-fiori` avanzó con `--ff-only` de `5e0df77` a `d477699`. Producción desplegada a las 04:47 |
+| 10 | Verificar producción | Con sesión iniciada cargan Propinas, Reportes de nómina y Concursos. Sin sesión, el login y la autenticación responden con el build nuevo |
+
+### Verificación independiente
+
+Sobre un clon limpio de `feat/concursos` (`8176b3f`), antes del merge:
+
+| Comprobación | Resultado |
+|---|---|
+| `npx tsc --noEmit` | limpio |
+| `npm run build` | compila sin errores |
+| `npx vitest run` | **353/353**. El repositorio trae 353 pruebas; el 423 de la tabla de arriba no se reproduce en un clon limpio |
+| `node scripts/verificar-concursos-e2e.mjs` | **72/72**, dos pasadas, sin datos sembrados entre el 2026-10-01 y el 2026-10-15. Con el seed de esa quincena da 66/72, porque el script usa esas fechas fijas |
+| `node scripts/e2e-concursos.mjs` | **76/77**. Falla el caso 99, que compara `finalPay` sin el tope en 0; la aplicación calcula bien |
+| `npx eslint src` | 7 errores, los mismos de `main` |
+| `node prisma/turso-migrate-concursos.mjs` | probado sobre una base con el esquema de `main` y datos: idempotente y sin cambios en las filas previas |
+
+### Pendiente
+
+- [ ] Prueba manual del flujo completo en el demo (paso 5).
+- [ ] Corregir los riesgos 5 y 6 y el resto de hallazgos de la revisión.
+- [ ] `scripts/e2e-full-test.mjs` sigue sin ejecutarse, por la razón explicada arriba.
+- [ ] Revocar las credenciales temporales de Turso que se usaron para migrar.
