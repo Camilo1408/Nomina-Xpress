@@ -86,6 +86,12 @@ export const CONTEST_BONUS_STATUS_LABELS: Record<ContestBonusStatus, string> = {
   ANULADO: "Anulado",
 };
 
+export const CONTEST_PAYMENT_STATUS_LABELS: Record<ContestPaymentStatus, string> = {
+  PENDIENTE: "Pendiente",
+  PAGADO: "Pagada",
+  ANULADO: "Anulada",
+};
+
 // ─── Topes de descuento sobre las propinas ───────────────────────────────────
 // El menaje es una constante histórica del sistema (MENAJE_PERCENT = 0.1 en
 // tips.ts). Aquí se expresa en puntos porcentuales para poder sumarlo con los

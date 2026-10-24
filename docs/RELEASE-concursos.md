@@ -17,6 +17,7 @@ Reglas generales en [DESPLIEGUES.md](../DESPLIEGUES.md).
 | 3 | Registro manual de resultados y adjudicación del ganador | El sistema resuelve el ganador según el criterio del ítem entre quienes alcanzan la meta |
 | 4 | Bono pagado en una o dos quincenas | Panel de bonos con cuotas, saldo pendiente y marcado de pago idempotente |
 | 5 | El bono aparece en nómina, turnos y portal del empleado | **Informativo, igual que las propinas: no entra en el total a pagar** |
+| 6 | El reporte de propinas (PDF y Excel) informa los concursos cerrados | Apartado "Distribución de concursos" (página en el PDF, hoja "Concursos" en el Excel) solo si un concurso FINALIZADO o PAGADO **terminó** dentro del rango, aunque se pague en la quincena siguiente. Además, "Reservado a concursos" en los totales y en cada día cuando hubo reserva
 
 Especificación: `docs/superpowers/specs/2026-08-12-concursos-incentivos-design.md`.
 

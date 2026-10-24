@@ -1,7 +1,7 @@
 import React from "react";
 import { Document, Page, Text, View, StyleSheet, Image } from "@react-pdf/renderer";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import type { TipsReport } from "@/lib/tips-report";
+import type { TipsContest, TipsReport } from "@/lib/tips-report";
 import type { PdfLogo } from "@/lib/pdf/payroll-template";
 
 const styles = StyleSheet.create({
@@ -35,6 +35,14 @@ const styles = StyleSheet.create({
   dayHeaderText: { color: "#FAF7F2", fontFamily: "Helvetica-Bold", fontSize: 10 },
   dayNotes: { color: "#FAF7F2", fontSize: 8, marginTop: 2 },
   emptyDay: { fontSize: 9, color: "#7A6358", fontFamily: "Helvetica-Oblique", padding: "4 8" },
+  intro: { fontSize: 9, color: "#7A6358", marginBottom: 12 },
+  contestBlock: { marginBottom: 18 },
+  contestMeta: { fontSize: 9, color: "#7A6358", marginBottom: 8, paddingLeft: 2 },
+  contestCards: { flexDirection: "row", gap: 8, marginBottom: 10 },
+  subTitle: { fontSize: 10, fontFamily: "Helvetica-Bold", marginBottom: 4, marginTop: 6 },
+  muted: { color: "#7A6358" },
+  struck: { color: "#A08878", textDecoration: "line-through" },
+  paymentLine: { fontSize: 8 },
   footer: { position: "absolute", bottom: 24, left: 32, right: 32, borderTopWidth: 1, borderTopStyle: "solid", borderTopColor: "#E0D5CA", paddingTop: 6 },
   footerText: { fontSize: 8, color: "#A08878", textAlign: "center" },
 });
@@ -42,6 +50,8 @@ const styles = StyleSheet.create({
 // Anchos de columnas (flex)
 const A = { name: 3, hours: 2, pct: 2, total: 2 };
 const D = { name: 3, hours: 1.2, pct: 1.2, eff: 1.2, rate: 1.6, amount: 1.8 };
+const CI = { name: 3, goal: 2, pct: 1.2, reserved: 1.8, outcome: 2.4 };
+const CW = { name: 2, item: 2.1, result: 1.4, amount: 1.4, payment: 3.6, status: 1.3 };
 
 interface TipsPDFProps {
   tenantName: string;
@@ -81,6 +91,89 @@ function Footer() {
   );
 }
 
+function ContestSection({ contest, primaryColor }: { contest: TipsContest; primaryColor: string }) {
+  return (
+    <View style={styles.contestBlock}>
+      <View style={[styles.dayHeader, { backgroundColor: primaryColor }]} wrap={false}>
+        <Text style={styles.dayHeaderText}>
+          {contest.name} — {formatDate(contest.startDate)} al {formatDate(contest.endDate)} · {contest.statusLabel}
+        </Text>
+      </View>
+      <Text style={styles.contestMeta}>Pago: {contest.payoutLabel}</Text>
+
+      <View style={styles.contestCards} wrap={false}>
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>Reservado de las propinas</Text>
+          <Text style={[styles.cardValue, { color: primaryColor }]}>{formatCurrency(contest.reserved)}</Text>
+        </View>
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>Otorgado a ganadores</Text>
+          <Text style={[styles.cardValue, styles.green]}>{formatCurrency(contest.awarded)}</Text>
+        </View>
+      </View>
+
+      <Text style={styles.subTitle}>Ítems del concurso</Text>
+      <View style={styles.table}>
+        <View style={styles.tableHeader}>
+          <Text style={[{ flex: CI.name }, styles.headerText]}>Ítem</Text>
+          <Text style={[{ flex: CI.goal }, styles.headerText]}>Meta</Text>
+          <Text style={[{ flex: CI.pct }, styles.headerText, styles.right]}>% Prop.</Text>
+          <Text style={[{ flex: CI.reserved }, styles.headerText, styles.right]}>Reservado</Text>
+          <Text style={[{ flex: CI.outcome }, styles.headerText, styles.right]}>Resultado</Text>
+        </View>
+        {contest.items.map((it, i) => (
+          <View key={`${contest.id}-item-${i}`} style={i % 2 === 0 ? styles.tableRow : styles.tableRowAlt} wrap={false}>
+            <Text style={{ flex: CI.name }}>{it.name}</Text>
+            <Text style={{ flex: CI.goal }}>{it.goal}</Text>
+            <Text style={[{ flex: CI.pct }, styles.right]}>{it.percent}%</Text>
+            <Text style={[{ flex: CI.reserved }, styles.right]}>{formatCurrency(it.reserved)}</Text>
+            <Text style={[{ flex: CI.outcome }, styles.right, styles.muted]}>{it.outcomeLabel}</Text>
+          </View>
+        ))}
+      </View>
+
+      <Text style={styles.subTitle}>Ganadores</Text>
+      {contest.winners.length === 0 ? (
+        <Text style={styles.emptyDay}>Aún no hay ganadores adjudicados en este concurso.</Text>
+      ) : (
+        <View style={styles.table}>
+          <View style={styles.tableHeader}>
+            <Text style={[{ flex: CW.name }, styles.headerText]}>Ganador</Text>
+            <Text style={[{ flex: CW.item }, styles.headerText]}>Ítem</Text>
+            <Text style={[{ flex: CW.result }, styles.headerText, styles.right]}>Resultado</Text>
+            <Text style={[{ flex: CW.amount }, styles.headerText, styles.right]}>Premio</Text>
+            <Text style={[{ flex: CW.payment }, styles.headerText, { paddingLeft: 8 }]}>Quincena de pago</Text>
+            <Text style={[{ flex: CW.status }, styles.headerText, styles.right]}>Estado</Text>
+          </View>
+          {contest.winners.map((w, i) => (
+            <View key={`${contest.id}-win-${i}`} style={i % 2 === 0 ? styles.tableRow : styles.tableRowAlt} wrap={false}>
+              <Text style={{ flex: CW.name }}>{w.employeeName}</Text>
+              <Text style={{ flex: CW.item }}>{w.itemName}</Text>
+              <Text style={[{ flex: CW.result }, styles.right]}>{w.result}</Text>
+              <Text style={[{ flex: CW.amount }, styles.right, styles.bold, w.voided ? styles.struck : styles.green]}>
+                {formatCurrency(w.amount)}
+              </Text>
+              <View style={{ flex: CW.payment, paddingLeft: 8 }}>
+                {w.payments.map((p, j) => (
+                  <Text key={j} style={styles.paymentLine}>
+                    {`${p.periodLabel}: ${formatCurrency(p.amount)} · ${p.statusLabel}`}
+                  </Text>
+                ))}
+              </View>
+              <Text style={[{ flex: CW.status }, styles.right, styles.muted]}>{w.statusLabel}</Text>
+            </View>
+          ))}
+          <View style={styles.totalRow} wrap={false}>
+            <Text style={[{ flex: CW.name + CW.item + CW.result }, styles.bold]}>TOTAL OTORGADO</Text>
+            <Text style={[{ flex: CW.amount }, styles.right, styles.bold, styles.green]}>{formatCurrency(contest.awarded)}</Text>
+            <Text style={{ flex: CW.payment + CW.status }} />
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}
+
 export function TipsPDF({ tenantName, period, report, primaryColor, logo }: TipsPDFProps) {
   const assigned = report.byEmployee.reduce((s, e) => s + e.totalAmount, 0);
 
@@ -99,6 +192,12 @@ export function TipsPDF({ tenantName, period, report, primaryColor, logo }: Tips
             <Text style={styles.cardLabel}>Provisión menaje (10%)</Text>
             <Text style={[styles.cardValue, { color: "#B94040" }]}>{formatCurrency(report.totals.menaje)}</Text>
           </View>
+          {report.totals.contestReserved > 0 && (
+            <View style={styles.card}>
+              <Text style={styles.cardLabel}>Reservado a concursos</Text>
+              <Text style={[styles.cardValue, { color: primaryColor }]}>{formatCurrency(report.totals.contestReserved)}</Text>
+            </View>
+          )}
           <View style={styles.card}>
             <Text style={styles.cardLabel}>Total distribuido</Text>
             <Text style={[styles.cardValue, styles.green]}>{formatCurrency(report.totals.distributed)}</Text>
@@ -143,6 +242,22 @@ export function TipsPDF({ tenantName, period, report, primaryColor, logo }: Tips
         <Footer />
       </Page>
 
+      {/* ── Distribución de concursos: solo si alguno terminó en el rango ── */}
+      {report.contests.length > 0 && (
+        <Page size="A4" style={styles.page}>
+          <Header tenantName={tenantName} period={period} primaryColor={primaryColor} logo={logo} />
+          <Text style={styles.sectionTitle}>Distribución de concursos</Text>
+          <Text style={styles.intro}>
+            Concursos finalizados en este período. El premio se paga en la nómina de la quincena siguiente al cierre
+            del concurso; aquí se informa en el período en que terminó.
+          </Text>
+          {report.contests.map((c) => (
+            <ContestSection key={c.id} contest={c} primaryColor={primaryColor} />
+          ))}
+          <Footer />
+        </Page>
+      )}
+
       {/* ── Detalle por día ── */}
       <Page size="A4" style={styles.page}>
         <Header tenantName={tenantName} period={period} primaryColor={primaryColor} logo={logo} />
@@ -154,7 +269,9 @@ export function TipsPDF({ tenantName, period, report, primaryColor, logo }: Tips
           <View key={day.date} style={styles.dayBlock} wrap={false}>
             <View style={[styles.dayHeader, { backgroundColor: primaryColor }]}>
               <Text style={styles.dayHeaderText}>
-                {formatDate(day.date)} — Bruto {formatCurrency(day.gross)} | Menaje {formatCurrency(day.menaje)} | Distribuido {formatCurrency(day.distributed)}
+                {`${formatDate(day.date)} — Bruto ${formatCurrency(day.gross)} | Menaje ${formatCurrency(day.menaje)}` +
+                  (day.contestReserved > 0 ? ` | Concursos ${formatCurrency(day.contestReserved)}` : "") +
+                  ` | Distribuido ${formatCurrency(day.distributed)}`}
               </Text>
               {day.notes && <Text style={styles.dayNotes}>{day.notes}</Text>}
             </View>
