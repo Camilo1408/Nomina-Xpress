@@ -3,6 +3,8 @@
 > Documento técnico para desarrolladores y mantenedores. Para el uso funcional del
 > sistema por parte del cliente, ver [MANUAL_DE_USUARIO.md](MANUAL_DE_USUARIO.md).
 > Última revisión de contenido contra el código: **2026-07-31** (commit `67ce86a`).
+> Autenticación, seguridad, entorno, migraciones y mantenimiento revisados el
+> **2026-11-05** (commit `319db0c`, Fase 0 del Plan de Calidad v3.2).
 
 ## Tabla de contenido
 
@@ -126,7 +128,15 @@ export const prisma = new PrismaClient({ adapter });
 
 - Proveedor **Credentials** (usuario + contraseña; contraseñas con `bcrypt`).
 - Estrategia de sesión **JWT**. El token transporta: `id`, `role`, `tenantId`,
-  `employeeId`, `inventoryAccess`, `inventoryPermissions`.
+  `employeeId`, `inventoryAccess`, `inventoryPermissions` y `sv` (versión de sesión).
+- **Duración:** 12 h sin actividad, renovada cada hora (antes, 30 días por defecto).
+- **Revocación (RN-19):** cada `User` tiene `sessionVersion`. En cada request el callback
+  `jwt()` compara la versión del token con la de la BD y devuelve `null` (sesión cerrada,
+  cookie borrada) si el usuario fue eliminado, desactivado o su versión cambió. Se
+  incrementa al desactivar, al cambiar contraseña, usuario, rol o rol personalizado
+  (`sessionRevocationData()` de `src/lib/session-guard.ts`). Un token sin `sv` (emitido
+  antes del 2026-11-05) cuenta como versión 0.
+- Un usuario desactivado no tiene permisos efectivos aunque su token siga vivo.
 - `src/lib/auth.ts` exporta `handlers`, `auth`, `signIn`, `signOut`.
 - El login/logout/intentos fallidos quedan registrados en auditoría.
 - Los **permisos de inventario se refrescan en cada request** (no se congelan en el JWT
@@ -256,11 +266,13 @@ Plantilla en `.env.example`. Variables (ver también la matriz por cliente en
 | `NEXT_PUBLIC_INVENTARIO_APP_URL` | opcional | Feature flag del inventario (vacío/ausente = OFF). |
 | `AUTH_COOKIE_DOMAIN` | opcional (prod) | Dominio de la cookie de sesión compartida con el inventario (p. ej. `.cucinadeifiori.com`). Sin definir = cookie host-only por defecto. Ver §5.3. |
 | `BACKUP_GPG_PASSPHRASE` | GitHub Actions | Cifra los backups semanales (secret del repo, no de Vercel). |
-| `DB_TARGETS` | GitHub Actions | JSON array `[{name,url,token}]` con la BD de cada cliente; fuente de verdad de `backup-db.yml` y `migrate-db.yml`. Ver [BACKUP.md](BACKUP.md). |
+| `DB_TARGETS` | GitHub Actions | JSON array `[{name,url,token}]` con la BD de cada cliente; fuente de verdad de `backup-db.yml`. Ver [BACKUP.md](BACKUP.md). |
+| `NOMINA_SYNC_SECRET` | prod (con inventario) | Secreto compartido del webhook `/api/inventory-permissions/sync`. |
+| `NX_PASSWORD_<USUARIO>` | solo terminal | Clave de cada usuario que crean o reinician los scripts operativos; si falta, se genera al azar. |
+| `AUDIT_BASE_URL` / `AUDIT_USER` / `AUDIT_PASS` | solo terminal | Destino y cuenta de `scripts/e2e-prod-audit.mjs`. |
+| `NX_ALLOW_REMOTE_SEED` | solo terminal | `1` permite correr una semilla de prueba contra una base remota (solo demo). |
 
-> **Nota:** `.env.example` no lista `VAPID_*`, `NEXT_PUBLIC_INVENTARIO_APP_URL` ni
-> `AUTH_COOKIE_DOMAIN` aunque el código y `DESPLIEGUES.md` los usan. Al configurar un
-> entorno con push, inventario o cookie compartida, añádelos manualmente.
+`.env.example` lista todas estas variables desde el 2026-11-05.
 
 ## 10. Instalación
 
@@ -330,9 +342,12 @@ Otros comandos: `npm run build` (incluye `prisma generate`), `npm run start`,
 - Migraciones versionadas en `prisma/migrations/` (init, split shifts, username en
   lugar de email, módulo de propinas, auditoría, roles y permisos).
 - **Local:** `npx prisma db push` (o `migrate dev` para crear una migración nueva).
-- **Producción (Turso, por cliente):** `prisma/run-migrations.mjs`, invocado por el
-  workflow `.github/workflows/migrate-db.yml` (dispatch manual, itera `DB_TARGETS`).
-  Ver [DESPLIEGUES.md](DESPLIEGUES.md) y [BACKUP.md](BACKUP.md).
+- **Producción (Turso, por cliente):** **no** usar `prisma migrate deploy`, `run-migrations.mjs`
+  ni el workflow `migrate-db.yml`: el historial de `prisma/migrations/` está desincronizado
+  desde junio de 2026. Cada cambio de esquema tiene su script idempotente
+  `prisma/turso-migrate-*.mjs` con rollback, que se corre a mano en el demo antes del merge
+  y en cada cliente antes de promoverlo. Ver [DESPLIEGUES.md](DESPLIEGUES.md) y
+  [BACKUP.md](BACKUP.md).
 
 ## 13. Módulos principales
 
@@ -367,7 +382,8 @@ Lógica de negocio en `src/lib/` (todo tipado, sin `any`):
 ### 14.1 Autenticación y sesión
 Login por **usuario/contraseña**. Sesión JWT con rol, tenant y datos del empleado.
 Usuarios desactivados (`active=false`) no pueden entrar. Login, logout e intentos
-fallidos se auditan.
+fallidos se auditan. La sesión dura 12 h sin actividad, y desactivar a un usuario o
+cambiarle la contraseña, el usuario o el rol cierra sus sesiones abiertas (§5.3).
 
 ### 14.2 Dashboard admin
 Pantalla de entrada al área de administración; muestra los módulos accesibles según
@@ -519,8 +535,9 @@ claves **dinámicas** por categoría
 
 ### 16.4 Login → permisos → portal
 Credenciales → NextAuth valida (bcrypt) → resuelve permisos efectivos y de inventario →
-firma JWT → el middleware enruta a `/admin` o `/portal` según rol. Cambios de permisos
-requieren **re-login** (el JWT se firma al iniciar sesión).
+firma JWT → el middleware enruta a `/admin` o `/portal` según rol. En cada request se
+verifica la versión de sesión y se resuelven de nuevo los permisos efectivos: un cambio
+de permisos individuales aplica de inmediato y un cambio de rol cierra la sesión.
 
 ## 17. Reglas de negocio
 
@@ -592,15 +609,25 @@ requieren **re-login** (el JWT se firma al iniciar sesión).
   `Content-Security-Policy` (restringe orígenes; imágenes solo self/data/blob/Cloudinary),
   `Strict-Transport-Security`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`,
   `Referrer-Policy`, `Permissions-Policy` (cámara/micrófono/geo desactivados).
-- **Contraseñas** con bcrypt; **sesión JWT** firmada con `NEXTAUTH_SECRET`.
+- **Contraseñas** con bcrypt; **sesión JWT** firmada con `NEXTAUTH_SECRET`, de 12 h y
+  revocable por `sessionVersion` (§5.3). La auditoría nunca guarda hashes.
 - **Autorización por permiso efectivo** en páginas y API (no confiar en ocultar botones).
 - **Secrets fuera del repo:** tokens de Turso y credenciales por variables de entorno.
   Backups **cifrados con GPG/AES-256** (`BACKUP_GPG_PASSPHRASE`).
 - **Cron de borrado** protegido por `CRON_SECRET`.
+- **Scripts sin contraseñas:** los scripts operativos toman las claves de
+  `NX_PASSWORD_<USUARIO>` o las generan al azar (`scripts/lib/credentials.mjs`); las
+  semillas de prueba se bloquean contra bases remotas.
+- **Repositorio:** secret scanning, push protection y Dependabot (alertas y PRs de
+  seguridad) activos desde el 2026-11-05.
 
-> **Recordatorio de seguridad (histórico):** hubo exposición de tokens de escritura de
-> Turso en el historial de git; asegúrate de que estén **rotados** y de no volver a
-> commitear secretos. Ver la memoria del proyecto y usar `.env*` (ignorados).
+> **Incidentes de seguridad (históricos):**
+> - Hubo exposición de tokens de escritura de Turso en el historial de git (rotados).
+> - El 2026-11-05 se detectaron contraseñas de cuentas reales en scripts versionados de
+>   este repositorio público. Se retiraron del código y el propietario las cambió el mismo
+>   día; siguen en el historial de git, por eso cuenta solo el cambio de claves.
+>
+> Detalle en [docs/RELEASE-fase0-seguridad.md](docs/RELEASE-fase0-seguridad.md).
 
 ## 21. Auditabilidad y trazabilidad
 
@@ -645,10 +672,12 @@ Ver [DESPLIEGUES.md](DESPLIEGUES.md) (fuente de verdad). Resumen:
 ## 23. Mantenimiento
 
 - **Regenerar cliente Prisma** tras cambiar el schema: `npx prisma generate`.
-- **Aplicar cambios de schema:** local `prisma db push`; producción vía `migrate-db.yml`.
-  **Siempre respaldar antes** (BACKUP.md).
-- **Tests:** `npm run test` (Vitest) antes de mergear. Cubren nómina, propinas, bonos,
-  descuentos, permisos y auditoría (`src/lib/__tests__/`).
+- **Aplicar cambios de schema:** local `prisma db push`; producción con el script
+  `prisma/turso-migrate-*.mjs` del cambio, primero en el demo y luego en cada cliente,
+  **antes** de desplegar el código (§12.4). **Siempre respaldar antes** (BACKUP.md).
+- **Tests:** `npm run test` (Vitest) antes de mergear: 456 casos en 33 archivos al
+  2026-11-05. Cubren nómina, propinas, bonos, descuentos, concursos, permisos, sesiones y
+  auditoría (`src/lib/__tests__/` y `__tests__/` de las rutas).
 - **Lint/tipos:** `npm run lint` y el `build` (que corre `prisma generate` + `next build`).
 - **Scripts de mantenimiento** en `scripts/` (backups, arreglo de índices/columnas,
   reset de usuarios, e2e). Revisar antes de ejecutar contra producción.
@@ -684,8 +713,9 @@ Ver [DESPLIEGUES.md](DESPLIEGUES.md) (fuente de verdad). Resumen:
 - **No hagas `fetch` desde Server Components** a API routes propias; usa Prisma directo.
 - **Autoriza por permiso efectivo**, no por rol literal.
 - **Añade un test** en `src/lib/__tests__/` para toda lógica de cálculo nueva.
-- **Los cambios de permisos requieren re-login** (JWT). Documenta esto en cualquier UI
-  nueva que los toque.
+- **Revoca sesiones donde corresponde:** toda ruta que desactive un usuario o cambie su
+  contraseña, usuario o rol debe incluir `...sessionRevocationData()` en el `update` y
+  tener su prueba (ver `src/app/api/admin/users/__tests__/session-revocation.test.ts`).
 - **Feature flags nuevos:** `NEXT_PUBLIC_FEATURE_*` (cliente) / sin prefijo (server),
   leídos desde `src/lib/feature-flags.ts`.
 - **Nunca commitees secretos.** Usa `.env*` (ya ignorados) y los secrets de Vercel/GitHub.
@@ -694,8 +724,12 @@ Ver [DESPLIEGUES.md](DESPLIEGUES.md) (fuente de verdad). Resumen:
 
 - **Inventario desactivado** por defecto (flag) y con la pantalla de matriz de permisos
   por categoría **pendiente/por validar** (ver docs/INTEGRACION_INVENTARIO.md).
-- **`.env.example` incompleto** (faltan `VAPID_*`, `NEXT_PUBLIC_INVENTARIO_APP_URL` y
-  `AUTH_COOKIE_DOMAIN`).
+- **Login sin límite de intentos** ni bloqueo progresivo, y contraseña mínima de 6
+  caracteres (Fase 1 del Plan de Calidad).
+- **La CSP bloquea Google Fonts** (`fonts.googleapis.com`): la app se ve con la fuente de
+  respaldo. Se corrige con la CSP con nonce o sirviendo las fuentes con `next/font`.
+- **Inventory Xpress no verifica `sessionVersion`:** valida el JWT por su cuenta, así que
+  una sesión revocada sigue viva allá hasta que la cookie expira (máx. 12 h).
 - **Cálculo de nómina simple:** horas × tarifa + tarifa especial; **no** calcula recargos
   legales colombianos (nocturno, extras, prestaciones, seguridad social). En particular,
   las horas de madrugada de un turno que cruza medianoche se pagan a la tarifa del día de
@@ -706,11 +740,11 @@ Ver [DESPLIEGUES.md](DESPLIEGUES.md) (fuente de verdad). Resumen:
   volver a generarlo, con las tarifas actuales).
 - **Credenciales de seed heterogéneas** entre `seed.ts`, `seed-local.ts` y el demo en la
   nube; conviene alinearlas o documentar cuál aplica a cada entorno.
-- **Migraciones a Turso** son un proceso semi-manual (workflow dispatch), no CD automático.
+- **Migraciones a Turso** son scripts manuales por base, no CD automático.
 
 ## 26. Posibles mejoras futuras
 
-- Unificar los seeds y las credenciales demo; completar `.env.example`.
+- Unificar los seeds y las credenciales demo.
 - Automatizar la promoción a clientes (CD) y las migraciones a Turso.
 - Completar la UI de matriz de permisos de inventario por categoría y activarlo por
   cliente cuando se requiera.

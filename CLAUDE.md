@@ -26,6 +26,12 @@ El login es **por nombre de usuario** (no por email). Seed integral (`prisma/see
 
 Seed mínimo (`prisma/seed.ts`): `admin`/`admin123` (SUPERADMIN) y `maria`/`emp123` (EMPLOYEE).
 
+Son credenciales de **prueba y públicas** (el demo en la nube usa las del seed integral).
+Las semillas se niegan a correr contra una base remota salvo `NX_ALLOW_REMOTE_SEED=1`.
+**Nunca escribas contraseñas reales** en scripts, docs ni pruebas: los scripts operativos
+usan `scripts/lib/credentials.mjs` (`NX_PASSWORD_<USUARIO>` o clave aleatoria mostrada
+una sola vez) y los E2E contra un servidor remoto exigen sus `*_USER` / `*_PASS`.
+
 ## Tech Stack
 
 Next.js 16 App Router + TypeScript + Tailwind CSS v4 + shadcn/ui + SQLite local / Turso (libSQL) en prod + Prisma 7 ORM + NextAuth v5 (Credentials) + @react-pdf/renderer + exceljs + date-holidays
@@ -61,6 +67,17 @@ Además: **roles personalizados** (`CustomRole`, permisos en JSON) y **overrides
 usuario** (`UserPermission`). Los permisos efectivos se resuelven en
 `src/lib/get-permissions.ts`. El acceso al área admin depende de los permisos
 efectivos, no del rol base.
+
+### Sesiones (RN-19)
+
+Sesión JWT de **12 h**, renovada cada hora (`src/lib/session-guard.ts`). Cada `User` tiene
+`sessionVersion`; el token guarda la versión al iniciar sesión (`sv`) y el callback
+`jwt()` de `auth.ts` invalida la sesión (devuelve `null`) si el usuario fue eliminado,
+desactivado o su versión cambió. `getEffectivePermissions` devuelve vacío para usuarios
+inactivos. **Toda ruta que desactive un usuario o cambie su contraseña, usuario, rol o rol
+personalizado debe incluir `...sessionRevocationData()` en el `update`.** La auditoría
+nunca guarda hashes de contraseña. Los permisos individuales se resuelven en cada
+request: no exigen volver a iniciar sesión.
 
 ### Directory Structure
 
@@ -157,3 +174,5 @@ Plantilla completa en `.env.example`. Matriz por cliente en [DESPLIEGUES.md](DES
 4. **Zod en todas las entradas.** Todo input de usuario pasa por schema Zod antes de tocar Prisma.
 5. **Server Components por defecto.** Solo `"use client"` cuando hay hooks o event handlers.
 6. **Formato de moneda consistente.** Siempre usar `formatCurrency()` de `@/lib/utils`.
+7. **Cero secretos en el repositorio.** Ni contraseñas, ni tokens, ni URLs de producción con credenciales. El repositorio es público y tiene secret scanning y push protection activos.
+8. **Migración antes que código.** Un cambio de esquema se aplica con su script en el demo antes del merge y en cada cliente antes de promoverlo (ver `DESPLIEGUES.md`).
