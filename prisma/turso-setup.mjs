@@ -6,7 +6,12 @@
  *   $env:TURSO_DATABASE_URL="libsql://your-db.turso.io"
  *   $env:TURSO_AUTH_TOKEN="eyJ..."
  *   node prisma/turso-setup.mjs
+ *
+ * Contraseñas: NX_PASSWORD_<USUARIO> por usuario; si falta, se genera una aleatoria
+ * y se muestra una sola vez (ver scripts/lib/credentials.mjs).
  */
+
+import { passwordFor, printGeneratedPasswords } from "../scripts/lib/credentials.mjs";
 
 const DB_URL = (process.env.TURSO_DATABASE_URL ?? "").replace("libsql://", "https://");
 const TOKEN  = process.env.TURSO_AUTH_TOKEN ?? "";
@@ -253,32 +258,23 @@ async function seed() {
   }
 
   // ── SUPERADMINs (sin registro de empleado — son administradores del sistema) ─
-  await createUser({ username: "SadminJavier", password: "Javier123",   role: "SUPERADMIN" });
-  await createUser({ username: "SadminMajo",   password: "Majo123",     role: "SUPERADMIN" });
+  await createUser({ username: "SadminJavier", password: passwordFor("SadminJavier"),   role: "SUPERADMIN" });
+  await createUser({ username: "SadminMajo",   password: passwordFor("SadminMajo"),     role: "SUPERADMIN" });
 
   // ── ADMINs con registro de empleado ─────────────────────────────────────
   const empAdminMajo  = await createEmployee("Majo (Admin)");
   const empAdminValen = await createEmployee("Valentina (Admin)");
-  await createUser({ username: "AdminMajo",  password: "AdminMajo123", role: "ADMIN", employeeId: empAdminMajo  });
-  await createUser({ username: "AdminValen", password: "Valen123",     role: "ADMIN", employeeId: empAdminValen });
+  await createUser({ username: "AdminMajo",  password: passwordFor("AdminMajo"), role: "ADMIN", employeeId: empAdminMajo  });
+  await createUser({ username: "AdminValen", password: passwordFor("AdminValen"),     role: "ADMIN", employeeId: empAdminValen });
 
   // ── EMPLEADOs ────────────────────────────────────────────────────────────
   const empCesar   = await createEmployee("César H");
   const empVanessa = await createEmployee("Vanessa");
-  await createUser({ username: "CesarH",  password: "CesarH123",  role: "EMPLOYEE", inventoryAccess: true,  employeeId: empCesar   });
-  await createUser({ username: "Vanessa", password: "Vanessa123", role: "EMPLOYEE", inventoryAccess: false, employeeId: empVanessa });
+  await createUser({ username: "CesarH",  password: passwordFor("CesarH"),  role: "EMPLOYEE", inventoryAccess: true,  employeeId: empCesar   });
+  await createUser({ username: "Vanessa", password: passwordFor("Vanessa"), role: "EMPLOYEE", inventoryAccess: false, employeeId: empVanessa });
 
-  console.log("\n   Usuarios creados:");
-  console.log("   ┌─────────────────┬─────────────────┬────────────────────────┐");
-  console.log("   │ Usuario         │ Contraseña      │ Rol / Acceso           │");
-  console.log("   ├─────────────────┼─────────────────┼────────────────────────┤");
-  console.log("   │ SadminJavier    │ Javier123       │ SUPERADMIN             │");
-  console.log("   │ SadminMajo      │ Majo123         │ SUPERADMIN             │");
-  console.log("   │ AdminMajo       │ AdminMajo123    │ ADMIN + empleado       │");
-  console.log("   │ AdminValen      │ Valen123        │ ADMIN + empleado       │");
-  console.log("   │ CesarH          │ CesarH123       │ EMPLOYEE + inventario  │");
-  console.log("   │ Vanessa         │ Vanessa123      │ EMPLOYEE               │");
-  console.log("   └─────────────────┴─────────────────┴────────────────────────┘");
+  console.log("\n   Usuarios creados: SadminJavier, SadminMajo, AdminMajo, AdminValen, CesarH, Vanessa");
+  printGeneratedPasswords();
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────

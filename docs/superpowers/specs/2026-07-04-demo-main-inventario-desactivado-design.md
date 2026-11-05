@@ -55,10 +55,10 @@ Dejar `main` como el despliegue demo de Nómina Xpress con:
    - Crear **5 usuarios** (credenciales memorizables, confirmadas):
      | Usuario | Contraseña | Rol |
      |---|---|---|
-     | `SadminJavier` | `Javier123` | PROPRIETARY |
-     | `SadminMajo` | `Majo123` | SUPERADMIN |
-     | `AdminValen` | `Valen123` | ADMIN |
-     | `CesarH` | `CesarH123` | EMPLOYEE |
+     | `SadminJavier` | `<retirada>` | PROPRIETARY |
+     | `SadminMajo` | `<retirada>` | SUPERADMIN |
+     | `AdminValen` | `<retirada>` | ADMIN |
+     | `CesarH` | `<retirada>` | EMPLOYEE |
      | `SupervisorDemo` | `Supervisor123` | EMPLOYEE (base) + CustomRole "Supervisor de turno" |
    - **Rol personalizado** "Supervisor de turno" (`slug: supervisor-turno`, `isSystem: false`, `active: true`) con permisos editados: `time_entries:view/create/edit`, `schedules:view`, `tips:view`, `payroll:view`. Asignado a `SupervisorDemo` vía `customRoleId`.
    - **Datos de prueba en todas las tablas** (periodo quincenal actual): empleados adicionales sin login (para nómina), registros de horas (con domingos especiales), horario publicado con turnos, bonos STANDARD + PER_EMPLOYEE con asignaciones, descuentos ALL + PER_EMPLOYEE con asignaciones, ajustes de pago (BONUS/DISCOUNT), propina con distribución proporcional, y un override individual `UserPermission` (`audit:view` a `AdminValen`).

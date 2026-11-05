@@ -593,10 +593,10 @@ Reportar:
 - **5 usuarios / contraseñas / rol:**
   | Usuario | Contraseña | Rol |
   |---|---|---|
-  | `SadminJavier` | `Javier123` | PROPRIETARY |
-  | `SadminMajo` | `Majo123` | SUPERADMIN |
-  | `AdminValen` | `Valen123` | ADMIN |
-  | `CesarH` | `CesarH123` | EMPLOYEE |
+  | `SadminJavier` | `<retirada>` | PROPRIETARY |
+  | `SadminMajo` | `<retirada>` | SUPERADMIN |
+  | `AdminValen` | `<retirada>` | ADMIN |
+  | `CesarH` | `<retirada>` | EMPLOYEE |
   | `SupervisorDemo` | `Supervisor123` | Rol personalizado "Supervisor de turno" |
 - Ubicación del backup: `scratchpad/turso-backup.json`.
 - Resumen de esquema: tablas creadas (`CustomRole`, `UserPermission`, `AuditLog`, `InventoryCategory`) + columnas `User.isActive/customRoleId/inventoryAccess`.

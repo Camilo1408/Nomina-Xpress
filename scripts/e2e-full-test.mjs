@@ -3,7 +3,15 @@
 // Ejecutar con el dev server corriendo en localhost:3000:
 //   node scripts/e2e-full-test.mjs
 
-const BASE = "http://localhost:3000";
+import { loginCredentials } from "./lib/credentials.mjs";
+
+const BASE = process.env.E2E_BASE_URL ?? "http://localhost:3000";
+// Usuarios de prueba por variables de entorno (E2E_PROPRIETARY_USER/PASS,
+// E2E_ADMIN_USER/PASS, E2E_EMPLOYEE_USER/PASS). En localhost caen a la semilla
+// local (prisma/seed-local.ts). Nunca credenciales reales en el código.
+const PROPRIETARY = loginCredentials("E2E_PROPRIETARY", BASE, { user: "proprietario", pass: "proprietario123" });
+const ADMIN = loginCredentials("E2E_ADMIN", BASE, { user: "admin", pass: "admin123" });
+const EMPLOYEE = loginCredentials("E2E_EMPLOYEE", BASE, { user: "empleado", pass: "empleado123" });
 
 // ── Utilidades de cookies/sesión ────────────────────────────────────────────
 function parseSetCookie(res, jar) {
@@ -75,7 +83,7 @@ const period = { from: "2026-06-16", to: "2026-06-30" };
 
 async function main() {
   // === LOGIN PROPRIETARY ===
-  const { jar, session } = await login("SadminJavier", "Javier123");
+  const { jar, session } = await login(PROPRIETARY.user, PROPRIETARY.pass);
   if (session?.user?.role !== "PROPRIETARY") {
     console.error("No se pudo iniciar sesión como PROPRIETARY. Sesión:", session);
     process.exit(1);
@@ -400,7 +408,7 @@ async function main() {
   // ═══════════════════════════ RBAC (ADMIN) ═══════════════════════════
   section("RBAC — límites de ADMIN");
   {
-    const adminLogin = await login("AdminValen", "Valen123");
+    const adminLogin = await login(ADMIN.user, ADMIN.pass);
     const acall = api(adminLogin.jar);
     // ADMIN no debe poder crear roles
     const r1 = await acall("POST", "/api/admin/roles", { name: "Hack", slug: "hack", permissions: [] });
@@ -414,7 +422,7 @@ async function main() {
   }
   // EMPLOYEE no debe acceder a APIs de admin
   {
-    const empLogin = await login("Vanessa", "Vanessa123");
+    const empLogin = await login(EMPLOYEE.user, EMPLOYEE.pass);
     const ecall = api(empLogin.jar);
     const r1 = await ecall("GET", "/api/admin/employees");
     check("EMPLOYEE bloqueado de API admin", r1.status === 401 || r1.status === 403, `status=${r1.status} (esperado 401/403)`);

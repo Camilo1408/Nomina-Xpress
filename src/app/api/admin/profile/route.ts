@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { sessionRevocationData } from "@/lib/session-guard";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { logAudit } from "@/lib/audit";
@@ -49,7 +50,9 @@ export async function PUT(req: Request) {
   if (parsed.data.username) updateData.username = parsed.data.username;
   if (parsed.data.password) updateData.passwordHash = await bcrypt.hash(parsed.data.password, 12);
 
-  await prisma.user.update({ where: { id: user.id }, data: updateData });
+  // RN-19: cambiar usuario o contraseña propios cierra las sesiones en todos los
+  // dispositivos (la UI ya cierra la actual).
+  await prisma.user.update({ where: { id: user.id }, data: { ...updateData, ...sessionRevocationData() } });
 
   const changes: string[] = [];
   if (parsed.data.username) changes.push("usuario");

@@ -1,15 +1,16 @@
 /**
  * Auditoría E2E completa de producción
- * Credenciales: Mantenimiento / Mantenimiento123*
- * URL: https://nomina.cucinadeifiori.com
+ * Requiere variables de entorno (nunca credenciales en el código):
+ *   AUDIT_BASE_URL, AUDIT_USER, AUDIT_PASS
  *
- * Ejecutar: node scripts/e2e-prod-audit.mjs
+ * Ejecutar: AUDIT_BASE_URL=... AUDIT_USER=... AUDIT_PASS=... node scripts/e2e-prod-audit.mjs
  */
 import { chromium } from "@playwright/test";
+import { requireEnv } from "./lib/credentials.mjs";
 
-const BASE_URL = "https://nomina.cucinadeifiori.com";
-const USER = "Mantenimiento";
-const PASS = "Mantenimiento123*";
+const BASE_URL = requireEnv("AUDIT_BASE_URL");
+const USER = requireEnv("AUDIT_USER");
+const PASS = requireEnv("AUDIT_PASS");
 
 // Resultados acumulados
 const results = [];
@@ -380,7 +381,7 @@ async function run() {
   // ─── INFORME FINAL ──────────────────────────────────────────
   console.log("\n" + "═".repeat(60));
   console.log("  INFORME FINAL DE AUDITORÍA — NÓMINA XPRESS");
-  console.log("  Sistema: nomina.cucinadeifiori.com");
+  console.log(`  Sistema: ${BASE_URL}`);
   console.log("  Usuario: Mantenimiento (PROPRIETARY)");
   console.log("  Fecha:", new Date().toLocaleString("es-CO", { timeZone: "America/Bogota" }));
   console.log("═".repeat(60));
