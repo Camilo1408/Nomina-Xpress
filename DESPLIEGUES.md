@@ -44,6 +44,9 @@ Convención para flags futuros: `NEXT_PUBLIC_FEATURE_*` (cliente) / sin prefijo
 
 1. Se mergea trabajo a `main` → el demo (`nomina-xpress`) se despliega solo.
 2. Verificar y **aprobar manualmente** el demo (humano).
+   Si el release trae un cambio de esquema, su script se corre en la BD del demo
+   **antes del merge** y en la de cada cliente **antes de promoverlo** (ver
+   [Cambios de esquema](#cambios-de-esquema-bd)).
 3. Promover un cliente al último `main`:
    ```bash
    git checkout client/cucina-fiori
@@ -60,6 +63,11 @@ Convención para flags futuros: `NEXT_PUBLIC_FEATURE_*` (cliente) / sin prefijo
 
 1. Crear su BD Turso y aplicar el schema actual: `TURSO_DATABASE_URL=<nueva> TURSO_AUTH_TOKEN=<token> npx prisma db push`.
 2. Sembrar datos iniciales según se requiera (ver `prisma/seed*.ts`).
+   Las semillas de prueba usan contraseñas públicas y **se niegan a correr contra una
+   base remota** (salvo `NX_ALLOW_REMOTE_SEED=1`, solo para una instancia demo). Los
+   usuarios reales se crean con `prisma/turso-setup.mjs` o `scripts/reset-users.mjs`,
+   que toman cada clave de `NX_PASSWORD_<USUARIO>` o la generan al azar y la muestran
+   una sola vez (`scripts/lib/credentials.mjs`). Nunca escribir contraseñas en el código.
 3. Crear la rama puntero: `git branch client/<cliente> main && git push -u origin client/<cliente>`.
 4. Crear el proyecto en Vercel enlazado a este repo; **Production Branch = `client/<cliente>`**.
 5. Definir sus Environment Variables (matriz de arriba); activar/desactivar flags según necesidad.
@@ -86,9 +94,16 @@ TURSO_DATABASE_URL="libsql://<cliente>.turso.io" TURSO_AUTH_TOKEN="<token>"   no
 | `turso-migrate-bonos-descuentos.mjs` | Bonos y descuentos |
 | `turso-migrate-concursos.mjs` | Concursos |
 | `turso-migrate-schedule-restday.mjs` | Día de descanso en horarios |
+| `turso-migrate-session-version.mjs` | Revocación de sesiones: columna `User.sessionVersion` (2026-11-05) |
 
 Los scripts son seguros de ejecutar varias veces: si el cambio ya está aplicado,
 lo detectan y lo omiten.
+
+> **Si el código llega antes que la migración**, la app falla al leer la tabla
+> afectada. Con `sessionVersion` el síntoma es que **nadie puede iniciar sesión** y el
+> formulario muestra «Usuario o contraseña incorrectos» (pasó en el demo el
+> 2026-11-05). Se arregla corriendo el script; no hace falta redesplegar.
+> Alternativa sin Node: el editor SQL del panel de Turso (**Edit Data**).
 
 ## Backups de BD
 

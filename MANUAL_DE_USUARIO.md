@@ -74,6 +74,10 @@ paso, cómo usar cada funcionalidad.
 **Para cerrar sesión:** usa **Cerrar sesión** (parte inferior del menú lateral en el
 área admin, o **Salir** arriba a la derecha en el portal del empleado).
 
+**Duración de la sesión:** la sesión se cierra sola tras **12 horas sin usar** el
+sistema. Además, si un administrador **desactiva tu cuenta** o cambia tu **contraseña**
+o tu **rol**, tu sesión se cierra en todos tus dispositivos y debes volver a ingresar.
+
 **Errores / situaciones comunes:**
 - *Usuario o contraseña incorrectos:* verifica mayúsculas/minúsculas.
 - *Cuenta desactivada:* un administrador debe reactivarla; los intentos quedan
@@ -95,8 +99,9 @@ paso, cómo usar cada funcionalidad.
 | **Empleado (EMPLOYEE)** | Solo su portal (Mi Quincena, Mi Horario, Perfil), salvo que reciba permisos extra. |
 
 > El menú lateral **solo muestra las opciones que tu rol permite**. Si no ves una
-> opción de este manual, es que tu rol no la incluye. Los cambios de permisos se
-> aplican **después de volver a iniciar sesión**.
+> opción de este manual, es que tu rol no la incluye. Los permisos individuales se
+> aplican **de inmediato** (recarga la página); si cambia tu **rol**, el sistema cierra
+> tu sesión y debes volver a ingresar.
 
 ---
 
@@ -415,7 +420,9 @@ turnos** → revisa y exporta con **Exportar PDF (turnos)** / **Exportar Excel (
 **Resultado esperado:** la persona ya puede iniciar sesión con ese usuario/contraseña.
 
 **Otras acciones:** editar, activar/desactivar y gestionar los **permisos individuales**
-de un usuario (conceder o denegar acciones concretas por encima de su rol).
+de un usuario (conceder o denegar acciones concretas por encima de su rol). Al
+**desactivar** un usuario, o al cambiar su contraseña o su rol, el sistema **cierra sus
+sesiones abiertas** de inmediato: ya no puede seguir trabajando con una sesión vieja.
 
 **Errores / situaciones comunes:**
 - *Nombre de usuario repetido:* debe ser único.
@@ -549,7 +556,11 @@ automáticamente para mantener buen contraste y legibilidad.
 
 **Pasos:** menú lateral (abajo, con tu nombre) → **Perfil** → cambia tu contraseña →
 guarda.
-**Resultado esperado:** contraseña actualizada; úsala en el próximo inicio de sesión.
+**Resultado esperado:** contraseña actualizada. El sistema cierra tu sesión en todos tus
+dispositivos y te pide ingresar con la nueva.
+
+> El usuario **Propietario** solo puede cambiar su contraseña desde aquí: por seguridad,
+> nadie puede modificarlo desde **Usuarios**.
 
 > **ADMIN con empleado vinculado:** además verás **Mi Quincena** y **Mi Horario** dentro
 > del área admin, igual que un empleado.
@@ -601,8 +612,8 @@ dispositivo).
 2. Cambia tu contraseña si lo deseas.
 3. Activa las **notificaciones** (el navegador pedirá permiso).
 
-**Resultado esperado:** contraseña actualizada y, si activaste notificaciones, avisos en
-tu dispositivo.
+**Resultado esperado:** contraseña actualizada (el sistema cierra tu sesión y te pide
+ingresar con la nueva) y, si activaste notificaciones, avisos en tu dispositivo.
 
 **Situación común:** si bloqueaste los permisos del navegador, deberás habilitarlos desde
 la configuración del navegador para recibir notificaciones.
@@ -617,7 +628,8 @@ la configuración del navegador para recibir notificaciones.
 Tu rol no incluye ese permiso. Pide a un Propietario/Superadmin que te lo asigne.
 
 **Cambié un permiso/rol y no se refleja.**
-Los cambios de permisos aplican **tras cerrar e iniciar sesión** de nuevo.
+Los permisos individuales aplican al recargar la página. Un cambio de **rol** cierra la
+sesión de esa persona: debe volver a ingresar.
 
 **¿Por qué un día se pagó con tarifa más alta?**
 Fue **domingo**, **festivo nacional** o un **festivo personalizado** registrado por la
@@ -640,7 +652,8 @@ Se muestran como información, pero **no** se suman al total pagable de la nómi
 
 **No puedo iniciar sesión.**
 Revisa usuario/contraseña (distingue mayúsculas). Si tu cuenta fue **desactivada**, un
-administrador debe reactivarla.
+administrador debe reactivarla. Si el error aparece justo después de una actualización
+del sistema y tus datos son correctos, avisa al soporte técnico.
 
 **¿Cada cuánto se maneja la nómina?**
 Por **quincenas**: del 1 al 15 y del 16 al fin de mes.
