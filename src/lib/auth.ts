@@ -6,6 +6,7 @@ import { recordAudit, getClientInfo } from "@/lib/audit";
 import { getEffectivePermissions } from "@/lib/get-permissions";
 import { PERMISSIONS, dailyCategoryKeys } from "@/lib/permission-keys";
 import { getMirroredCategories } from "@/lib/inventory-sync";
+import { isTokenStillValid, SESSION_MAX_AGE_SECONDS, SESSION_UPDATE_AGE_SECONDS } from "@/lib/session-guard";
 
 const PRIVILEGED_ROLES = ["PROPRIETARY", "SUPERADMIN", "ADMIN"];
 
@@ -82,7 +83,9 @@ const sharedSessionCookie = AUTH_COOKIE_DOMAIN
   : undefined;
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  session: { strategy: "jwt" },
+  // Sesión corta y renovable (antes: 30 días por defecto) + revocación por
+  // sessionVersion en el callback jwt() (RN-19).
+  session: { strategy: "jwt", maxAge: SESSION_MAX_AGE_SECONDS, updateAge: SESSION_UPDATE_AGE_SECONDS },
   cookies: sharedSessionCookie,
   providers: [
     Credentials({
@@ -153,6 +156,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           role: user.role,
           tenantId: user.tenantId,
           employeeId: user.employeeId,
+          sessionVersion: user.sessionVersion,
         };
       },
     }),
@@ -186,12 +190,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.role = user.role;
         token.tenantId = user.tenantId;
         token.employeeId = user.employeeId;
+        token.sv = user.sessionVersion ?? 0;
       }
       if (token.id && token.tenantId) {
         const dbUser = await prisma.user.findFirst({
           where: { id: token.id as string, tenantId: token.tenantId as string },
-          select: { role: true, inventoryAccess: true },
+          select: { role: true, inventoryAccess: true, active: true, sessionVersion: true },
         });
+        // RN-19: usuario eliminado, desactivado o con la sesión revocada (cambio de
+        // contraseña o de rol) ⇒ null invalida la sesión y borra la cookie.
+        if (!isTokenStillValid(token.sv, dbUser)) return null;
         if (dbUser) {
           token.role = dbUser.role;
           const inventoryPermissions = await resolveInventoryPermissions(

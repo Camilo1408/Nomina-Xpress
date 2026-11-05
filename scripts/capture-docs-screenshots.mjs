@@ -16,6 +16,7 @@
 import { chromium } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
+import { loginCredentials } from "./lib/credentials.mjs";
 
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
 const OUT_DIR = process.env.OUT_DIR ?? "docs/img";
@@ -24,8 +25,10 @@ const PERIOD_FROM = process.env.PERIOD_FROM ?? "2026-07-01";
 const PERIOD_TO = process.env.PERIOD_TO ?? "2026-07-15";
 const VIEWPORT = { width: 1440, height: 900 };
 
-const ADMIN = { user: "proprietario", pass: "proprietario123" };
-const EMPLOYEE = { user: "empleado", pass: "empleado123" };
+// Fuera de localhost exige DOCS_ADMIN_USER/PASS y DOCS_EMPLOYEE_USER/PASS.
+// En local cae a la semilla de prisma/seed-local.ts (datos de prueba).
+const ADMIN = loginCredentials("DOCS_ADMIN", BASE_URL, { user: "proprietario", pass: "proprietario123" });
+const EMPLOYEE = loginCredentials("DOCS_EMPLOYEE", BASE_URL, { user: "empleado", pass: "empleado123" });
 
 let failures = 0;
 

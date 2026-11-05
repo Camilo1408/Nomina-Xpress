@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { sessionRevocationData } from "@/lib/session-guard";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { logAudit } from "@/lib/audit";
@@ -78,7 +79,21 @@ export async function PUT(
     if (!cr) return NextResponse.json({ error: "Rol personalizado no encontrado" }, { status: 400 });
   }
 
-  const updated = await prisma.user.update({ where: { id }, data });
+  // RN-19: desactivar, cambiar la contraseña, el rol base o el rol personalizado
+  // cierra las sesiones abiertas del usuario en su siguiente request.
+  const revokes =
+    (parsed.data.active === false && target.active) ||
+    !!parsed.data.password ||
+    (parsed.data.role !== undefined && parsed.data.role !== target.role) ||
+    (parsed.data.customRoleId !== undefined && parsed.data.customRoleId !== target.customRoleId);
+
+  const updated = await prisma.user.update({
+    where: { id },
+    data: revokes ? { ...data, ...sessionRevocationData() } : data,
+  });
+
+  // La auditoría nunca guarda el hash de la contraseña, solo que cambió.
+  const { passwordHash: _hash, ...auditAfter } = data;
 
   const isToggle = parsed.data.active !== undefined && parsed.data.active !== target.active;
   await logAudit(req, session, {
@@ -90,7 +105,7 @@ export async function PUT(
       ? `${parsed.data.active ? "Activó" : "Desactivó"} el usuario "@${target.username}"`
       : `Editó el usuario "@${target.username}"`,
     before: { role: target.role, customRoleId: target.customRoleId, active: target.active },
-    after: data,
+    after: { ...auditAfter, ...(_hash ? { password: "(cambiada)" } : {}), ...(revokes ? { sesionesRevocadas: true } : {}) },
   });
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { sessionRevocationData } from "@/lib/session-guard";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { logAudit } from "@/lib/audit";
@@ -29,7 +30,8 @@ export async function PUT(req: Request) {
   if (!valid) return NextResponse.json({ error: "Contraseña actual incorrecta" }, { status: 401 });
 
   const passwordHash = await bcrypt.hash(parsed.data.newPassword, 12);
-  await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+  // RN-19: cerrar las sesiones en todos los dispositivos (la UI ya cierra la actual).
+  await prisma.user.update({ where: { id: user.id }, data: { passwordHash, ...sessionRevocationData() } });
 
   await logAudit(req, session, {
     action: "UPDATE",

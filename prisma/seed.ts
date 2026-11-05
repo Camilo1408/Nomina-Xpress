@@ -3,6 +3,18 @@ import { PrismaClient } from "../src/generated/prisma";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 import bcrypt from "bcryptjs";
 
+// Guardia (Plan de Calidad, G6): esta semilla usa contraseñas de PRUEBA conocidas
+// y publicadas en CLAUDE.md. Nunca debe correr contra una base remota (Turso) sin
+// una decisión explícita, porque dejaría cuentas privilegiadas con clave pública.
+{
+  const seedUrl = process.env.TURSO_DATABASE_URL ?? "";
+  if (!seedUrl.startsWith("file:") && process.env.NX_ALLOW_REMOTE_SEED !== "1") {
+    console.error("❌ Semilla de prueba bloqueada: TURSO_DATABASE_URL no es local (file:).");
+    console.error("   Si de verdad es una instancia demo desechable, exporta NX_ALLOW_REMOTE_SEED=1.");
+    process.exit(1);
+  }
+}
+
 const adapter = new PrismaLibSql({
   url: process.env.TURSO_DATABASE_URL!,
   authToken: process.env.TURSO_AUTH_TOKEN,

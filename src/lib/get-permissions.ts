@@ -29,7 +29,8 @@ export async function getEffectivePermissions(
     },
   });
 
-  if (!user) return new Set();
+  // Usuario inexistente o desactivado: sin permisos, aunque su JWT siga vivo (RN-19).
+  if (!user || !user.active) return new Set();
 
   // PROPRIETARY: acceso total a permisos estáticos. Las claves dinámicas de
   // inventario diario por categoría se agregan al construir el JWT (auth.ts),

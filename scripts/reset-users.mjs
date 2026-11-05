@@ -5,6 +5,7 @@ config({ path: ".env" });
 import { PrismaClient } from "../src/generated/prisma/index.js";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 import bcrypt from "bcryptjs";
+import { passwordFor, printGeneratedPasswords } from "./lib/credentials.mjs";
 
 const adapter = new PrismaLibSql({
   url: process.env.TURSO_DATABASE_URL,
@@ -21,12 +22,12 @@ console.log(`✅ Tenant: ${tenant.name} (${tenant.id})`);
 
 // Definición de usuarios a crear
 const users = [
-  { username: "SadminJavier", password: "Javier123",    role: "PROPRIETARY", employee: null },
-  { username: "SadminMajo",   password: "Majo123",      role: "SUPERADMIN",  employee: null },
-  { username: "AdminMajo",    password: "AdminMajo123", role: "ADMIN",       employee: null },
-  { username: "AdminValen",   password: "Valen123",     role: "ADMIN",       employee: null },
-  { username: "CesarH",       password: "CesarH123",    role: "EMPLOYEE",    employee: { name: "Cesar H",  payType: "PAYROLL" } },
-  { username: "Vanessa",      password: "Vanessa123",   role: "EMPLOYEE",    employee: { name: "Vanessa",  payType: "PAYROLL" } },
+  { username: "SadminJavier", password: passwordFor("SadminJavier"),    role: "PROPRIETARY", employee: null },
+  { username: "SadminMajo",   password: passwordFor("SadminMajo"),      role: "SUPERADMIN",  employee: null },
+  { username: "AdminMajo",    password: passwordFor("AdminMajo"), role: "ADMIN",       employee: null },
+  { username: "AdminValen",   password: passwordFor("AdminValen"),     role: "ADMIN",       employee: null },
+  { username: "CesarH",       password: passwordFor("CesarH"),    role: "EMPLOYEE",    employee: { name: "Cesar H",  payType: "PAYROLL" } },
+  { username: "Vanessa",      password: passwordFor("Vanessa"),   role: "EMPLOYEE",    employee: { name: "Vanessa",  payType: "PAYROLL" } },
 ];
 
 // 1) Borrar TODOS los usuarios existentes
@@ -88,4 +89,5 @@ all.forEach((u) =>
   console.log(`  · ${u.username.padEnd(14)} ${u.role.padEnd(12)} ${u.employeeId ?? ""}`)
 );
 
+printGeneratedPasswords();
 await prisma.$disconnect();

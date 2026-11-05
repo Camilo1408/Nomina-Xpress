@@ -4,6 +4,7 @@ config({ path: ".env" });
 import { PrismaClient } from "../src/generated/prisma/index.js";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 import bcrypt from "bcryptjs";
+import { passwordFor, printGeneratedPasswords } from "./lib/credentials.mjs";
 
 const adapter = new PrismaLibSql({
   url: process.env.TURSO_DATABASE_URL,
@@ -17,7 +18,7 @@ if (!tenant) {
   process.exit(1);
 }
 
-const passwordHash = await bcrypt.hash("Javier123", 12);
+const passwordHash = await bcrypt.hash(passwordFor("SadminJavier"), 12);
 const existing = await prisma.user.findUnique({ where: { username: "SadminJavier" } });
 if (existing) {
   await prisma.user.update({
@@ -36,4 +37,5 @@ if (existing) {
   });
   console.log("✅ Usuario SadminJavier creado con rol PROPRIETARY");
 }
+printGeneratedPasswords();
 await prisma.$disconnect();

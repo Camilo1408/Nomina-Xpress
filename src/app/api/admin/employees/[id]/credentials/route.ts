@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { sessionRevocationData } from "@/lib/session-guard";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { logAudit } from "@/lib/audit";
@@ -103,7 +104,11 @@ export async function PUT(
   if (parsed.data.password) updateData.passwordHash = await bcrypt.hash(parsed.data.password, 12);
   if (parsed.data.role) updateData.role = parsed.data.role;
 
-  await prisma.user.update({ where: { id: employee.user.id }, data: updateData });
+  // RN-19: cualquier cambio de credenciales (usuario, clave o rol) revoca sus sesiones.
+  await prisma.user.update({
+    where: { id: employee.user.id },
+    data: { ...updateData, ...sessionRevocationData() },
+  });
 
   const changes: string[] = [];
   if (parsed.data.username) changes.push("usuario");

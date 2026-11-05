@@ -2,8 +2,8 @@
  * Script de gestión de usuarios de producción (Turso)
  * Uso: npx tsx scripts/manage-users.ts
  *
- * - Crea AdminJavier (SUPERADMIN) / Javier123
- * - Crea AdminMajo   (SUPERADMIN) / Majo123
+ * - Crea o actualiza AdminJavier y AdminMajo (SUPERADMIN)
+ * - Contraseñas: NX_PASSWORD_<USUARIO> o generadas al azar (scripts/lib/credentials.mjs)
  * - Elimina el usuario "admin" de prueba
  */
 import { config } from "dotenv";
@@ -11,6 +11,10 @@ config({ path: ".env.production" });
 import { PrismaClient } from "../src/generated/prisma";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 import bcrypt from "bcryptjs";
+import { passwordFor, printGeneratedPasswords } from "./lib/credentials.mjs";
+
+const javierPassword: string = passwordFor("AdminJavier");
+const majoPassword: string = passwordFor("AdminMajo");
 
 const adapter = new PrismaLibSql({
   url: process.env.TURSO_DATABASE_URL!,
@@ -31,13 +35,13 @@ async function main() {
   const existingJavier = await prisma.user.findUnique({ where: { username: "AdminJavier" } });
   if (existingJavier) {
     console.log("⚠️  AdminJavier ya existe, actualizando contraseña...");
-    const hash = await bcrypt.hash("Javier123", 12);
+    const hash = await bcrypt.hash(javierPassword, 12);
     await prisma.user.update({
       where: { username: "AdminJavier" },
       data: { passwordHash: hash, role: "SUPERADMIN" },
     });
   } else {
-    const hash = await bcrypt.hash("Javier123", 12);
+    const hash = await bcrypt.hash(javierPassword, 12);
     await prisma.user.create({
       data: {
         tenantId: tenant.id,
@@ -53,13 +57,13 @@ async function main() {
   const existingMajo = await prisma.user.findUnique({ where: { username: "AdminMajo" } });
   if (existingMajo) {
     console.log("⚠️  AdminMajo ya existe, actualizando contraseña...");
-    const hash = await bcrypt.hash("Majo123", 12);
+    const hash = await bcrypt.hash(majoPassword, 12);
     await prisma.user.update({
       where: { username: "AdminMajo" },
       data: { passwordHash: hash, role: "SUPERADMIN" },
     });
   } else {
-    const hash = await bcrypt.hash("Majo123", 12);
+    const hash = await bcrypt.hash(majoPassword, 12);
     await prisma.user.create({
       data: {
         tenantId: tenant.id,
@@ -94,4 +98,7 @@ async function main() {
 
 main()
   .catch(console.error)
-  .finally(() => prisma.$disconnect());
+  .finally(() => {
+    printGeneratedPasswords();
+    return prisma.$disconnect();
+  });

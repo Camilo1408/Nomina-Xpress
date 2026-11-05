@@ -8,6 +8,8 @@ declare module "next-auth" {
     // Calculados en el callback jwt() en cada request, no en authorize().
     inventoryAccess?: boolean;
     inventoryPermissions?: string[];
+    // Versión de sesión vigente al iniciar sesión (RN-19).
+    sessionVersion?: number;
   }
   interface Session {
     user: {
@@ -27,5 +29,7 @@ declare module "next-auth/jwt" {
     employeeId?: string | null;
     inventoryAccess: boolean;
     inventoryPermissions?: string[];
+    /** sessionVersion del usuario al emitir el token (RN-19). */
+    sv?: number;
   }
 }

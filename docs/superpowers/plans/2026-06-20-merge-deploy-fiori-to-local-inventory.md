@@ -154,7 +154,7 @@ async function main() {
     data: {
       tenantId: tenant.id,
       username: "SadminJavier",
-      passwordHash: await bcrypt.hash("Javier123", 12),
+      passwordHash: await bcrypt.hash("<retirada>", 12),
       role: "PROPRIETARY",
     },
   });
@@ -164,7 +164,7 @@ async function main() {
     data: {
       tenantId: tenant.id,
       username: "SadminMajo",
-      passwordHash: await bcrypt.hash("Majo123", 12),
+      passwordHash: await bcrypt.hash("<retirada>", 12),
       role: "SUPERADMIN",
     },
   });
@@ -174,7 +174,7 @@ async function main() {
     data: {
       tenantId: tenant.id,
       username: "AdminValen",
-      passwordHash: await bcrypt.hash("Valen123", 12),
+      passwordHash: await bcrypt.hash("<retirada>", 12),
       role: "ADMIN",
     },
   });
@@ -193,7 +193,7 @@ async function main() {
     data: {
       tenantId: tenant.id,
       username: "CesarH",
-      passwordHash: await bcrypt.hash("CesarH123", 12),
+      passwordHash: await bcrypt.hash("<retirada>", 12),
       role: "EMPLOYEE",
       employeeId: empCesar.id,
       inventoryAccess: true,
@@ -214,7 +214,7 @@ async function main() {
     data: {
       tenantId: tenant.id,
       username: "Vanessa",
-      passwordHash: await bcrypt.hash("Vanessa123", 12),
+      passwordHash: await bcrypt.hash("<retirada>", 12),
       role: "EMPLOYEE",
       employeeId: empVanessa.id,
       inventoryAccess: false,
@@ -245,11 +245,11 @@ async function main() {
   });
 
   console.log("✅ Seed completado.");
-  console.log("   SadminJavier / Javier123  → PROPRIETARY");
-  console.log("   SadminMajo   / Majo123    → SUPERADMIN");
-  console.log("   AdminValen   / Valen123   → ADMIN");
-  console.log("   CesarH       / CesarH123 → EMPLOYEE (inventoryAccess=true)");
-  console.log("   Vanessa      / Vanessa123 → EMPLOYEE");
+  console.log("   SadminJavier / <retirada>  → PROPRIETARY");
+  console.log("   SadminMajo   / <retirada>    → SUPERADMIN");
+  console.log("   AdminValen   / <retirada>   → ADMIN");
+  console.log("   CesarH       / <retirada> → EMPLOYEE (inventoryAccess=true)");
+  console.log("   Vanessa      / <retirada> → EMPLOYEE");
 }
 
 main().catch(console.error).finally(() => prisma.$disconnect());
@@ -294,17 +294,17 @@ Confirmar "Ready" sin errores en consola.
 
 - [ ] **Step 2: Test login SadminJavier (PROPRIETARY)**
 - Ir a `localhost:3000` → debe redirigir a `/login`
-- Login con `SadminJavier` / `Javier123`
+- Login con `SadminJavier` / `<retirada>`
 - Debe redirigir a `/admin/dashboard`
 - El sidebar debe mostrar todos los módulos incluyendo Auditoría y Roles
 
 - [ ] **Step 3: Test login CesarH (EMPLOYEE + inventoryAccess)**
-- Logout → Login con `CesarH` / `CesarH123`
+- Logout → Login con `CesarH` / `<retirada>`
 - Debe redirigir a `/portal/report`
 - El portal debe mostrar botón de Inventario
 
 - [ ] **Step 4: Test login Vanessa (EMPLOYEE sin inventoryAccess)**
-- Logout → Login con `Vanessa` / `Vanessa123`
+- Logout → Login con `Vanessa` / `<retirada>`
 - Debe redirigir a `/portal/report`
 - El portal NO debe mostrar botón de Inventario
 
