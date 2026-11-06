@@ -13,7 +13,7 @@ import { isDailyCategoryKey, PERMISSION_LABELS } from "@/lib/permission-keys";
  *
  * Excepción a propósito: un ADMIN o SUPERADMIN que opera con su ROL BASE puede
  * delegar las categorías del inventario diario (`inventory:daily:<slug>:*`),
- * porque por su rol ya opera todas (ver resolveInventoryPermissions en auth.ts),
+ * porque por su rol ya opera todas (ver resolveInventoryPermissions en inventory-permissions.ts),
  * aunque esas claves no estén en su set de permisos.
  */
 

@@ -82,6 +82,12 @@ personalizado debe incluir `...sessionRevocationData()` en el `update`.** La aud
 nunca guarda hashes de contraseña. Los permisos individuales se resuelven en cada
 request: no exigen volver a iniciar sesión.
 
+**Inventory comparte la cookie pero no la base** (I-H1b): pregunta por la sesión en
+`POST /api/inventory-permissions/session` con un token cifrado con `NEXTAUTH_SECRET` y la sal
+`SESSION_CHECK_SALT` (distinta de la de la cookie, así que una cookie robada no sirve). La
+respuesta sale de `resolveSessionState()` (`src/lib/session-state.ts`), **la misma función
+del callback `jwt()`**: no dupliques esa lógica. Cambiar la sal rompe a Inventory.
+
 ### Inicio de sesión (CP-45, CP-46)
 
 `authorize` vive en `src/lib/login.ts`. **bcrypt corre siempre**, también contra un hash de
