@@ -15,23 +15,23 @@ function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
 
 type Status = "loading" | "unsupported" | "denied" | "subscribed" | "unsubscribed";
 
+// Estado inicial de las notificaciones en este navegador. Solo corre en el cliente
+// (usa `navigator`), por eso se llama desde un efecto y no al inicializar el estado.
+async function detectStatus(): Promise<Status> {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return "unsupported";
+  if (Notification.permission === "denied") return "denied";
+  const reg = await navigator.serviceWorker.ready;
+  const sub = await reg.pushManager.getSubscription();
+  return sub ? "subscribed" : "unsubscribed";
+}
+
 export function PushNotificationButton() {
   const [status, setStatus] = useState<Status>("loading");
 
   useEffect(() => {
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-      setStatus("unsupported");
-      return;
-    }
-    if (Notification.permission === "denied") {
-      setStatus("denied");
-      return;
-    }
-    navigator.serviceWorker.ready.then((reg) => {
-      reg.pushManager.getSubscription().then((sub) => {
-        setStatus(sub ? "subscribed" : "unsubscribed");
-      });
-    });
+    let cancelled = false;
+    detectStatus().then((s) => { if (!cancelled) setStatus(s); });
+    return () => { cancelled = true; };
   }, []);
 
   async function handleSubscribe() {

@@ -35,22 +35,33 @@ export default function PortalReportPage() {
       installment: number; totalInstallments: number; amount: number; status: string;
     }[];
   } | null>(null);
-  const [loading, setLoading] = useState(false);
+  // "Cargando" se deriva del rango ya cargado: no hace falta un setState síncrono en el
+  // efecto (react-hooks/set-state-in-effect) y una respuesta vieja no pisa a la nueva.
+  const rangeKey = `${from}|${to}`;
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const loading = loadedKey !== rangeKey;
 
-  async function fetchReport(f: string, t: string) {
-    setLoading(true);
-    const [reportRes, tipsRes, contestRes] = await Promise.all([
-      fetch(`/api/employee/report?from=${f}&to=${t}`),
-      fetch(`/api/employee/tips?from=${f}&to=${t}`),
-      fetch(`/api/employee/contest-bonuses?from=${f}&to=${t}`),
-    ]);
-    if (reportRes.ok) setData(await reportRes.json());
-    if (tipsRes.ok) setTips(await tipsRes.json());
-    if (contestRes.ok) setContestBonuses(await contestRes.json());
-    setLoading(false);
-  }
-
-  useEffect(() => { fetchReport(from, to); }, [from, to]);
+  useEffect(() => {
+    let cancelled = false;
+    const key = `${from}|${to}`;
+    const jsonIfOk = async (res: Response) => (res.ok ? res.json() : null);
+    Promise.all([
+      fetch(`/api/employee/report?from=${from}&to=${to}`).then(jsonIfOk),
+      fetch(`/api/employee/tips?from=${from}&to=${to}`).then(jsonIfOk),
+      fetch(`/api/employee/contest-bonuses?from=${from}&to=${to}`).then(jsonIfOk),
+    ])
+      .then(([report, tipsBody, contestBody]) => {
+        if (cancelled) return;
+        if (report) setData(report);
+        if (tipsBody) setTips(tipsBody);
+        if (contestBody) setContestBonuses(contestBody);
+        setLoadedKey(key);
+      })
+      .catch(() => {
+        if (!cancelled) setLoadedKey(key);
+      });
+    return () => { cancelled = true; };
+  }, [from, to]);
 
   return (
     <div className="space-y-6">

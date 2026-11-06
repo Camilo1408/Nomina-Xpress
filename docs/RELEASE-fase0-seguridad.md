@@ -41,14 +41,19 @@ ALTER TABLE "User" ADD COLUMN "sessionVersion" INTEGER NOT NULL DEFAULT 0;
 
 ## Verificación hecha en local
 
+> **Corrección (06/11/2026):** este documento decía 456 pruebas en 33 archivos. Vitest
+> también recogía 7 archivos de una copia de trabajo de un agente en `.claude/worktrees/`;
+> el conjunto real del repositorio es de 386 pruebas en 26 archivos. `vitest.config.ts`
+> ahora excluye `.claude/`.
+
 | Comprobación | Resultado |
 |---|---|
-| `npx vitest run` | **456/456** en 33 archivos; 21 casos nuevos (`[RN-19]`, `[CP-43]`, `[CP-44]`, `[CP-54]`) |
+| `npx vitest run` | **386/386** en 26 archivos; 21 casos nuevos (`[RN-19]`, `[CP-43]`, `[CP-44]`, `[CP-54]`) |
 | `npx tsc --noEmit` | limpio |
 | `next build` | compila sin errores |
 | Prueba de punta a punta contra `localhost` | Al desactivar un ADMIN su sesión pasa a `null` y la API lo rechaza; la sesión del PROPRIETARY sigue activa; al reactivarlo la cookie vieja no revive y un login nuevo funciona |
 | `npx eslint src` | 7 errores, los mismos de `main` (`react-hooks/set-state-in-effect`) |
-| #13 y #14 instalados desde cero (`npm ci`) | 456/456, `tsc` limpio, build correcto, ESLint funciona con `js-yaml` 4.3.2 |
+| #13 y #14 instalados desde cero (`npm ci`) | 386/386, `tsc` limpio, build correcto, ESLint funciona con `js-yaml` 4.3.2 |
 
 ## Riesgos conocidos
 

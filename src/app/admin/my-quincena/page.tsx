@@ -30,16 +30,27 @@ export default function AdminMyQuincenaPage() {
     tipDistributions: { date: string; amount: number; hoursWorked: number; tipPercent: number }[];
     entries: { id: string; date: string; checkIn: string; checkOut: string | null; isSpecial: boolean; notes: string | null }[];
   } | null>(null);
-  const [loading, setLoading] = useState(false);
+  // "Cargando" se deriva del rango ya cargado: no hace falta un setState síncrono en el
+  // efecto (react-hooks/set-state-in-effect) y una respuesta vieja no pisa a la nueva.
+  const rangeKey = `${from}|${to}`;
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const loading = loadedKey !== rangeKey;
 
-  async function fetchReport(f: string, t: string) {
-    setLoading(true);
-    const res = await fetch(`/api/employee/report?from=${f}&to=${t}`);
-    if (res.ok) setData(await res.json());
-    setLoading(false);
-  }
-
-  useEffect(() => { fetchReport(from, to); }, [from, to]);
+  useEffect(() => {
+    let cancelled = false;
+    const key = `${from}|${to}`;
+    fetch(`/api/employee/report?from=${from}&to=${to}`)
+      .then(async (res) => {
+        const body = res.ok ? await res.json() : null;
+        if (cancelled) return;
+        if (body) setData(body);
+        setLoadedKey(key);
+      })
+      .catch(() => {
+        if (!cancelled) setLoadedKey(key);
+      });
+    return () => { cancelled = true; };
+  }, [from, to]);
 
   return (
     <div className="space-y-6">

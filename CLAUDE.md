@@ -8,6 +8,9 @@ Sistema web de gestión de nómina para restaurantes. **Cada cliente se desplieg
 - `npm run build` — Build de producción
 - `npm run lint` — ESLint
 - `npm run test` — Vitest (unit tests)
+- CI (`.github/workflows/ci.yml`) en cada PR y push a `main`: `tsc`, ESLint con **0 errores**,
+  Vitest, `npm run build` y `npm audit --omit=dev --audit-level=critical`. No usa secretos:
+  corre contra una SQLite vacía.
 - `npx prisma db push` — Aplicar el schema a la BD (crea/actualiza tablas)
 - `npx prisma generate` — Regenerar cliente Prisma
 - `npx prisma studio` — GUI de base de datos

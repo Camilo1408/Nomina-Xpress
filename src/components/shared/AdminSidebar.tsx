@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -78,11 +78,11 @@ export function AdminSidebar({
   inventarioUrl,
 }: AdminSidebarProps) {
   const pathname = usePathname();
-  const [mobileOpen, setMobileOpen] = useState(false);
-
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
+  // El menú móvil queda abierto solo en la ruta donde se abrió: al navegar se cierra solo,
+  // sin un efecto que haga setState (react-hooks/set-state-in-effect).
+  const [openedAt, setOpenedAt] = useState<string | null>(null);
+  const mobileOpen = openedAt === pathname;
+  const setMobileOpen = (open: boolean) => setOpenedAt(open ? pathname : null);
 
   const permSet = new Set(permissions);
   const navItems = allNavItems.filter(

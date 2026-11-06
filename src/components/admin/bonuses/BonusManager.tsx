@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -92,9 +92,12 @@ export function BonusManager({ employees, canCreate, canEdit, canDelete }: Bonus
     }
   }, []);
 
-  useEffect(() => {
-    if (open) fetchBonuses();
-  }, [open, fetchBonuses]);
+  // La lista se carga al abrir el modal, desde el clic y no desde un efecto
+  // (react-hooks/set-state-in-effect).
+  function openManager() {
+    setOpen(true);
+    fetchBonuses();
+  }
 
   async function toggleActive(b: BonusRow) {
     const res = await fetch(`/api/admin/bonuses/${b.id}`, {
@@ -135,7 +138,7 @@ export function BonusManager({ employees, canCreate, canEdit, canDelete }: Bonus
     <>
       <Button
         variant="outline"
-        onClick={() => setOpen(true)}
+        onClick={openManager}
         className="gap-2 border-[#C1643F] text-[#C1643F] hover:bg-[#C1643F]/10"
       >
         <Gift className="w-4 h-4" /> Gestionar bonos

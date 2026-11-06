@@ -1,0 +1,61 @@
+# Compuerta de calidad (Plan de Calidad, Fase 1): todo PR a main y todo push a main
+# pasan por tipos, lint, pruebas, build y auditoría de dependencias de producción.
+# Cuando este check esté en verde de forma estable, la protección de `main` lo exige
+# para poder hacer merge.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  calidad:
+    name: Tipos, lint, pruebas y build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Sin secretos: el CI nunca toca una base real. El build y las pruebas usan una
+      # SQLite vacía y un secreto de relleno que solo vive en este job.
+      TURSO_DATABASE_URL: file:./ci.db
+      NEXTAUTH_SECRET: ci-only-not-a-real-secret-000000000000
+      NEXTAUTH_URL: http://localhost:3000
+      NEXT_TELEMETRY_DISABLED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: "npm"
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Generar cliente Prisma
+        run: npx prisma generate
+
+      - name: Tipos (tsc)
+        run: npx tsc --noEmit
+
+      - name: Lint (ESLint, 0 errores)
+        run: npx eslint .
+
+      - name: Pruebas (Vitest)
+        run: npx vitest run
+
+      - name: Build de producción
+        run: npm run build
+
+      - name: Dependencias de producción sin vulnerabilidades críticas
+        run: npm audit --omit=dev --audit-level=critical
