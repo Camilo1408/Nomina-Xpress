@@ -675,8 +675,9 @@ Ver [DESPLIEGUES.md](DESPLIEGUES.md) (fuente de verdad). Resumen:
 - **Aplicar cambios de schema:** local `prisma db push`; producción con el script
   `prisma/turso-migrate-*.mjs` del cambio, primero en el demo y luego en cada cliente,
   **antes** de desplegar el código (§12.4). **Siempre respaldar antes** (BACKUP.md).
-- **Tests:** `npm run test` (Vitest) antes de mergear: 456 casos en 33 archivos al
-  2026-11-05. Cubren nómina, propinas, bonos, descuentos, concursos, permisos, sesiones y
+- **Tests:** `npm run test` (Vitest) antes de mergear: 386 casos en 26 archivos al
+  2026-11-06, y el CI (`.github/workflows/ci.yml`) los corre en cada PR junto con `tsc`,
+  ESLint, el build y `npm audit`. Cubren nómina, propinas, bonos, descuentos, concursos, permisos, sesiones y
   auditoría (`src/lib/__tests__/` y `__tests__/` de las rutas).
 - **Lint/tipos:** `npm run lint` y el `build` (que corre `prisma generate` + `next build`).
 - **Scripts de mantenimiento** en `scripts/` (backups, arreglo de índices/columnas,

@@ -26,7 +26,7 @@ Ninguno nuevo. Usa los permisos de exportación de propinas que ya existen.
 |---|---|
 | `npx tsc --noEmit` | limpio |
 | `npm run build` | compila sin errores |
-| `npx vitest run` | **435/435** (13 pruebas nuevas del apartado) |
+| `npx vitest run` | **435/435** (13 pruebas nuevas del apartado). Corrección del 06/11/2026: la cifra incluía 7 archivos de una copia de trabajo en `.claude/worktrees/`; el conjunto real era de 365 pruebas |
 | `node scripts/verificar-concursos-e2e.mjs` | **72/72** |
 | `node scripts/e2e-concursos.mjs` | **77/77** |
 | Endpoints `/api/admin/tips/export/{pdf,excel}` con la base local | Julio: sin apartado. Agosto: concurso del 1 al 15 con su ganador. 16–31 de agosto: sin apartado, aunque una cuota se paga en esa quincena |
