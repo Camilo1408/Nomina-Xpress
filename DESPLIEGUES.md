@@ -95,6 +95,7 @@ TURSO_DATABASE_URL="libsql://<cliente>.turso.io" TURSO_AUTH_TOKEN="<token>"   no
 | `turso-migrate-concursos.mjs` | Concursos |
 | `turso-migrate-schedule-restday.mjs` | Día de descanso en horarios |
 | `turso-migrate-session-version.mjs` | Revocación de sesiones: columna `User.sessionVersion` (2026-11-05) |
+| `turso-migrate-login-throttle.mjs` | Límite de intentos de inicio de sesión: tabla `LoginThrottle` (2026-11-06). Si falta, el login funciona pero sin límite |
 
 Los scripts son seguros de ejecutar varias veces: si el cambio ya está aplicado,
 lo detectan y lo omiten.
