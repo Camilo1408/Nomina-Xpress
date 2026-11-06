@@ -7,16 +7,18 @@ import bcrypt from "bcryptjs";
 import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
+import { newPasswordSchema } from "@/lib/password-policy";
+import { clearLoginLock } from "@/lib/login-throttle";
 
 const createSchema = z.object({
   username: z.string().min(3),
-  password: z.string().min(6),
+  password: newPasswordSchema,
   role: z.enum(["EMPLOYEE", "ADMIN"]).default("EMPLOYEE"),
 });
 
 const updateSchema = z.object({
   username: z.string().min(3).optional(),
-  password: z.string().min(6).optional(),
+  password: newPasswordSchema.optional(),
   role: z.enum(["EMPLOYEE", "ADMIN"]).optional(),
 });
 
@@ -109,6 +111,8 @@ export async function PUT(
     where: { id: employee.user.id },
     data: { ...updateData, ...sessionRevocationData() },
   });
+  // CP-45: una contraseña nueva levanta el bloqueo por intentos fallidos.
+  if (parsed.data.password) await clearLoginLock(employee.user.username);
 
   const changes: string[] = [];
   if (parsed.data.username) changes.push("usuario");

@@ -5,10 +5,12 @@ import { sessionRevocationData } from "@/lib/session-guard";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { logAudit } from "@/lib/audit";
+import { newPasswordSchema } from "@/lib/password-policy";
+import { clearLoginLock } from "@/lib/login-throttle";
 
 const schema = z.object({
   currentPassword: z.string().min(1),
-  newPassword: z.string().min(6),
+  newPassword: newPasswordSchema,
 });
 
 export async function PUT(req: Request) {
@@ -32,6 +34,8 @@ export async function PUT(req: Request) {
   const passwordHash = await bcrypt.hash(parsed.data.newPassword, 12);
   // RN-19: cerrar las sesiones en todos los dispositivos (la UI ya cierra la actual).
   await prisma.user.update({ where: { id: user.id }, data: { passwordHash, ...sessionRevocationData() } });
+  // CP-45: una contraseña nueva levanta el bloqueo por intentos fallidos.
+  await clearLoginLock(user.username);
 
   await logAudit(req, session, {
     action: "UPDATE",

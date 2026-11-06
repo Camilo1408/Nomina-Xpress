@@ -147,7 +147,7 @@ export function ProfileClient({ role, employee }: ProfileClientProps) {
               type={showNew ? "text" : "password"}
               value={form.newPassword}
               onChange={(e) => set("newPassword", e.target.value)}
-              minLength={6}
+              minLength={10}
               placeholder="Dejar vacío para no cambiar"
               className="pr-10"
             />
@@ -156,7 +156,7 @@ export function ProfileClient({ role, employee }: ProfileClientProps) {
               {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
-          <p className="text-xs text-[#7A6358]">Mín. 6 caracteres si cambia</p>
+          <p className="text-xs text-[#7A6358]">Mín. 10 caracteres si cambia</p>
         </div>
 
         <Button type="submit" disabled={loading} className="bg-[#C1643F] hover:bg-[#A8522F] text-[#FAF7F2] w-full">

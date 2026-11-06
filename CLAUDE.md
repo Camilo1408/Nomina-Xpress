@@ -82,6 +82,19 @@ personalizado debe incluir `...sessionRevocationData()` en el `update`.** La aud
 nunca guarda hashes de contraseña. Los permisos individuales se resuelven en cada
 request: no exigen volver a iniciar sesión.
 
+### Inicio de sesión (CP-45, CP-46)
+
+`authorize` vive en `src/lib/login.ts`. **bcrypt corre siempre**, también contra un hash de
+relleno si el usuario no existe o está desactivado, para que el tiempo no revele qué
+usuarios existen. El **límite de intentos** está en `src/lib/login-throttle.ts`, sobre la
+tabla `LoginThrottle` (sin `tenantId`: el intento ocurre antes de conocer el tenant):
+5 fallos por usuario+IP o 20 por usuario en 15 min bloquean 15, 30 y luego 60 min. Si esa
+tabla falla, el login sigue sin límite (falla abierta, queda en el log). PROPRIETARY y
+SUPERADMIN desbloquean y restablecen contraseñas desde Usuarios del portal
+(`POST /api/admin/users/[id]/unlock`). **Toda ruta que cambie una contraseña debe llamar
+`clearLoginLock(username)`.** Las contraseñas nuevas exigen 10 caracteres
+(`newPasswordSchema` de `src/lib/password-policy.ts`).
+
 ### Directory Structure
 
 - `src/app/(auth)/` — Rutas de autenticación (login) — único route group

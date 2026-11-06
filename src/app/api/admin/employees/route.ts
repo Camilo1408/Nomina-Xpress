@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
+import { newPasswordSchema } from "@/lib/password-policy";
 
 const createSchema = z.object({
   name: z.string().min(2),
@@ -17,7 +18,7 @@ const createSchema = z.object({
   payType: z.enum(["PAYROLL", "SHIFT"]).default("PAYROLL"),
   accessRole: z.enum(["NONE", "EMPLOYEE", "ADMIN"]).default("NONE"),
   username: z.preprocess((v) => (v === "" ? undefined : v), z.string().min(3).optional()),
-  password: z.preprocess((v) => (v === "" ? undefined : v), z.string().min(6).optional()),
+  password: z.preprocess((v) => (v === "" ? undefined : v), newPasswordSchema.optional()),
 });
 
 export async function GET() {

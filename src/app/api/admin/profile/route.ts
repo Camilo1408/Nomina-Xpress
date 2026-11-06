@@ -5,10 +5,12 @@ import { sessionRevocationData } from "@/lib/session-guard";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { logAudit } from "@/lib/audit";
+import { newPasswordSchema } from "@/lib/password-policy";
+import { clearLoginLock } from "@/lib/login-throttle";
 
 const schema = z.object({
   username: z.string().min(3).optional(),
-  password: z.string().min(6).optional(),
+  password: newPasswordSchema.optional(),
   currentPassword: z.string().min(1),
 });
 
@@ -53,6 +55,8 @@ export async function PUT(req: Request) {
   // RN-19: cambiar usuario o contraseña propios cierra las sesiones en todos los
   // dispositivos (la UI ya cierra la actual).
   await prisma.user.update({ where: { id: user.id }, data: { ...updateData, ...sessionRevocationData() } });
+  // CP-45: una contraseña nueva levanta el bloqueo por intentos fallidos.
+  if (parsed.data.password) await clearLoginLock(user.username);
 
   const changes: string[] = [];
   if (parsed.data.username) changes.push("usuario");

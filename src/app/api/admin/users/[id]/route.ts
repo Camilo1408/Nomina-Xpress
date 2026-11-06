@@ -7,12 +7,14 @@ import bcrypt from "bcryptjs";
 import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
+import { newPasswordSchema } from "@/lib/password-policy";
+import { clearLoginLock } from "@/lib/login-throttle";
 
 const updateSchema = z.object({
   role: z.enum(["ADMIN", "SUPERADMIN"]).optional(),
   customRoleId: z.string().nullable().optional(),
   active: z.boolean().optional(),
-  password: z.string().min(6).optional(),
+  password: newPasswordSchema.optional(),
 });
 
 export async function GET(
@@ -91,6 +93,8 @@ export async function PUT(
     where: { id },
     data: revokes ? { ...data, ...sessionRevocationData() } : data,
   });
+  // CP-45: una contraseña nueva levanta el bloqueo por intentos fallidos.
+  if (parsed.data.password) await clearLoginLock(target.username);
 
   // La auditoría nunca guarda el hash de la contraseña, solo que cambió.
   const { passwordHash: _hash, ...auditAfter } = data;

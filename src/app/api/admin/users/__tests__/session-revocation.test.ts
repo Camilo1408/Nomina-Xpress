@@ -8,6 +8,7 @@ const SESSION = { user: { id: "owner", tenantId: "t1", role: "PROPRIETARY", name
 
 vi.mock("@/lib/auth", () => ({ auth: vi.fn(async () => SESSION) }));
 vi.mock("@/lib/audit", () => ({ logAudit: vi.fn(async () => {}) }));
+vi.mock("@/lib/login-throttle", () => ({ clearLoginLock: vi.fn(async () => {}) }));
 vi.mock("@/lib/get-permissions", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/get-permissions")>();
   return { ...actual, sessionCan: vi.fn(async () => true) };

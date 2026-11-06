@@ -52,7 +52,10 @@ export function LoginForm({ tenantName, logoUrl }: LoginFormProps) {
       redirect: false,
     });
     setLoading(false);
-    if (result?.error) {
+    if (result?.code === "locked") {
+      // CP-45: demasiados intentos fallidos (el bloqueo dura de 15 a 60 min).
+      setError("Demasiados intentos fallidos. Espera unos minutos e inténtalo de nuevo.");
+    } else if (result?.error) {
       setError("Usuario o contraseña incorrectos.");
     } else {
       // Retorno al inventario (modo integrado) si el callbackUrl es válido; si no, home.

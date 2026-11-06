@@ -6,10 +6,11 @@ import bcrypt from "bcryptjs";
 import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
+import { newPasswordSchema } from "@/lib/password-policy";
 
 const createSchema = z.object({
   username: z.string().min(3).max(40),
-  password: z.string().min(6),
+  password: newPasswordSchema,
   role: z.enum(["ADMIN", "SUPERADMIN"]),
   customRoleId: z.string().nullable().optional(),
   // null = usuario solo del sistema (no pagable)
