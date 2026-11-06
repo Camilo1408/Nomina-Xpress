@@ -4,7 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { UserActions } from "@/components/admin/usuarios/UserActions";
-import { requirePagePermission } from "@/lib/require-permission";
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { getEffectivePermissionsCached } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
 import { lockedUsernames, isUsernameLocked } from "@/lib/login-throttle";
 import { canRecoverAccess } from "@/lib/password-policy";
@@ -24,7 +26,14 @@ const ROLE_COLORS: Record<string, string> = {
 };
 
 export default async function UsuariosPage() {
-  const { session, permissions } = await requirePagePermission(PERMISSIONS.USERS_VIEW);
+  // users:view abre la página completa. Sin él, PROPRIETARY y SUPERADMIN la ven igual,
+  // solo para desbloquear y restablecer contraseñas (CP-45).
+  const session = await auth();
+  if (!session?.user?.id || !session.user.tenantId) redirect("/login");
+  const permissions = await getEffectivePermissionsCached(session.user.id, session.user.tenantId);
+  if (!permissions.has(PERMISSIONS.USERS_VIEW) && !canRecoverAccess(session.user.role)) {
+    redirect("/admin/dashboard");
+  }
   const canCreate = permissions.has(PERMISSIONS.USERS_CREATE);
   const canManagePermissions = permissions.has(PERMISSIONS.USERS_MANAGE_PERMISSIONS);
   const canDeactivate = permissions.has(PERMISSIONS.USERS_DEACTIVATE);
@@ -154,6 +163,7 @@ export default async function UsuariosPage() {
                     canDeactivate={canDeactivate}
                     canRecoverAccess={canRecover}
                     locked={isUsernameLocked(locked, u.username)}
+                    isSelf={u.id === session.user.id}
                   />
                 </td>
               </tr>

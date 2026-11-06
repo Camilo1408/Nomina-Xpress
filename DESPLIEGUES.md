@@ -59,6 +59,21 @@ Convención para flags futuros: `NEXT_PUBLIC_FEATURE_*` (cliente) / sin prefijo
 5. Rollback si falla: en Vercel → proyecto → Deployments → **Instant Rollback**
    al deployment anterior, o reapuntar Production Branch a la rama previa.
 
+## Recuperar el acceso de un usuario
+
+- **Bloqueado por intentos fallidos u olvidó la clave:** PROPRIETARY o SUPERADMIN, en
+  *Usuarios del portal* → menú del usuario → *Desbloquear inicio de sesión* o
+  *Restablecer contraseña* (restablecer también desbloquea).
+- **El PROPRIETARY olvidó su clave** (nadie puede editarlo desde la UI): con las
+  credenciales de la BD del cliente,
+  ```bash
+  node scripts/reset-password.mjs <usuario>        # simulación
+  node scripts/reset-password.mjs <usuario> --si   # aplica
+  ```
+  Toma la clave de `NX_PASSWORD_<USUARIO>` o genera una y la muestra una sola vez; cierra
+  sus sesiones, lo desbloquea y deja el evento en la auditoría. **No** usar
+  `prod-reset-users.mjs`: borra a todos los usuarios.
+
 ## Alta de un cliente nuevo
 
 1. Crear su BD Turso y aplicar el schema actual: `TURSO_DATABASE_URL=<nueva> TURSO_AUTH_TOKEN=<token> npx prisma db push`.

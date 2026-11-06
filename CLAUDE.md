@@ -95,6 +95,18 @@ SUPERADMIN desbloquean y restablecen contraseñas desde Usuarios del portal
 `clearLoginLock(username)`.** Las contraseñas nuevas exigen 10 caracteres
 (`newPasswordSchema` de `src/lib/password-policy.ts`).
 
+### Techo de delegación (RN-20)
+
+`src/lib/delegation.ts`. Salvo el PROPRIETARY, **nadie otorga permisos que no tiene ni
+gestiona a un usuario con permisos que él no tiene** (restablecer su clave incluido), y
+**nadie se cambia a sí mismo** el rol, el rol personalizado, el estado ni los permisos
+individuales. Toda ruta que asigne un rol, un rol personalizado o permisos, o que cree o
+edite un rol personalizado, pasa por `checkTargetChange` / `ungrantable`. Un ADMIN o
+SUPERADMIN con su rol base puede delegar las categorías del inventario diario (las opera
+por su rol). PROPRIETARY y SUPERADMIN abren Usuarios del portal aunque no tengan
+`users:view`, solo para desbloquear y restablecer claves. Si el PROPRIETARY olvida su clave:
+`scripts/reset-password.mjs <usuario> --si` (nunca `prod-reset-users.mjs`, que borra a todos).
+
 ### Directory Structure
 
 - `src/app/(auth)/` — Rutas de autenticación (login) — único route group

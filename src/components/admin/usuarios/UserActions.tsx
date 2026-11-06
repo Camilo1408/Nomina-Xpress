@@ -18,6 +18,8 @@ interface UserActionsProps {
   canRecoverAccess: boolean;
   /** El usuario tiene un bloqueo vigente por intentos fallidos. */
   locked: boolean;
+  /** Es el usuario de la sesión: su clave se cambia en Mi perfil. */
+  isSelf: boolean;
 }
 
 export function UserActions({
@@ -29,6 +31,7 @@ export function UserActions({
   canDeactivate,
   canRecoverAccess,
   locked,
+  isSelf,
 }: UserActionsProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -89,7 +92,7 @@ export function UserActions({
   const showPermissions = canManagePermissions && !isProprietary;
   const showToggle = canDeactivate && !isProprietary;
   const showUnlock = canRecoverAccess && locked;
-  const showReset = canRecoverAccess && !isProprietary;
+  const showReset = canRecoverAccess && !isProprietary && !isSelf;
   if (!showPermissions && !showToggle && !showUnlock && !showReset) return null;
 
   return (

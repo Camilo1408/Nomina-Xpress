@@ -5,6 +5,7 @@ import { z } from "zod";
 import { logAudit } from "@/lib/audit";
 import { isValidPermissionKey, PERMISSIONS } from "@/lib/permission-keys";
 import { sessionCan } from "@/lib/get-permissions";
+import { grantAboveResponse, loadDelegationContext, ungrantable } from "@/lib/delegation";
 
 const updateSchema = z.object({
   name: z.string().min(2).max(60).optional(),
@@ -62,9 +63,16 @@ export async function PUT(
   if (parsed.data.name !== undefined) data.name = parsed.data.name;
   if (parsed.data.description !== undefined) data.description = parsed.data.description;
   if (parsed.data.permissions !== undefined) {
-    data.permissions = JSON.stringify(
-      parsed.data.permissions.filter((p) => isValidPermissionKey(p))
+    const validPerms = parsed.data.permissions.filter((p) => isValidPermissionKey(p));
+    // RN-20 (CP-48): solo se agregan claves que quien edita tiene. Las que el rol ya
+    // tenía se pueden conservar aunque el editor no las tenga.
+    const previous = new Set(JSON.parse(existing.permissions) as string[]);
+    const above = ungrantable(
+      await loadDelegationContext(session),
+      validPerms.filter((p) => !previous.has(p)),
     );
+    if (above.length) return grantAboveResponse(above);
+    data.permissions = JSON.stringify(validPerms);
   }
   if (parsed.data.active !== undefined) data.active = parsed.data.active;
 

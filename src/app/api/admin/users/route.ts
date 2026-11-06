@@ -7,6 +7,7 @@ import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
 import { newPasswordSchema } from "@/lib/password-policy";
+import { grantAboveResponse, loadDelegationContext, permissionsOf, ungrantable } from "@/lib/delegation";
 
 const createSchema = z.object({
   username: z.string().min(3).max(40),
@@ -70,10 +71,19 @@ export async function POST(req: Request) {
   }
 
   // Si se especifica un customRole, verificar que pertenece al tenant
+  let customRole: { permissions: string; active: boolean; tenantId: string } | null = null;
   if (customRoleId) {
     const cr = await prisma.customRole.findFirst({ where: { id: customRoleId, tenantId } });
     if (!cr) return NextResponse.json({ error: "Rol personalizado no encontrado" }, { status: 400 });
+    customRole = cr;
   }
+
+  // RN-20: no se crea un usuario con más permisos que los de quien lo crea.
+  const above = ungrantable(
+    await loadDelegationContext(session),
+    permissionsOf({ role, customRole }, tenantId),
+  );
+  if (above.length) return grantAboveResponse(above);
 
   // Si se vincula a un empleado, verificar que pertenece al tenant y no tiene usuario ya
   if (employeeId) {

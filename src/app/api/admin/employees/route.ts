@@ -5,6 +5,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
+import { grantAboveResponse, loadDelegationContext, permissionsOf, ungrantable } from "@/lib/delegation";
 import { PERMISSIONS } from "@/lib/permission-keys";
 import { newPasswordSchema } from "@/lib/password-policy";
 
@@ -45,6 +46,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
   const { accessRole, username, password, ...empData } = parsed.data;
+
+  // RN-20: no se crea un acceso con más permisos que los de quien lo crea.
+  if (accessRole !== "NONE") {
+    const above = ungrantable(
+      await loadDelegationContext(session),
+      permissionsOf({ role: accessRole }, session.user.tenantId),
+    );
+    if (above.length) return grantAboveResponse(above);
+  }
 
   const employee = await prisma.employee.create({
     data: { ...empData, tenantId: session.user.tenantId },

@@ -7,7 +7,13 @@ import bcrypt from "bcryptjs";
 import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
-import { newPasswordSchema } from "@/lib/password-policy";
+import { newPasswordSchema, canRecoverAccess } from "@/lib/password-policy";
+import {
+  checkTargetChange,
+  loadDelegationContext,
+  PERMISSION_HOLDER_INCLUDE,
+  selfChangeResponse,
+} from "@/lib/delegation";
 import { clearLoginLock } from "@/lib/login-throttle";
 
 const updateSchema = z.object({
@@ -48,13 +54,29 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.USERS_EDIT))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
   const { tenantId } = session.user;
 
-  const target = await prisma.user.findFirst({ where: { id, tenantId } });
+  const body = await req.json();
+  const parsed = updateSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+
+  // users:edit edita todo. Sin él, PROPRIETARY y SUPERADMIN pueden igual restablecer
+  // la contraseña (recuperación de acceso, CP-45), y nada más.
+  const changesAccess =
+    parsed.data.role !== undefined || parsed.data.customRoleId !== undefined || parsed.data.active !== undefined;
+  const passwordOnly = !!parsed.data.password && !changesAccess;
+  if (
+    !(await sessionCan(session, PERMISSIONS.USERS_EDIT)) &&
+    !(passwordOnly && canRecoverAccess(session.user.role))
+  ) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const target = await prisma.user.findFirst({ where: { id, tenantId }, include: PERMISSION_HOLDER_INCLUDE });
   if (!target) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   // Proteger el PROPRIETARY: nadie puede modificarlo
@@ -62,10 +84,15 @@ export async function PUT(
     return NextResponse.json({ error: "No se puede modificar el usuario PROPRIETARY" }, { status: 403 });
   }
 
-  const body = await req.json();
-  const parsed = updateSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  // RN-20 (CP-47): nadie se cambia a sí mismo el rol, el rol personalizado ni el estado.
+  if (target.id === session.user.id && changesAccess) return selfChangeResponse();
+  // La contraseña propia se cambia en Mi perfil, que exige la actual: así una sesión
+  // robada no puede fijar una clave nueva sin conocer la vigente.
+  if (target.id === session.user.id && parsed.data.password) {
+    return NextResponse.json(
+      { error: "Cambia tu propia contraseña desde Mi perfil" },
+      { status: 403 },
+    );
   }
 
   const data: Record<string, unknown> = {};
@@ -76,10 +103,26 @@ export async function PUT(
     data.passwordHash = await bcrypt.hash(parsed.data.password, 12);
   }
 
+  let newCustomRole: { permissions: string; active: boolean; tenantId: string } | null = null;
   if (parsed.data.customRoleId) {
     const cr = await prisma.customRole.findFirst({ where: { id: parsed.data.customRoleId, tenantId } });
     if (!cr) return NextResponse.json({ error: "Rol personalizado no encontrado" }, { status: 400 });
+    newCustomRole = cr;
   }
+
+  // RN-20 (CP-48): el usuario, antes y después del cambio, debe quedar dentro de los
+  // permisos de quien lo edita (solo el PROPRIETARY no tiene techo).
+  const denied = checkTargetChange(
+    await loadDelegationContext(session),
+    target,
+    {
+      role: parsed.data.role ?? target.role,
+      customRole: parsed.data.customRoleId !== undefined ? newCustomRole : target.customRole,
+      userPermissions: target.userPermissions,
+    },
+    tenantId,
+  );
+  if (denied) return denied;
 
   // RN-19: desactivar, cambiar la contraseña, el rol base o el rol personalizado
   // cierra las sesiones abiertas del usuario en su siguiente request.
