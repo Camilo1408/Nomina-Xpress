@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { PERMISSIONS } from "@/lib/permission-keys";
+import { readJsonBody } from "@/lib/api-response";
 
 // Claves que este toggle otorga como "baseline operativo" (ver resolveInventoryPermissions
 // en auth.ts). Se mantienen como overrides individuales espejo para que la matriz de
@@ -22,7 +23,9 @@ export async function PATCH(
   }
 
   const { id: employeeId } = await params;
-  const body = await req.json();
+  const raw = await readJsonBody(req);
+  if (!raw.ok) return raw.response;
+  const body = raw.body;
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });

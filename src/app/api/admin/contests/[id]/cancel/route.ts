@@ -7,6 +7,7 @@ import { canTransition, type ContestStatus } from "@/lib/contests";
 import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
+import { forbidden, unauthorized } from "@/lib/api-response";
 
 /**
  * Cancela un concurso y DEVUELVE su reserva a los empleados.
@@ -23,9 +24,8 @@ import { PERMISSIONS } from "@/lib/permission-keys";
  */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.CONTESTS_EDIT))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.CONTESTS_EDIT))) return forbidden();
 
   const { id } = await params;
   const tenantId = session.user.tenantId;

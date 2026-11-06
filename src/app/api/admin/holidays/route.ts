@@ -7,6 +7,7 @@ import { PERMISSIONS } from "@/lib/permission-keys";
 import { sessionCan } from "@/lib/get-permissions";
 import { affectedDatesForHoliday, recalculateSpecialForDates } from "@/lib/special-days";
 import { isValidCalendarDate } from "@/lib/holidays";
+import { forbidden, readJsonBody, unauthorized } from "@/lib/api-response";
 
 const createSchema = z
   .object({
@@ -22,9 +23,8 @@ const createSchema = z
 
 export async function GET() {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.HOLIDAYS_VIEW))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.HOLIDAYS_VIEW))) return forbidden();
   const holidays = await prisma.holiday.findMany({
     where: { tenantId: session.user.tenantId },
     orderBy: [{ month: "asc" }, { day: "asc" }],
@@ -34,12 +34,13 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.HOLIDAYS_CREATE))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.HOLIDAYS_CREATE))) return forbidden();
   const { tenantId } = session.user;
 
-  const body = await req.json();
+  const raw = await readJsonBody(req);
+  if (!raw.ok) return raw.response;
+  const body = raw.body;
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });

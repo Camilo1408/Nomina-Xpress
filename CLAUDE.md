@@ -157,6 +157,13 @@ por su rol). PROPRIETARY y SUPERADMIN abren Usuarios del portal aunque no tengan
   `resolveContestDeductionsForDate()` en `contest-service.ts`.
 - El bono de concurso es **informativo**: aparece en reportes y portal junto a las
   propinas, pero NUNCA entra en `finalPay`.
+- **Rutas de la API (CP-49, CP-50).** Leer el cuerpo con `readJsonBody(req)` de
+  `@/lib/api-response` (un JSON roto responde 400, no 500) y separar las guardias:
+  `if (!session) return unauthorized();` (401) y luego `if (!permiso) return forbidden();`
+  (403). `src/app/api/__tests__/api-contract.test.ts` falla si una ruta vuelve a
+  `await req.json()` sin guarda o mezcla los dos casos en un 401.
+- **Altas con acceso (RN-21).** Validar el usuario ANTES de crear nada y crear empleado +
+  `User` en una sola `$transaction`; un `P2002` dentro responde 409 sin dejar huérfanos.
 - Auto-contraste: usar `getContrastText(hex)` de `@/lib/color-contrast` para texto sobre fondos custom.
 
 ## Design System

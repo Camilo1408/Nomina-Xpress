@@ -11,13 +11,13 @@ import { isContestConfigEditable, type ContestStatus } from "@/lib/contests";
 import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
+import { forbidden, readJsonBody, unauthorized } from "@/lib/api-response";
 
 // GET — detalle completo: ítems, resultados, reservas y bonos.
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.CONTESTS_VIEW))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.CONTESTS_VIEW))) return forbidden();
 
   const { id } = await params;
   const tenantId = session.user.tenantId;
@@ -56,9 +56,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 // PUT — editar la configuración. Prohibido en FINALIZADO, PAGADO y CANCELADO.
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.CONTESTS_EDIT))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.CONTESTS_EDIT))) return forbidden();
 
   const { id } = await params;
   const tenantId = session.user.tenantId;
@@ -80,7 +79,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     );
   }
 
-  const body = await req.json();
+  const raw = await readJsonBody(req);
+  if (!raw.ok) return raw.response;
+  const body = raw.body;
   const parsed = contestUpdateSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
@@ -192,9 +193,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 // se borra: se cancela, que devuelve la reserva y deja rastro.
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.CONTESTS_DELETE))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.CONTESTS_DELETE))) return forbidden();
 
   const { id } = await params;
   const tenantId = session.user.tenantId;

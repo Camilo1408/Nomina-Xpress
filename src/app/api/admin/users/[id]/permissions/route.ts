@@ -11,6 +11,7 @@ import {
   PERMISSION_HOLDER_INCLUDE,
   selfChangeResponse,
 } from "@/lib/delegation";
+import { forbidden, readJsonBody, unauthorized } from "@/lib/api-response";
 
 /** Overrides del usuario tras aplicar `changes` (upsert por clave) o quitar `removed`. */
 function mergeOverrides(
@@ -40,9 +41,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.USERS_MANAGE_PERMISSIONS))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.USERS_MANAGE_PERMISSIONS))) return forbidden();
   const { id } = await params;
 
   const user = await prisma.user.findFirst({
@@ -68,9 +68,8 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.USERS_MANAGE_PERMISSIONS))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.USERS_MANAGE_PERMISSIONS))) return forbidden();
   const { id } = await params;
   const { tenantId } = session.user;
 
@@ -83,7 +82,9 @@ export async function PUT(
   // RN-20 (CP-47): nadie edita sus propios permisos individuales.
   if (target.id === session.user.id) return selfChangeResponse();
 
-  const body = await req.json();
+  const raw = await readJsonBody(req);
+  if (!raw.ok) return raw.response;
+  const body = raw.body;
   const parsed = bulkSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
@@ -144,9 +145,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.USERS_MANAGE_PERMISSIONS))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.USERS_MANAGE_PERMISSIONS))) return forbidden();
   const { id } = await params;
   const { tenantId } = session.user;
 

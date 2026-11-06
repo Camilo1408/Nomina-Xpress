@@ -8,6 +8,7 @@ import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
 import { newPasswordSchema } from "@/lib/password-policy";
 import { grantAboveResponse, loadDelegationContext, permissionsOf, ungrantable } from "@/lib/delegation";
+import { forbidden, readJsonBody, unauthorized } from "@/lib/api-response";
 
 const createSchema = z.object({
   username: z.string().min(3).max(40),
@@ -21,9 +22,8 @@ const createSchema = z.object({
 
 export async function GET() {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.USERS_VIEW))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.USERS_VIEW))) return forbidden();
   const { tenantId } = session.user;
 
   const users = await prisma.user.findMany({
@@ -51,12 +51,13 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.USERS_CREATE))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.USERS_CREATE))) return forbidden();
   const { tenantId } = session.user;
 
-  const body = await req.json();
+  const raw = await readJsonBody(req);
+  if (!raw.ok) return raw.response;
+  const body = raw.body;
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });

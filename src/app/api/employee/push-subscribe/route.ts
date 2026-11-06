@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import type { Session } from "next-auth";
+import { forbidden, readJsonBody, unauthorized } from "@/lib/api-response";
 
 const subscribeSchema = z.object({
   endpoint: z.string().url(),
@@ -28,11 +29,12 @@ async function resolveUserId(session: Session): Promise<string | null> {
 // POST — register push subscription for current user
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session || !["EMPLOYEE", "ADMIN"].includes(session.user.role)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!["EMPLOYEE", "ADMIN"].includes(session.user.role)) return forbidden();
 
-  const body = await req.json();
+  const raw = await readJsonBody(req);
+  if (!raw.ok) return raw.response;
+  const body = raw.body;
   const parsed = subscribeSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid data", issues: parsed.error.issues }, { status: 400 });
@@ -57,9 +59,8 @@ export async function POST(req: Request) {
 // DELETE — remove push subscription for current user
 export async function DELETE() {
   const session = await auth();
-  if (!session || !["EMPLOYEE", "ADMIN"].includes(session.user.role)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!["EMPLOYEE", "ADMIN"].includes(session.user.role)) return forbidden();
 
   const userId = await resolveUserId(session as Session);
   if (!userId) return NextResponse.json({ ok: true }); // nothing to delete
@@ -72,9 +73,8 @@ export async function DELETE() {
 // GET — check if current user has an active subscription
 export async function GET() {
   const session = await auth();
-  if (!session || !["EMPLOYEE", "ADMIN"].includes(session.user.role)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!["EMPLOYEE", "ADMIN"].includes(session.user.role)) return forbidden();
 
   const userId = await resolveUserId(session as Session);
   if (!userId) return NextResponse.json({ subscribed: false });

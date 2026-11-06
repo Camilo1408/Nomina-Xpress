@@ -7,6 +7,7 @@ import fs from "fs/promises";
 import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
+import { forbidden, unauthorized } from "@/lib/api-response";
 
 const cloudinaryConfigured =
   !!process.env.CLOUDINARY_CLOUD_NAME &&
@@ -49,9 +50,8 @@ async function deletePreviousLogo(logoUrl: string | null | undefined) {
 
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.SETTINGS_EDIT))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.SETTINGS_EDIT))) return forbidden();
 
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
@@ -123,9 +123,8 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.SETTINGS_EDIT))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.SETTINGS_EDIT))) return forbidden();
 
   const tenant = await prisma.tenant.findUnique({
     where: { id: session.user.tenantId },

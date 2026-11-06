@@ -6,6 +6,7 @@ import { logAudit } from "@/lib/audit";
 import { isValidPermissionKey, PERMISSIONS } from "@/lib/permission-keys";
 import { sessionCan } from "@/lib/get-permissions";
 import { grantAboveResponse, loadDelegationContext, ungrantable } from "@/lib/delegation";
+import { forbidden, readJsonBody, unauthorized } from "@/lib/api-response";
 
 const updateSchema = z.object({
   name: z.string().min(2).max(60).optional(),
@@ -19,9 +20,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.ROLES_VIEW))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.ROLES_VIEW))) return forbidden();
   const { id } = await params;
 
   const role = await prisma.customRole.findFirst({
@@ -40,9 +40,8 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.ROLES_EDIT))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.ROLES_EDIT))) return forbidden();
   const { id } = await params;
   const { tenantId } = session.user;
 
@@ -53,7 +52,9 @@ export async function PUT(
     return NextResponse.json({ error: "Los roles del sistema no se pueden editar" }, { status: 403 });
   }
 
-  const body = await req.json();
+  const raw = await readJsonBody(req);
+  if (!raw.ok) return raw.response;
+  const body = raw.body;
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
@@ -99,9 +100,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.ROLES_EDIT))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.ROLES_EDIT))) return forbidden();
   const { id } = await params;
   const { tenantId } = session.user;
 

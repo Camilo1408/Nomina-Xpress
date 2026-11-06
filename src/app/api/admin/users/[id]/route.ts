@@ -15,6 +15,7 @@ import {
   selfChangeResponse,
 } from "@/lib/delegation";
 import { clearLoginLock } from "@/lib/login-throttle";
+import { forbidden, readJsonBody, unauthorized } from "@/lib/api-response";
 
 const updateSchema = z.object({
   role: z.enum(["ADMIN", "SUPERADMIN"]).optional(),
@@ -28,9 +29,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.USERS_VIEW))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.USERS_VIEW))) return forbidden();
   const { id } = await params;
 
   const user = await prisma.user.findFirst({
@@ -58,7 +58,9 @@ export async function PUT(
   const { id } = await params;
   const { tenantId } = session.user;
 
-  const body = await req.json();
+  const raw = await readJsonBody(req);
+  if (!raw.ok) return raw.response;
+  const body = raw.body;
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });

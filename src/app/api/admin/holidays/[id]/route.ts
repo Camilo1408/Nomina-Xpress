@@ -7,6 +7,7 @@ import { PERMISSIONS } from "@/lib/permission-keys";
 import { sessionCan } from "@/lib/get-permissions";
 import { affectedDatesForHoliday, recalculateSpecialForDates } from "@/lib/special-days";
 import { isValidCalendarDate } from "@/lib/holidays";
+import { forbidden, readJsonBody, unauthorized } from "@/lib/api-response";
 
 const updateSchema = z
   .object({
@@ -22,13 +23,14 @@ const updateSchema = z
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.HOLIDAYS_EDIT))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.HOLIDAYS_EDIT))) return forbidden();
   const { tenantId } = session.user;
   const { id } = await params;
 
-  const body = await req.json();
+  const raw = await readJsonBody(req);
+  if (!raw.ok) return raw.response;
+  const body = raw.body;
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
@@ -78,9 +80,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.HOLIDAYS_DELETE))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.HOLIDAYS_DELETE))) return forbidden();
   const { tenantId } = session.user;
   const { id } = await params;
 

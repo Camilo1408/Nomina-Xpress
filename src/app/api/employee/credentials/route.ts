@@ -7,6 +7,7 @@ import bcrypt from "bcryptjs";
 import { logAudit } from "@/lib/audit";
 import { newPasswordSchema } from "@/lib/password-policy";
 import { clearLoginLock } from "@/lib/login-throttle";
+import { forbidden, readJsonBody, unauthorized } from "@/lib/api-response";
 
 const schema = z.object({
   currentPassword: z.string().min(1),
@@ -15,11 +16,12 @@ const schema = z.object({
 
 export async function PUT(req: Request) {
   const session = await auth();
-  if (!session || session.user.role !== "EMPLOYEE") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (session.user.role !== "EMPLOYEE") return forbidden();
 
-  const body = await req.json();
+  const raw = await readJsonBody(req);
+  if (!raw.ok) return raw.response;
+  const body = raw.body;
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 

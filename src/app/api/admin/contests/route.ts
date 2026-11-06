@@ -6,13 +6,13 @@ import { validateContestPercentages } from "@/lib/contest-service";
 import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
+import { forbidden, readJsonBody, unauthorized } from "@/lib/api-response";
 
 // GET — concursos del tenant, con ítems y lo reservado por cada uno.
 export async function GET(req: Request) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.CONTESTS_VIEW))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.CONTESTS_VIEW))) return forbidden();
 
   const tenantId = session.user.tenantId;
   const url = new URL(req.url);
@@ -64,11 +64,12 @@ export async function GET(req: Request) {
 // que alguien lo active explícitamente.
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.CONTESTS_CREATE))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.CONTESTS_CREATE))) return forbidden();
 
-  const body = await req.json();
+  const raw = await readJsonBody(req);
+  if (!raw.ok) return raw.response;
+  const body = raw.body;
   const parsed = contestInputSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(

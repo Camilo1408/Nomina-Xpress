@@ -1,12 +1,12 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { forbidden, unauthorized } from "@/lib/api-response";
 
 export async function GET(req: Request) {
   const session = await auth();
-  if (!session || !["EMPLOYEE", "ADMIN"].includes(session.user.role)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!["EMPLOYEE", "ADMIN"].includes(session.user.role)) return forbidden();
 
   const employeeId = session.user.employeeId;
   if (!employeeId) return NextResponse.json({ error: "No employee linked" }, { status: 400 });

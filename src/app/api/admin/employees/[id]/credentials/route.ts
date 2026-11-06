@@ -18,6 +18,7 @@ import {
 import { PERMISSIONS } from "@/lib/permission-keys";
 import { newPasswordSchema } from "@/lib/password-policy";
 import { clearLoginLock } from "@/lib/login-throttle";
+import { forbidden, readJsonBody, unauthorized } from "@/lib/api-response";
 
 const createSchema = z.object({
   username: z.string().min(3),
@@ -37,9 +38,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.EMPLOYEES_CREDENTIALS))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.EMPLOYEES_CREDENTIALS))) return forbidden();
   const { id: employeeId } = await params;
 
   const employee = await prisma.employee.findFirst({
@@ -49,7 +49,9 @@ export async function POST(
   if (!employee) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (employee.user) return NextResponse.json({ error: "Already has credentials" }, { status: 409 });
 
-  const body = await req.json();
+  const raw = await readJsonBody(req);
+  if (!raw.ok) return raw.response;
+  const body = raw.body;
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
@@ -92,9 +94,8 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.EMPLOYEES_CREDENTIALS))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.EMPLOYEES_CREDENTIALS))) return forbidden();
   const { id: employeeId } = await params;
 
   const employee = await prisma.employee.findFirst({
@@ -105,7 +106,9 @@ export async function PUT(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const body = await req.json();
+  const raw = await readJsonBody(req);
+  if (!raw.ok) return raw.response;
+  const body = raw.body;
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   if (!parsed.data.username && !parsed.data.password && !parsed.data.role) {
