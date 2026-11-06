@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -84,9 +84,12 @@ export function DiscountManager({ employees, canCreate, canEdit, canDelete }: Di
     }
   }, []);
 
-  useEffect(() => {
-    if (open) fetchDiscounts();
-  }, [open, fetchDiscounts]);
+  // La lista se carga al abrir el modal, desde el clic y no desde un efecto
+  // (react-hooks/set-state-in-effect).
+  function openManager() {
+    setOpen(true);
+    fetchDiscounts();
+  }
 
   async function toggleActive(d: DiscountRow) {
     const res = await fetch(`/api/admin/discounts/${d.id}`, {
@@ -127,7 +130,7 @@ export function DiscountManager({ employees, canCreate, canEdit, canDelete }: Di
     <>
       <Button
         variant="outline"
-        onClick={() => setOpen(true)}
+        onClick={openManager}
         className="gap-2 border-[#B94040] text-[#B94040] hover:bg-[#B94040]/10"
       >
         <TrendingDown className="w-4 h-4" /> Gestionar descuentos

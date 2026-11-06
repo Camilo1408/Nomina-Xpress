@@ -51,12 +51,19 @@ interface TipsClientProps {
   canExportExcel: boolean;
 }
 
+// Pide las propinas del rango sin tocar estado, para usarla también desde el efecto inicial.
+async function requestTips(from: string, to: string): Promise<TipEntry[]> {
+  const res = await fetch(`/api/admin/tips?from=${from}&to=${to}`);
+  const data: { entries?: TipEntry[] } = await res.json();
+  return data.entries ?? [];
+}
+
 export function TipsClient({ canCreate, canEdit, canDelete, canExportPdf, canExportExcel }: TipsClientProps) {
   const period = getCurrentBiweeklyPeriod();
   const [from, setFrom] = useState(period.from);
   const [to, setTo] = useState(period.to);
   const [entries, setEntries] = useState<TipEntry[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TipEntry | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -71,9 +78,7 @@ export function TipsClient({ canCreate, canEdit, canDelete, canExportPdf, canExp
   const fetchTips = useCallback(async (f = from, t = to) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/tips?from=${f}&to=${t}`);
-      const data = await res.json();
-      setEntries(data.entries ?? []);
+      setEntries(await requestTips(f, t));
       setAppliedRange({ from: f, to: t });
     } catch {
       toast.error("Error al cargar propinas");
@@ -82,9 +87,15 @@ export function TipsClient({ canCreate, canEdit, canDelete, canExportPdf, canExp
     }
   }, [from, to]);
 
-  // Cargar automáticamente al montar con la quincena actual
+  // Cargar automáticamente al montar con la quincena actual. `loading` ya arranca en true
+  // y el estado se actualiza al resolver la promesa (react-hooks/set-state-in-effect).
   useEffect(() => {
-    fetchTips(period.from, period.to);
+    let cancelled = false;
+    requestTips(period.from, period.to)
+      .then((list) => { if (!cancelled) setEntries(list); })
+      .catch(() => { if (!cancelled) toast.error("Error al cargar propinas"); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
