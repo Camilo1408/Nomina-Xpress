@@ -5,13 +5,13 @@ import { discountInputSchema } from "@/lib/discount-validation";
 import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
+import { forbidden, readJsonBody, unauthorized } from "@/lib/api-response";
 
 // GET — lista de descuentos del tenant (con asignaciones).
 export async function GET() {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.DISCOUNTS_VIEW))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.DISCOUNTS_VIEW))) return forbidden();
   const discounts = await prisma.discount.findMany({
     where: { tenantId: session.user.tenantId },
     include: {
@@ -27,11 +27,12 @@ export async function GET() {
 // POST — crear descuento.
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.DISCOUNTS_CREATE))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.DISCOUNTS_CREATE))) return forbidden();
 
-  const body = await req.json();
+  const raw = await readJsonBody(req);
+  if (!raw.ok) return raw.response;
+  const body = raw.body;
   const parsed = discountInputSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });

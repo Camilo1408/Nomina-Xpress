@@ -6,6 +6,7 @@ import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
 import { buildRestDayShift, buildWorkShift } from "@/lib/schedule-shifts";
+import { forbidden, readJsonBody, unauthorized } from "@/lib/api-response";
 
 const shiftSchema = z.object({
   employeeId: z.string(),
@@ -37,9 +38,8 @@ const createSchema = z.object({
 
 export async function GET() {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.SCHEDULES_VIEW))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.SCHEDULES_VIEW))) return forbidden();
   const schedules = await prisma.schedule.findMany({
     where: { tenantId: session.user.tenantId },
     include: { shifts: { include: { employee: { select: { id: true, name: true } } } } },
@@ -50,10 +50,11 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.SCHEDULES_CREATE))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const body = await req.json();
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.SCHEDULES_CREATE))) return forbidden();
+  const raw = await readJsonBody(req);
+  if (!raw.ok) return raw.response;
+  const body = raw.body;
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });

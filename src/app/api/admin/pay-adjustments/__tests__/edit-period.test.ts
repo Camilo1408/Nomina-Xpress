@@ -64,10 +64,10 @@ beforeEach(() => {
 });
 
 describe("PUT /api/admin/pay-adjustments/[id] — permisos", () => {
-  it("sin pay_adjustments:edit responde 401 y no toca la BD", async () => {
+  it("[CP-50] sin pay_adjustments:edit responde 403 y no toca la BD", async () => {
     granted.clear();
     const res = await PUT(putReq(BASE_BODY), { params });
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(403);
     expect(updateMany).not.toHaveBeenCalled();
   });
 

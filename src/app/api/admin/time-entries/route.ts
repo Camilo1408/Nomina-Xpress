@@ -8,6 +8,7 @@ import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
 import { validateShiftWindow, sumDailyHours, MAX_DAILY_HOURS } from "@/lib/shift-times";
+import { forbidden, readJsonBody, unauthorized } from "@/lib/api-response";
 
 const createSchema = z.object({
   employeeId: z.string(),
@@ -34,9 +35,8 @@ function rangesOverlap(
 
 export async function GET(req: Request) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.TIME_ENTRIES_VIEW))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.TIME_ENTRIES_VIEW))) return forbidden();
   const url = new URL(req.url);
   const from = url.searchParams.get("from");
   const to = url.searchParams.get("to");
@@ -56,10 +56,11 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.TIME_ENTRIES_CREATE))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const body = await req.json();
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.TIME_ENTRIES_CREATE))) return forbidden();
+  const raw = await readJsonBody(req);
+  if (!raw.ok) return raw.response;
+  const body = raw.body;
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });

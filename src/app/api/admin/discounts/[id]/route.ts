@@ -6,6 +6,7 @@ import { discountInputSchema } from "@/lib/discount-validation";
 import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
+import { forbidden, readJsonBody, unauthorized } from "@/lib/api-response";
 
 const patchSchema = z.object({ active: z.boolean() });
 
@@ -15,16 +16,17 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.DISCOUNTS_EDIT))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.DISCOUNTS_EDIT))) return forbidden();
   const { id } = await params;
   const tenantId = session.user.tenantId;
 
   const existing = await prisma.discount.findFirst({ where: { id, tenantId } });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const body = await req.json();
+  const raw = await readJsonBody(req);
+  if (!raw.ok) return raw.response;
+  const body = raw.body;
   const parsed = discountInputSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
@@ -95,13 +97,14 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.DISCOUNTS_EDIT))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.DISCOUNTS_EDIT))) return forbidden();
   const { id } = await params;
   const tenantId = session.user.tenantId;
 
-  const body = await req.json();
+  const raw = await readJsonBody(req);
+  if (!raw.ok) return raw.response;
+  const body = raw.body;
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
@@ -137,9 +140,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.DISCOUNTS_DELETE))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.DISCOUNTS_DELETE))) return forbidden();
   const { id } = await params;
   const tenantId = session.user.tenantId;
 

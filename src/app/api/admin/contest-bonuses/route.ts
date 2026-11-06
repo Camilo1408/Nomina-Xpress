@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
+import { forbidden, unauthorized } from "@/lib/api-response";
 
 // GET — bonos de concurso con sus cuotas.
 //   ?status=PENDIENTE|PARCIAL|PAGADO|ANULADO
@@ -10,9 +11,8 @@ import { PERMISSIONS } from "@/lib/permission-keys";
 //   ?employeeId=...
 export async function GET(req: Request) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.CONTESTS_VIEW))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.CONTESTS_VIEW))) return forbidden();
 
   const tenantId = session.user.tenantId;
   const url = new URL(req.url);

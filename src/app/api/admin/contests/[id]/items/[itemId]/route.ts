@@ -11,6 +11,7 @@ import { isContestConfigEditable, type ContestStatus } from "@/lib/contests";
 import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
+import { forbidden, readJsonBody, unauthorized } from "@/lib/api-response";
 
 // PUT — editar un ítem. Cambiar su porcentaje en un concurso ACTIVO mueve dinero
 // ya repartido, así que exige confirmación informada.
@@ -19,9 +20,8 @@ export async function PUT(
   { params }: { params: Promise<{ id: string; itemId: string }> }
 ) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.CONTESTS_EDIT))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.CONTESTS_EDIT))) return forbidden();
 
   const { id, itemId } = await params;
   const tenantId = session.user.tenantId;
@@ -46,7 +46,9 @@ export async function PUT(
     );
   }
 
-  const body = await req.json();
+  const raw = await readJsonBody(req);
+  if (!raw.ok) return raw.response;
+  const body = raw.body;
   const parsed = contestItemInputSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
@@ -100,7 +102,8 @@ export async function PUT(
     if (preview.error) {
       return NextResponse.json({ error: { message: preview.error } }, { status: 400 });
     }
-    if (preview.affectedDays > 0 && body?.confirmImpact !== true) {
+    const confirmed = typeof body === "object" && body !== null && (body as Record<string, unknown>).confirmImpact === true;
+    if (preview.affectedDays > 0 && !confirmed) {
       return NextResponse.json(
         {
           error: {
@@ -168,9 +171,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; itemId: string }> }
 ) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.CONTESTS_EDIT))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.CONTESTS_EDIT))) return forbidden();
 
   const { id, itemId } = await params;
   const tenantId = session.user.tenantId;

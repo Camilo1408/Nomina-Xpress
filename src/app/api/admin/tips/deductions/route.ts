@@ -5,6 +5,7 @@ import { resolveContestDeductionsForDate } from "@/lib/contest-service";
 import { TIP_MENAJE_PERCENT } from "@/lib/contests";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
+import { forbidden, unauthorized } from "@/lib/api-response";
 
 /**
  * Qué descontaría un día concreto, ANTES de registrar sus propinas.
@@ -15,9 +16,8 @@ import { PERMISSIONS } from "@/lib/permission-keys";
  */
 export async function GET(req: Request) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.TIPS_VIEW))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.TIPS_VIEW))) return forbidden();
 
   const date = new URL(req.url).searchParams.get("date");
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {

@@ -8,6 +8,7 @@ import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
 import { validateShiftWindow, sumDailyHours, MAX_DAILY_HOURS } from "@/lib/shift-times";
+import { forbidden, readJsonBody, unauthorized } from "@/lib/api-response";
 
 const updateSchema = z.object({
   employeeId: z.string().min(1).optional(),
@@ -38,11 +39,12 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.TIME_ENTRIES_EDIT))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.TIME_ENTRIES_EDIT))) return forbidden();
   const { id } = await params;
-  const body = await req.json();
+  const raw = await readJsonBody(req);
+  if (!raw.ok) return raw.response;
+  const body = raw.body;
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
@@ -214,9 +216,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.TIME_ENTRIES_DELETE))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.TIME_ENTRIES_DELETE))) return forbidden();
   const { id } = await params;
 
   // Leer la fecha antes de borrar para poder recalcular propinas

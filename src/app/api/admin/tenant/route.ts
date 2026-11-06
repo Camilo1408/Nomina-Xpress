@@ -5,6 +5,7 @@ import { z } from "zod";
 import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
+import { forbidden, readJsonBody, unauthorized } from "@/lib/api-response";
 
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
@@ -14,19 +15,19 @@ const updateSchema = z.object({
 
 export async function GET() {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.SETTINGS_VIEW))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.SETTINGS_VIEW))) return forbidden();
   const tenant = await prisma.tenant.findUnique({ where: { id: session.user.tenantId } });
   return NextResponse.json(tenant);
 }
 
 export async function PUT(req: Request) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.SETTINGS_EDIT))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const body = await req.json();
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.SETTINGS_EDIT))) return forbidden();
+  const raw = await readJsonBody(req);
+  if (!raw.ok) return raw.response;
+  const body = raw.body;
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });

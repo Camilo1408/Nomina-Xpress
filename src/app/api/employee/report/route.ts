@@ -5,12 +5,12 @@ import { calculatePayroll } from "@/lib/payroll";
 import { resolveBonusesForEmployees } from "@/lib/bonus-service";
 import { resolveDiscountsForEmployees } from "@/lib/discount-service";
 import { clampFinalPay } from "@/lib/discounts";
+import { forbidden, unauthorized } from "@/lib/api-response";
 
 export async function GET(req: Request) {
   const session = await auth();
-  if (!session || !["EMPLOYEE", "ADMIN"].includes(session.user.role)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!["EMPLOYEE", "ADMIN"].includes(session.user.role)) return forbidden();
 
   const employeeId = session.user.employeeId;
   if (!employeeId) {

@@ -7,12 +7,12 @@ import { PERMISSIONS } from "@/lib/permission-keys";
 import { loadTenantLogo } from "@/lib/logo-loader";
 import { parseTipsReportRange } from "@/lib/tips-report";
 import { fetchTipsReport } from "@/lib/tips-report.server";
+import { forbidden, unauthorized } from "@/lib/api-response";
 
 export async function GET(req: Request) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.TIPS_EXPORT_PDF))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.TIPS_EXPORT_PDF))) return forbidden();
 
   const range = parseTipsReportRange(new URL(req.url).searchParams);
   if (!range.ok) return NextResponse.json({ error: range.error }, { status: 400 });

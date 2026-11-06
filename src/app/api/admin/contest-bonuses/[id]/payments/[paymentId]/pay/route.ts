@@ -5,6 +5,7 @@ import { payInstallment, settleContestIfComplete } from "@/lib/contest-bonus-ser
 import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
+import { forbidden, unauthorized } from "@/lib/api-response";
 
 /**
  * Marca una cuota como pagada.
@@ -19,9 +20,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string; paymentId: string }> }
 ) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.CONTESTS_PAY))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.CONTESTS_PAY))) return forbidden();
 
   const { id, paymentId } = await params;
   const tenantId = session.user.tenantId;

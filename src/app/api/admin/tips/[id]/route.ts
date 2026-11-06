@@ -6,6 +6,7 @@ import { computeTipsForDate, persistTipCalculation } from "@/lib/recalculate-tip
 import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
+import { forbidden, readJsonBody, unauthorized } from "@/lib/api-response";
 
 const updateSchema = z.object({
   totalAmount: z.number().positive(),
@@ -14,9 +15,8 @@ const updateSchema = z.object({
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.TIPS_EDIT))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.TIPS_EDIT))) return forbidden();
 
   const { id } = await params;
   const tenantId = session.user.tenantId;
@@ -24,7 +24,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const existing = await prisma.tipEntry.findFirst({ where: { id, tenantId } });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const body = await req.json();
+  const raw = await readJsonBody(req);
+  if (!raw.ok) return raw.response;
+  const body = raw.body;
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: { message: "Datos inválidos" } }, { status: 400 });
@@ -95,9 +97,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.TIPS_DELETE))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.TIPS_DELETE))) return forbidden();
 
   const { id } = await params;
   const tenantId = session.user.tenantId;

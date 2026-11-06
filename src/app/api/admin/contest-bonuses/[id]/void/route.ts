@@ -6,6 +6,7 @@ import { settleContestIfComplete, voidBonus } from "@/lib/contest-bonus-service"
 import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
+import { forbidden, unauthorized } from "@/lib/api-response";
 
 /**
  * Anula un bono. Las cuotas PENDIENTES se anulan; las ya PAGADAS se conservan,
@@ -16,9 +17,8 @@ import { PERMISSIONS } from "@/lib/permission-keys";
  */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.CONTESTS_AWARD))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.CONTESTS_AWARD))) return forbidden();
 
   const { id } = await params;
   const tenantId = session.user.tenantId;

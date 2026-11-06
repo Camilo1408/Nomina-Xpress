@@ -5,15 +5,15 @@ import { sendPushNotification } from "@/lib/push";
 import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
+import { forbidden, unauthorized } from "@/lib/api-response";
 
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.SCHEDULES_PUBLISH))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.SCHEDULES_PUBLISH))) return forbidden();
 
   const { id } = await params;
   const schedule = await prisma.schedule.findFirst({

@@ -6,6 +6,7 @@ import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
 import { buildRestDayShift, buildWorkShift } from "@/lib/schedule-shifts";
+import { forbidden, readJsonBody, unauthorized } from "@/lib/api-response";
 
 const shiftSchema = z.object({
   employeeId: z.string(),
@@ -35,11 +36,12 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.SCHEDULES_EDIT))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.SCHEDULES_EDIT))) return forbidden();
   const { id } = await params;
-  const body = await req.json();
+  const raw = await readJsonBody(req);
+  if (!raw.ok) return raw.response;
+  const body = raw.body;
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
@@ -95,9 +97,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.SCHEDULES_DELETE))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.SCHEDULES_DELETE))) return forbidden();
   const { id } = await params;
   const existing = await prisma.schedule.findFirst({
     where: { id, tenantId: session.user.tenantId },

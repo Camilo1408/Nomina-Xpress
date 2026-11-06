@@ -7,6 +7,7 @@ import { settleContestIfComplete } from "@/lib/contest-bonus-service";
 import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
+import { forbidden, unauthorized } from "@/lib/api-response";
 
 /**
  * Declara un ítem DESIERTO y devuelve su reserva a los empleados.
@@ -20,9 +21,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string; itemId: string }> }
 ) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.CONTESTS_AWARD))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.CONTESTS_AWARD))) return forbidden();
 
   const { id, itemId } = await params;
   const tenantId = session.user.tenantId;

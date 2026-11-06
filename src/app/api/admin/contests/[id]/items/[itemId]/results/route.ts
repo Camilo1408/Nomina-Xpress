@@ -5,6 +5,7 @@ import { contestResultsSchema } from "@/lib/contest-validation";
 import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
+import { forbidden, readJsonBody, unauthorized } from "@/lib/api-response";
 
 /**
  * Registra o actualiza los resultados de los participantes de un ítem.
@@ -18,9 +19,8 @@ export async function PUT(
   { params }: { params: Promise<{ id: string; itemId: string }> }
 ) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.CONTESTS_AWARD))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.CONTESTS_AWARD))) return forbidden();
 
   const { id, itemId } = await params;
   const tenantId = session.user.tenantId;
@@ -48,7 +48,9 @@ export async function PUT(
     );
   }
 
-  const body = await req.json();
+  const raw = await readJsonBody(req);
+  if (!raw.ok) return raw.response;
+  const body = raw.body;
   const parsed = contestResultsSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(

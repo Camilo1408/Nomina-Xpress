@@ -8,12 +8,12 @@ import { clampFinalPay } from "@/lib/discounts";
 import { fetchPayrollPeriodData, mapContestBonuses } from "@/lib/payroll-report";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
+import { forbidden, unauthorized } from "@/lib/api-response";
 
 export async function GET(req: Request) {
   const session = await auth();
-  if (!session || !(await sessionCan(session, PERMISSIONS.PAYROLL_VIEW))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!session) return unauthorized();
+  if (!(await sessionCan(session, PERMISSIONS.PAYROLL_VIEW))) return forbidden();
 
   const url = new URL(req.url);
   const from = url.searchParams.get("from");
