@@ -36,6 +36,8 @@ const allNavItems: Array<{
   label: string;
   icon: typeof LayoutDashboard;
   permission: PermissionKey | null;
+  /** Roles que ven el item aunque no tengan el permiso (recuperación de acceso). */
+  roles?: string[];
 }> = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard, permission: null },
   { href: "/admin/employees", label: "Personal", icon: Users, permission: PERMISSIONS.EMPLOYEES_VIEW },
@@ -47,7 +49,8 @@ const allNavItems: Array<{
   { href: "/admin/reports/shifts", label: "Reportes Turnos", icon: CalendarClock, permission: PERMISSIONS.PAYROLL_VIEW },
   { href: "/admin/audit", label: "Auditoría", icon: ScrollText, permission: PERMISSIONS.AUDIT_VIEW },
   { href: "/admin/roles", label: "Roles", icon: ShieldCheck, permission: PERMISSIONS.ROLES_VIEW },
-  { href: "/admin/usuarios", label: "Usuarios", icon: UserCog, permission: PERMISSIONS.USERS_VIEW },
+  // PROPRIETARY y SUPERADMIN entran siempre para desbloquear y restablecer claves (CP-45).
+  { href: "/admin/usuarios", label: "Usuarios", icon: UserCog, permission: PERMISSIONS.USERS_VIEW, roles: ["PROPRIETARY", "SUPERADMIN"] },
   { href: "/admin/holidays", label: "Festivos", icon: CalendarHeart, permission: PERMISSIONS.HOLIDAYS_VIEW },
   { href: "/admin/settings", label: "Configuración", icon: Settings, permission: PERMISSIONS.SETTINGS_VIEW },
 ];
@@ -86,7 +89,8 @@ export function AdminSidebar({
 
   const permSet = new Set(permissions);
   const navItems = allNavItems.filter(
-    (item) => item.permission === null || permSet.has(item.permission)
+    (item) =>
+      item.permission === null || permSet.has(item.permission) || !!item.roles?.includes(role)
   );
 
   // "Mi cuenta" se muestra a usuarios con empleado vinculado que NO tienen

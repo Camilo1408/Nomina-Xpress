@@ -5,6 +5,7 @@ import { z } from "zod";
 import { logAudit } from "@/lib/audit";
 import { isValidPermissionKey, PERMISSIONS } from "@/lib/permission-keys";
 import { sessionCan } from "@/lib/get-permissions";
+import { grantAboveResponse, loadDelegationContext, ungrantable } from "@/lib/delegation";
 
 const createSchema = z.object({
   name: z.string().min(2).max(60),
@@ -50,6 +51,10 @@ export async function POST(req: Request) {
 
   // Validar que las claves de permiso sean válidas
   const validPerms = permissions.filter((p) => isValidPermissionKey(p));
+
+  // RN-20 (CP-48): un rol personalizado no puede tener claves que su creador no tiene.
+  const above = ungrantable(await loadDelegationContext(session), validPerms);
+  if (above.length) return grantAboveResponse(above);
 
   // Slug único por tenant
   const exists = await prisma.customRole.findUnique({ where: { tenantId_slug: { tenantId, slug } } });

@@ -5,6 +5,25 @@ import { z } from "zod";
 import { logAudit } from "@/lib/audit";
 import { isValidPermissionKey, PERMISSIONS } from "@/lib/permission-keys";
 import { sessionCan } from "@/lib/get-permissions";
+import {
+  checkTargetChange,
+  loadDelegationContext,
+  PERMISSION_HOLDER_INCLUDE,
+  selfChangeResponse,
+} from "@/lib/delegation";
+
+/** Overrides del usuario tras aplicar `changes` (upsert por clave) o quitar `removed`. */
+function mergeOverrides(
+  current: { permissionKey: string; granted: boolean }[],
+  changes: { permissionKey: string; granted: boolean }[],
+  removed: string[] | "all" = [],
+) {
+  const map = new Map(current.map((o) => [o.permissionKey, o.granted]));
+  if (removed === "all") map.clear();
+  else for (const k of removed) map.delete(k);
+  for (const c of changes) map.set(c.permissionKey, c.granted);
+  return [...map].map(([permissionKey, granted]) => ({ permissionKey, granted }));
+}
 
 const upsertSchema = z.object({
   permissionKey: z.string(),
@@ -55,12 +74,14 @@ export async function PUT(
   const { id } = await params;
   const { tenantId } = session.user;
 
-  const target = await prisma.user.findFirst({ where: { id, tenantId } });
+  const target = await prisma.user.findFirst({ where: { id, tenantId }, include: PERMISSION_HOLDER_INCLUDE });
   if (!target) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   if (target.role === "PROPRIETARY") {
     return NextResponse.json({ error: "No se pueden modificar permisos del PROPRIETARY" }, { status: 403 });
   }
+  // RN-20 (CP-47): nadie edita sus propios permisos individuales.
+  if (target.id === session.user.id) return selfChangeResponse();
 
   const body = await req.json();
   const parsed = bulkSchema.safeParse(body);
@@ -71,6 +92,15 @@ export async function PUT(
   const validOverrides = parsed.data.overrides.filter(
     (o) => isValidPermissionKey(o.permissionKey)
   );
+
+  // RN-20 (CP-48): nadie otorga permisos que no tiene ni gestiona a alguien con más.
+  const denied = checkTargetChange(
+    await loadDelegationContext(session),
+    target,
+    { ...target, userPermissions: mergeOverrides(target.userPermissions, validOverrides) },
+    tenantId,
+  );
+  if (denied) return denied;
 
   // Upsert cada override
   for (const override of validOverrides) {
@@ -120,12 +150,26 @@ export async function DELETE(
   const { id } = await params;
   const { tenantId } = session.user;
 
-  const target = await prisma.user.findFirst({ where: { id, tenantId } });
+  const target = await prisma.user.findFirst({ where: { id, tenantId }, include: PERMISSION_HOLDER_INCLUDE });
   if (!target) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (target.role === "PROPRIETARY") {
+    return NextResponse.json({ error: "No se pueden modificar permisos del PROPRIETARY" }, { status: 403 });
+  }
+  if (target.id === session.user.id) return selfChangeResponse();
 
   const schema = z.object({ permissionKey: z.string().optional() });
   const body = await req.json().catch(() => ({}));
   const parsed = schema.safeParse(body);
+
+  // Quitar un override "denegado" devuelve la clave del rol: también pasa por el techo.
+  const removed = parsed.success && parsed.data.permissionKey ? [parsed.data.permissionKey] : "all";
+  const denied = checkTargetChange(
+    await loadDelegationContext(session),
+    target,
+    { ...target, userPermissions: mergeOverrides(target.userPermissions, [], removed) },
+    tenantId,
+  );
+  if (denied) return denied;
 
   if (parsed.success && parsed.data.permissionKey) {
     // Eliminar un override específico

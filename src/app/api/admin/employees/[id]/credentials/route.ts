@@ -6,6 +6,15 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
+import {
+  checkTargetChange,
+  grantAboveResponse,
+  loadDelegationContext,
+  permissionsOf,
+  PERMISSION_HOLDER_INCLUDE,
+  selfChangeResponse,
+  ungrantable,
+} from "@/lib/delegation";
 import { PERMISSIONS } from "@/lib/permission-keys";
 import { newPasswordSchema } from "@/lib/password-policy";
 import { clearLoginLock } from "@/lib/login-throttle";
@@ -47,6 +56,13 @@ export async function POST(
   const exists = await prisma.user.findUnique({ where: { username: parsed.data.username } });
   if (exists) return NextResponse.json({ error: "El nombre de usuario ya está en uso" }, { status: 409 });
 
+  // RN-20: no se crea un acceso con más permisos que los de quien lo crea.
+  const above = ungrantable(
+    await loadDelegationContext(session),
+    permissionsOf({ role: parsed.data.role }, session.user.tenantId),
+  );
+  if (above.length) return grantAboveResponse(above);
+
   const passwordHash = await bcrypt.hash(parsed.data.password, 12);
   await prisma.user.create({
     data: {
@@ -83,7 +99,7 @@ export async function PUT(
 
   const employee = await prisma.employee.findFirst({
     where: { id: employeeId, tenantId: session.user.tenantId },
-    include: { user: true },
+    include: { user: { include: PERMISSION_HOLDER_INCLUDE } },
   });
   if (!employee || !employee.user) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -95,6 +111,22 @@ export async function PUT(
   if (!parsed.data.username && !parsed.data.password && !parsed.data.role) {
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
   }
+
+  // RN-20: nadie se cambia su propio rol, ni gestiona (clave incluida) a alguien con
+  // más permisos, ni le da un rol por encima del suyo.
+  if (employee.user.id === session.user.id && parsed.data.role && parsed.data.role !== employee.user.role) {
+    return selfChangeResponse();
+  }
+  if (employee.user.role === "PROPRIETARY") {
+    return NextResponse.json({ error: "No se puede modificar el usuario PROPRIETARY" }, { status: 403 });
+  }
+  const denied = checkTargetChange(
+    await loadDelegationContext(session),
+    employee.user,
+    { ...employee.user, role: parsed.data.role ?? employee.user.role },
+    session.user.tenantId,
+  );
+  if (denied) return denied;
 
   if (parsed.data.username && parsed.data.username !== employee.user.username) {
     const exists = await prisma.user.findUnique({ where: { username: parsed.data.username } });
