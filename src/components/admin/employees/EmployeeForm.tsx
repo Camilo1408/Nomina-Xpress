@@ -329,9 +329,9 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
                       type={showPassword ? "text" : "password"}
                       value={form.password}
                       onChange={(e) => set("password", e.target.value)}
-                      minLength={6}
+                      minLength={10}
                       required={needsCredentials}
-                      placeholder="Mín. 6 caracteres"
+                      placeholder="Mín. 10 caracteres"
                       className="pr-10"
                     />
                     <button type="button" onClick={() => setShowPassword((v) => !v)}
@@ -450,7 +450,7 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
                         type={showCredPassword ? "text" : "password"}
                         value={credPassword}
                         onChange={(e) => setCredPassword(e.target.value)}
-                        minLength={6} placeholder="Dejar vacío para no cambiar"
+                        minLength={10} placeholder="Dejar vacío para no cambiar"
                         className="pr-10"
                       />
                       <button type="button" onClick={() => setShowCredPassword((v) => !v)}
@@ -458,7 +458,7 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
                         {showCredPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
-                    <p className="text-xs text-[#7A6358]">Mín. 6 caracteres si cambia</p>
+                    <p className="text-xs text-[#7A6358]">Mín. 10 caracteres si cambia</p>
                   </div>
                 </div>
                 <Button type="submit" disabled={credLoading} size="sm" className="bg-[#C1643F] hover:bg-[#A8522F] text-[#FAF7F2]">
@@ -502,7 +502,7 @@ export function EmployeeForm({ employee, existingUser }: EmployeeFormProps) {
                         type={showNewPassword ? "text" : "password"}
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
-                        required minLength={6} placeholder="Mín. 6 caracteres" className="pr-10"
+                        required minLength={10} placeholder="Mín. 10 caracteres" className="pr-10"
                       />
                       <button type="button" onClick={() => setShowNewPassword((v) => !v)}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7A6358] hover:text-[#2C1F15]" tabIndex={-1}>

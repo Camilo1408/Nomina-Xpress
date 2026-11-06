@@ -84,9 +84,9 @@ export function NewUserForm({ customRoles, employees }: NewUserFormProps) {
             type="password"
             value={form.password}
             onChange={(e) => set("password", e.target.value)}
-            placeholder="Mínimo 6 caracteres"
+            placeholder="Mínimo 10 caracteres"
             required
-            minLength={6}
+            minLength={10}
           />
         </div>
 

@@ -75,8 +75,8 @@ export function PortalProfileClient() {
               type={showNew ? "text" : "password"}
               value={form.newPassword}
               onChange={(e) => set("newPassword", e.target.value)}
-              required minLength={6}
-              placeholder="Mín. 6 caracteres"
+              required minLength={10}
+              placeholder="Mín. 10 caracteres"
               className="pr-10"
             />
             <button type="button" onClick={() => setShowNew((v) => !v)}
@@ -92,7 +92,7 @@ export function PortalProfileClient() {
             type="password"
             value={form.confirmPassword}
             onChange={(e) => set("confirmPassword", e.target.value)}
-            required minLength={6}
+            required minLength={10}
             placeholder="Repite la nueva contraseña"
           />
         </div>

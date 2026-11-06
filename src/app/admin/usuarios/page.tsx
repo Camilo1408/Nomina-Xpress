@@ -6,6 +6,8 @@ import { Plus } from "lucide-react";
 import { UserActions } from "@/components/admin/usuarios/UserActions";
 import { requirePagePermission } from "@/lib/require-permission";
 import { PERMISSIONS } from "@/lib/permission-keys";
+import { lockedUsernames, isUsernameLocked } from "@/lib/login-throttle";
+import { canRecoverAccess } from "@/lib/password-policy";
 
 const ROLE_LABELS: Record<string, string> = {
   EMPLOYEE: "Personal",
@@ -26,6 +28,14 @@ export default async function UsuariosPage() {
   const canCreate = permissions.has(PERMISSIONS.USERS_CREATE);
   const canManagePermissions = permissions.has(PERMISSIONS.USERS_MANAGE_PERMISSIONS);
   const canDeactivate = permissions.has(PERMISSIONS.USERS_DEACTIVATE);
+  const canRecover = canRecoverAccess(session.user.role);
+
+  // Bloqueos vigentes por intentos fallidos (CP-45). Si la tabla aún no existe en
+  // esta base, la página se muestra igual, sin la insignia.
+  const locked = await lockedUsernames().catch((err) => {
+    console.error("[usuarios] no se pudieron leer los bloqueos de inicio de sesión", err);
+    return new Set<string>();
+  });
 
   const users = await prisma.user.findMany({
     where: { tenantId: session.user.tenantId },
@@ -125,14 +135,25 @@ export default async function UsuariosPage() {
                   >
                     {u.active ? "Activo" : "Inactivo"}
                   </Badge>
+                  {isUsernameLocked(locked, u.username) && (
+                    <Badge
+                      className="ml-1 bg-[#D97706]/15 text-[#B45309] border-0"
+                      title="Bloqueado temporalmente por intentos fallidos de inicio de sesión"
+                    >
+                      Bloqueado
+                    </Badge>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-right">
                   <UserActions
                     userId={u.id}
+                    username={u.username}
                     active={u.active}
                     isProprietary={u.role === "PROPRIETARY"}
                     canManagePermissions={canManagePermissions}
                     canDeactivate={canDeactivate}
+                    canRecoverAccess={canRecover}
+                    locked={isUsernameLocked(locked, u.username)}
                   />
                 </td>
               </tr>

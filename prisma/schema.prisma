@@ -665,3 +665,19 @@ model ContestBonusPayment {
   @@index([tenantId, employeeId, periodStart, periodEnd])
   @@index([tenantId, status])
 }
+
+// Contadores de intentos fallidos de inicio de sesión (CP-45, hallazgo H3).
+// Excepción a la regla del tenantId: el intento ocurre ANTES de saber a qué tenant
+// pertenece el usuario (y el usuario puede no existir). La clave es
+// "u:<usuario>|ip:<ip>" o "u:<usuario>". Lógica en src/lib/login-throttle.ts.
+// Migración: prisma/turso-migrate-login-throttle.mjs (no usar prisma migrate).
+model LoginThrottle {
+  key           String    @id
+  failures      Int       @default(0)
+  windowStart   DateTime
+  lockedUntil   DateTime?
+  lockCount     Int       @default(0)
+  lastFailureAt DateTime
+
+  @@index([lastFailureAt])
+}

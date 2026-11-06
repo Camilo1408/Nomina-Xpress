@@ -1,8 +1,8 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
-import { recordAudit, getClientInfo } from "@/lib/audit";
+import { recordAudit } from "@/lib/audit";
+import { authorizeCredentials } from "@/lib/login";
 import { getEffectivePermissions } from "@/lib/get-permissions";
 import { PERMISSIONS, dailyCategoryKeys } from "@/lib/permission-keys";
 import { getMirroredCategories } from "@/lib/inventory-sync";
@@ -90,75 +90,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Credentials({
       credentials: { username: {}, password: {} },
-      async authorize(credentials, request) {
-        if (!credentials?.username || !credentials?.password) return null;
-        const { ip, userAgent } =
-          request instanceof Request
-            ? getClientInfo(request)
-            : { ip: null, userAgent: null };
-        const user = await prisma.user.findUnique({
-          where: { username: credentials.username as string },
-          include: { employee: true },
-        });
-        // Usuario inexistente: no hay tenant al cual asociar el evento → no se audita.
-        if (!user) return null;
-        // Usuario desactivado: no puede iniciar sesión
-        if (!user.active) {
-          await recordAudit({
-            tenantId: user.tenantId,
-            userId: user.id,
-            username: user.username,
-            role: user.role,
-            action: "LOGIN_FAILED",
-            module: "AUTH",
-            description: `Intento de inicio de sesión de usuario desactivado @${user.username}`,
-            ip,
-            userAgent,
-            result: "FAILURE",
-          });
-          return null;
-        }
-        const valid = await bcrypt.compare(
-          credentials.password as string,
-          user.passwordHash
-        );
-        if (!valid) {
-          // Intento fallido sobre un usuario real: se audita en su tenant.
-          await recordAudit({
-            tenantId: user.tenantId,
-            userId: user.id,
-            username: user.username,
-            role: user.role,
-            action: "LOGIN_FAILED",
-            module: "AUTH",
-            description: `Intento de inicio de sesión fallido (contraseña incorrecta) de @${user.username}`,
-            ip,
-            userAgent,
-            result: "FAILURE",
-          });
-          return null;
-        }
-        await recordAudit({
-          tenantId: user.tenantId,
-          userId: user.id,
-          username: user.username,
-          role: user.role,
-          action: "LOGIN",
-          module: "AUTH",
-          description: `@${user.username} inició sesión`,
-          ip,
-          userAgent,
-        });
-        return {
-          id: user.id,
-          name: user.username,
-          email: null,          // NextAuth requires this field even if unused
-          role: user.role,
-          tenantId: user.tenantId,
-          employeeId: user.employeeId,
-          sessionVersion: user.sessionVersion,
-        };
-      },
+      // Límite de intentos, bcrypt constante y auditoría: src/lib/login.ts (CP-45, CP-46).
+      authorize: (credentials, request) => authorizeCredentials(credentials, request),
     }),
   ],
   events: {
