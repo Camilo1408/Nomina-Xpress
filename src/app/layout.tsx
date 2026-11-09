@@ -1,8 +1,16 @@
 import type { Metadata } from "next";
+import { Inter, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/shared/ThemeProvider";
 import { ServiceWorkerInit } from "@/components/shared/ServiceWorkerInit";
+
+// Fuentes autoalojadas: next/font las descarga en el build y las sirve desde /_next,
+// así la CSP (font-src 'self') no tiene que abrirse a fonts.googleapis.com/gstatic.
+// Antes un @import a Google en globals.css quedaba bloqueado por la CSP.
+const inter = Inter({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-inter", display: "swap" });
+const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"], weight: ["600", "700"], variable: "--font-jakarta", display: "swap" });
+const jetbrains = JetBrains_Mono({ subsets: ["latin"], weight: ["400"], variable: "--font-jetbrains", display: "swap" });
 
 export const metadata: Metadata = {
   title: "Nómina Xpress",
@@ -16,7 +24,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className="h-full" suppressHydrationWarning>
+    <html
+      lang="es"
+      className={`h-full ${inter.variable} ${jakarta.variable} ${jetbrains.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#C1643F" />
