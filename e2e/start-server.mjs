@@ -21,7 +21,8 @@ const env = {
   TURSO_DATABASE_URL: "file:./e2e.db",
   // Definido (aunque vacío) para que Next no cargue el token de un .env.production local.
   TURSO_AUTH_TOKEN: "",
-  NEXTAUTH_SECRET: "e2e-only-not-a-real-secret-0000000000000",
+  // De relleno. Las pruebas de integración pasan el que comparten con Inventory.
+  NEXTAUTH_SECRET: process.env.E2E_NEXTAUTH_SECRET ?? "e2e-only-not-a-real-secret-0000000000000",
   NEXTAUTH_URL: `http://localhost:${PORT}`,
   AUTH_TRUST_HOST: "true",
   NEXT_TELEMETRY_DISABLED: "1",

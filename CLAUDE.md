@@ -16,6 +16,8 @@ Sistema web de gestión de nómina para restaurantes. **Cada cliente se desplieg
   Vitest, `npm run build` y `npm audit --omit=dev --audit-level=critical`. No usa secretos:
   corre contra una SQLite vacía.
   Un segundo job, **E2E (Playwright)**, corre `npm run test:e2e` (CP-40, G10).
+  Un tercero, **Integración con Inventory**, levanta las dos apps en modo integrado con la
+  rama `main` de Inventory y corre `npm run test:e2e:integracion` (ver `e2e-integracion/README.md`).
 - `npx prisma db push` — Aplicar el schema a la BD (crea/actualiza tablas)
 - `npx prisma generate` — Regenerar cliente Prisma
 - `npx prisma studio` — GUI de base de datos
