@@ -54,7 +54,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return unauthorized();
   const { id } = await params;
   const { tenantId } = session.user;
 
@@ -75,7 +75,7 @@ export async function PUT(
     !(await sessionCan(session, PERMISSIONS.USERS_EDIT)) &&
     !(passwordOnly && canRecoverAccess(session.user.role))
   ) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return forbidden(); // con sesión pero sin permiso: 403, no 401 (CP-50)
   }
 
   const target = await prisma.user.findFirst({ where: { id, tenantId }, include: PERMISSION_HOLDER_INCLUDE });

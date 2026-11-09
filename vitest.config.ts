@@ -9,7 +9,8 @@ export default defineConfig({
     // `.claude/` guarda copias de trabajo de agentes (worktrees): no son pruebas del
     // proyecto. Sin esta exclusión, en local se contaban 7 archivos ajenos (456 casos en
     // vez de los 386 reales) y el número no coincidía con el del CI.
-    exclude: [...configDefaults.exclude, ".claude/**"],
+    // `e2e/` son pruebas de navegador de Playwright (`npm run test:e2e`), no de Vitest.
+    exclude: [...configDefaults.exclude, ".claude/**", "e2e/**"],
   },
   resolve: {
     alias: {
