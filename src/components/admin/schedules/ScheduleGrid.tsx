@@ -14,6 +14,7 @@ import {
   isSunday,
   formatDayNumber,
   findOverlaps,
+  moveShiftsToWeek,
   type WeekRange,
 } from "@/lib/schedule-week";
 
@@ -153,39 +154,27 @@ export function ScheduleGrid({
   const overlaps = findOverlaps(weekStart, existingRanges, existingSchedule?.id);
 
   /**
-   * Cambia la fecha de inicio. Las celdas cuya fecha sigue dentro de la semana
-   * nueva se conservan; si alguna quedaría fuera, se pide confirmación antes de
-   * descartarla — es trabajo que el admin ya había capturado.
+   * Cambia la fecha de inicio. Los turnos ya capturados se mueven con la semana y
+   * conservan su posición (el del primer día sigue en el primer día): cambiar la
+   * fecha nunca descarta el trabajo de nadie, así que no hace falta confirmar nada.
    */
   function handleWeekStartChange(nextStart: string) {
     if (!nextStart || nextStart === weekStart) return;
 
-    const nextDates = new Set(getWeekDates(nextStart));
-    const dropped = Object.keys(shifts).filter(
-      (key) => !nextDates.has(key.split("__")[1])
-    );
-
-    if (dropped.length > 0) {
-      const ok = window.confirm(
-        `Al cambiar la fecha de inicio, ${dropped.length} día(s) ya capturados ` +
-          `quedan fuera de la semana y se descartarán.\n\n¿Continuar?`
-      );
-      if (!ok) return;
-
-      setShifts((prev) => {
-        const next = { ...prev };
-        dropped.forEach((key) => delete next[key]);
-        return next;
-      });
-      setSplitKeys((prev) => {
-        const next = new Set(prev);
-        dropped.forEach((key) => next.delete(key));
-        return next;
-      });
-    }
+    const captured = Object.keys(shifts).length;
+    setShifts((prev) => moveShiftsToWeek(prev, weekStart, nextStart));
+    setSplitKeys((prev) => {
+      const moved = moveShiftsToWeek(Object.fromEntries([...prev].map((key) => [key, true])), weekStart, nextStart);
+      return new Set(Object.keys(moved));
+    });
 
     setWeekStart(nextStart);
     if (!nameEdited) setScheduleName(defaultName(nextStart));
+    if (captured > 0) {
+      toast.info("Los turnos se movieron a la nueva semana", {
+        description: "Cada turno conserva su día dentro de la semana. Nada se borró.",
+      });
+    }
   }
 
   function setShiftField(
