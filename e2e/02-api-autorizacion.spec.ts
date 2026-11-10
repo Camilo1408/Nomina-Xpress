@@ -56,3 +56,41 @@ test.describe("API con sesión del propietario", () => {
     expect(despues.length).toBe(antes.length);
   });
 });
+
+test.describe("Logo del restaurante (H9, CP-51)", () => {
+  // PNG de 1 × 1 píxel.
+  const PNG = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+    "base64",
+  );
+  const SVG = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>');
+
+  const subir = (page: import("@playwright/test").Page, name: string, mimeType: string, buffer: Buffer) =>
+    page.request.post("/api/admin/tenant/logo", { multipart: { file: { name, mimeType, buffer } } });
+
+  test("[NEG] un SVG, o un SVG renombrado a .png, se rechaza con 400", async ({ page }) => {
+    await login(page, "proprietario");
+    for (const [name, mime] of [["logo.svg", "image/svg+xml"], ["logo.png", "image/png"]] as const) {
+      const res = await subir(page, name, mime, SVG);
+      expect(res.status(), name).toBe(400);
+      expect((await res.json()).error).toBe("El logo debe ser una imagen PNG, JPG o WEBP");
+    }
+  });
+
+  test("un PNG real se acepta aunque el nombre diga otra cosa; el archivo queda como .png", async ({ page }) => {
+    await login(page, "proprietario");
+    try {
+      const res = await subir(page, "logo.svg", "image/svg+xml", PNG);
+      expect(res.status()).toBe(200);
+      expect((await res.json()).logoUrl).toMatch(/^\/uploads\/[^/]+\.png\?v=\d+$/);
+    } finally {
+      // Deja la semilla como estaba: sin logo.
+      expect((await page.request.delete("/api/admin/tenant/logo")).status()).toBe(200);
+    }
+  });
+
+  test("[CP-50] un empleado no puede subir un logo", async ({ page }) => {
+    await login(page, "empleado");
+    expect((await subir(page, "logo.png", "image/png", PNG)).status()).toBe(403);
+  });
+});
