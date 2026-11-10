@@ -174,6 +174,8 @@ por su rol). PROPRIETARY y SUPERADMIN abren Usuarios del portal aunque no tengan
   `await req.json()` sin guarda o mezcla los dos casos en un 401.
 - **Altas con acceso (RN-21).** Validar el usuario ANTES de crear nada y crear empleado +
   `User` en una sola `$transaction`; un `P2002` dentro responde 409 sin dejar huérfanos.
+- **Logo (H9, CP-51).** El formato se decide por los bytes del archivo (`detectLogoType` de
+  `@/lib/logo-validation`), no por su nombre: solo PNG, JPG y WEBP. No se acepta SVG.
 - Auto-contraste: usar `getContrastText(hex)` de `@/lib/color-contrast` para texto sobre fondos custom.
 
 ## Design System
@@ -194,6 +196,12 @@ por su rol). PROPRIETARY y SUPERADMIN abren Usuarios del portal aunque no tengan
 ## Environment Variables
 
 Plantilla completa en `.env.example`. Matriz por cliente en [DESPLIEGUES.md](DESPLIEGUES.md).
+
+**Se validan al arrancar** (H11, CP-52): `src/instrumentation.ts` llama a `assertEnv()` de
+`src/lib/env.ts`. Sin `TURSO_DATABASE_URL`, sin secreto de sesión o con una base `libsql://`
+sin token, el servidor **no arranca** y el mensaje nombra la variable (nunca su valor). Lo
+opcional a medias (Cloudinary, Web Push, formatos) solo deja un aviso `[env]` en el log.
+Una variable nueva se agrega al esquema, a `ENV_KEYS` y a `.env.example` (una prueba lo exige).
 
 ### Local — `.env.local`
 | Variable | Descripción |

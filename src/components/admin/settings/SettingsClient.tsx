@@ -29,8 +29,8 @@ export function SettingsClient({ tenant, canEdit }: { tenant: Tenant; canEdit: b
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = useCallback((file: File) => {
-    if (!file.type.startsWith("image/")) {
-      toast.error("Solo se permiten imágenes");
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+      toast.error("El logo debe ser una imagen PNG, JPG o WEBP");
       return;
     }
     if (file.size > 2 * 1024 * 1024) {
@@ -103,7 +103,8 @@ export function SettingsClient({ tenant, canEdit }: { tenant: Tenant; canEdit: b
       toast.success("Logo actualizado");
       router.refresh();
     } else {
-      toast.error("Error al subir el logo");
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      toast.error(data?.error ?? "Error al subir el logo");
     }
   }
 
@@ -245,12 +246,12 @@ export function SettingsClient({ tenant, canEdit }: { tenant: Tenant; canEdit: b
             <p className="text-xs text-muted-foreground mt-0.5">
               o <span className="text-[#C1643F] font-medium">haz clic para seleccionar</span>
             </p>
-            <p className="text-xs text-muted-foreground mt-1">PNG, JPG, SVG, WEBP · Máx. 2 MB</p>
+            <p className="text-xs text-muted-foreground mt-1">PNG, JPG, WEBP · Máx. 2 MB</p>
           </div>
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/png,image/jpeg,image/webp"
             onChange={handleInputChange}
             className="hidden"
           />

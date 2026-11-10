@@ -8,6 +8,7 @@ import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
 import { forbidden, unauthorized } from "@/lib/api-response";
+import { LOGO_MAX_BYTES, detectLogoType } from "@/lib/logo-validation";
 
 const cloudinaryConfigured =
   !!process.env.CLOUDINARY_CLOUD_NAME &&
@@ -53,17 +54,22 @@ export async function POST(req: Request) {
   if (!session) return unauthorized();
   if (!(await sessionCan(session, PERMISSIONS.SETTINGS_EDIT))) return forbidden();
 
-  const formData = await req.formData();
-  const file = formData.get("file") as File | null;
-  if (!file) return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
-
-  if (file.size > 2 * 1024 * 1024) {
-    return NextResponse.json({ error: "File too large (max 2MB)" }, { status: 400 });
+  const formData = await req.formData().catch(() => null);
+  const file = formData?.get("file");
+  if (!(file instanceof File)) {
+    return NextResponse.json({ error: "No se recibió ningún archivo" }, { status: 400 });
   }
 
-  const ext = file.name.split(".").pop()?.toLowerCase();
-  if (!["jpg", "jpeg", "png", "svg", "webp"].includes(ext ?? "")) {
-    return NextResponse.json({ error: "Invalid file type" }, { status: 400 });
+  if (file.size > LOGO_MAX_BYTES) {
+    return NextResponse.json({ error: "El archivo debe pesar menos de 2 MB" }, { status: 400 });
+  }
+
+  // H9 / CP-51: el formato sale de los bytes del archivo, no de su nombre. Se valida antes
+  // de borrar el logo anterior, para que un archivo rechazado no deje al cliente sin logo.
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const ext = detectLogoType(buffer);
+  if (!ext) {
+    return NextResponse.json({ error: "El logo debe ser una imagen PNG, JPG o WEBP" }, { status: 400 });
   }
 
   const tenant = await prisma.tenant.findUnique({
@@ -72,9 +78,6 @@ export async function POST(req: Request) {
   });
 
   await deletePreviousLogo(tenant?.logoUrl);
-
-  const bytes = await file.arrayBuffer();
-  const buffer = Buffer.from(bytes);
 
   let logoUrl: string;
 
