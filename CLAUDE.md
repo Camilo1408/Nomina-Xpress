@@ -65,6 +65,20 @@ El cliente generado está en `src/generated/prisma/` (custom output).
 
 El cliente generado está en `src/generated/prisma/` (custom output).
 
+### Content-Security-Policy (H10)
+
+La política se arma en `src/lib/csp.ts`. **Las páginas** la reciben de `src/proxy.ts` con un
+nonce nuevo por petición (`script-src 'self' 'nonce-…' 'strict-dynamic'`, sin `unsafe-inline`
+ni `unsafe-eval`; `unsafe-eval` solo en desarrollo). **La API y los archivos** reciben la
+política base de `next.config.ts`, sin scripts en línea. Las dos listas no se solapan: una
+respuesta nunca lleva dos políticas.
+
+- Un `<script>` en línea nuevo necesita `nonce={nonce}`; el layout raíz lo lee de la cabecera
+  `x-nonce`. Sin nonce, el navegador lo bloquea. No uses manejadores en línea en HTML crudo.
+- Leer el nonce hace que todas las páginas se rendericen por petición (no hay páginas estáticas).
+- Una ruta nueva excluida del `matcher` del proxy debe agregarse a `BASE_CSP_SOURCES`.
+- Los estilos en línea siguen permitidos (colores por cliente y librerías de interfaz).
+
 ### Rutas de archivo (Next.js 16)
 
 - `middleware.ts` → ahora es `proxy.ts` (renombrado en Next.js 16)
