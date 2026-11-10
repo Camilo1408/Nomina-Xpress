@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:integracion": "playwright test -c playwright.integracion.config.ts",
     "db:seed": "tsx prisma/seed.ts",
     "docs:screenshots": "node scripts/capture-docs-screenshots.mjs",
     "docs:pdf": "node scripts/build-docs-pdf.mjs"

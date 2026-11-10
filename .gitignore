@@ -61,3 +61,7 @@ next-env.d.ts
 .claude/scheduled_tasks.lock
 
 .vercel
+
+# Playwright (pruebas E2E)
+/test-results/
+/playwright-report/

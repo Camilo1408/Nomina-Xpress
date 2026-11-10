@@ -219,9 +219,9 @@ describe("[CP-45] recuperación de acceso por SUPERADMIN sin users:edit", () => 
     expect(userUpdate).toHaveBeenCalledTimes(1);
   });
 
-  it("[NEG] sin users:edit, el SUPERADMIN no puede cambiar otra cosa que la clave", async () => {
+  it("[NEG][CP-50] sin users:edit, el SUPERADMIN no puede cambiar otra cosa que la clave: 403, no 401", async () => {
     as("super");
-    expect((await putUser(json("PUT", { password: "una-clave-larga", active: false }), ctx("emp"))).status).toBe(401);
+    expect((await putUser(json("PUT", { password: "una-clave-larga", active: false }), ctx("emp"))).status).toBe(403);
     expect(userUpdate).not.toHaveBeenCalled();
   });
 

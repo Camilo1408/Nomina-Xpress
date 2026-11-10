@@ -8,9 +8,16 @@ Sistema web de gestión de nómina para restaurantes. **Cada cliente se desplieg
 - `npm run build` — Build de producción
 - `npm run lint` — ESLint
 - `npm run test` — Vitest (unit tests)
+- `npm run test:e2e` — Playwright (`e2e/*.spec.ts`): navegador real contra el **build de producción**
+  (`npm run build` antes) con una SQLite efímera `e2e.db` sembrada con `seed-local`. Lo arranca
+  `e2e/start-server.mjs` en el puerto 3100; no toca `dev.db` ni Turso. Un solo worker: las pruebas
+  comparten base y algunas bloquean o desactivan usuarios (deben dejar la semilla como estaba).
 - CI (`.github/workflows/ci.yml`) en cada PR y push a `main`: `tsc`, ESLint con **0 errores**,
   Vitest, `npm run build` y `npm audit --omit=dev --audit-level=critical`. No usa secretos:
   corre contra una SQLite vacía.
+  Un segundo job, **E2E (Playwright)**, corre `npm run test:e2e` (CP-40, G10).
+  Un tercero, **Integración con Inventory**, levanta las dos apps en modo integrado con la
+  rama `main` de Inventory y corre `npm run test:e2e:integracion` (ver `e2e-integracion/README.md`).
 - `npx prisma db push` — Aplicar el schema a la BD (crea/actualiza tablas)
 - `npx prisma generate` — Regenerar cliente Prisma
 - `npx prisma studio` — GUI de base de datos
