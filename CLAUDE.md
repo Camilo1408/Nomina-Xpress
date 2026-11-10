@@ -11,6 +11,12 @@ Sistema web de gestión de nómina para restaurantes. **Cada cliente se desplieg
 - `npm run test:coverage` — Vitest con cobertura de `src/lib` y `src/app/api` (M-01, G4). Falla
   si las líneas cubiertas bajan del umbral de `vitest.config.ts`; el CI corre este comando.
   El umbral es de no retroceso: al subir la cobertura se sube el número, nunca se baja.
+- Las pruebas `*.db.test.ts` llaman a los handlers de las rutas contra una **SQLite real**:
+  `vitest.global-setup.ts` aplica el schema a una base plantilla y `src/test/db.ts` la copia
+  para cada archivo. **`@/test/db` debe ser el primer import** (fija `TURSO_DATABASE_URL` antes
+  de que cargue `@/lib/db`). Solo se simula `@/lib/auth`; los permisos se resuelven contra los
+  usuarios de `seedTenant()`. Usar horas con `-05:00` explícito: las reglas de turno se evalúan
+  en hora de Colombia y el CI corre en UTC.
 - `npm run test:e2e` — Playwright (`e2e/*.spec.ts`): navegador real contra el **build de producción**
   (`npm run build` antes) con una SQLite efímera `e2e.db` sembrada con `seed-local`. Lo arranca
   `e2e/start-server.mjs` en el puerto 3100; no toca `dev.db` ni Turso. Un solo worker: las pruebas

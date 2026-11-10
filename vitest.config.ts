@@ -6,6 +6,8 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: "node",
+    // Base SQLite plantilla para las pruebas de integración (*.db.test.ts).
+    globalSetup: ["./vitest.global-setup.ts"],
     // `.claude/` guarda copias de trabajo de agentes (worktrees): no son pruebas del
     // proyecto. Sin esta exclusión, en local se contaban 7 archivos ajenos (456 casos en
     // vez de los 386 reales) y el número no coincidía con el del CI.
@@ -15,21 +17,23 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["src/lib/**", "src/app/api/**"],
-      exclude: ["**/__tests__/**"],
+      exclude: ["**/__tests__/**", "src/test/**"],
       reporter: ["text-summary", "json-summary"],
-      // Umbral de no retroceso, fijado en lo medido el 09/11/2026: 40,4 % en total,
-      // 64,5 % en src/lib y 21,9 % en las rutas. La meta del Plan de Calidad es 60 % en
-      // total; estos números se suben cada vez que la cobertura suba, nunca se bajan.
+      // Umbral de no retroceso. Medido el 10/11/2026: 75,9 % en total, 83,2 % en src/lib
+      // y 70,0 % en las rutas (el 09/11 eran 40,4 %, 64,5 % y 21,9 %). El Plan de Calidad
+      // pide 60 % en el primer sprint, 70 % en el segundo y 80 % en src/lib en el tercero.
+      // Estos números se suben cada vez que la cobertura suba, nunca se bajan.
       thresholds: {
-        lines: 40,
-        "src/lib/**": { lines: 64 },
-        "src/app/api/**": { lines: 21 },
+        lines: 75,
+        "src/lib/**": { lines: 82 },
+        "src/app/api/**": { lines: 69 },
       },
     },
   },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "server-only": path.resolve(__dirname, "./src/test/server-only.ts"),
     },
   },
 });

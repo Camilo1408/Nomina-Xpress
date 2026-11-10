@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { computeImpactPreview } from "@/lib/contest-service";
-import type { ContestStatus } from "@/lib/contests";
+import { isRangeWithinLimit, type ContestStatus } from "@/lib/contests";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
 import { forbidden, unauthorized } from "@/lib/api-response";
@@ -55,6 +55,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         { error: { message: `Acción desconocida: ${action}` } },
         { status: 400 }
       );
+  }
+
+  // Las fechas de la acción "rango" llegan por la URL: se validan aquí, porque un rango
+  // inválido o demasiado largo hacía lanzar al cálculo y la ruta respondía 500.
+  const DATE = /^\d{4}-\d{2}-\d{2}$/;
+  if (!DATE.test(startDate) || !DATE.test(endDate) || endDate < startDate || !isRangeWithinLimit(startDate, endDate)) {
+    return NextResponse.json({ error: { message: "El rango de fechas no es válido" } }, { status: 400 });
   }
 
   const preview = await computeImpactPreview({
