@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
+import { NONCE_HEADER, buildCsp, createNonce } from "@/lib/csp";
 
 // El control fino de permisos se hace a nivel de página (Server Components con
 // acceso a Prisma), porque el middleware corre en edge runtime y no puede
@@ -34,6 +35,21 @@ export default auth((req) => {
     if (ADMIN_PORTAL_ROLES.includes(role ?? "")) redirect = "/admin/dashboard";
     return NextResponse.redirect(new URL(redirect, req.url));
   }
+
+  // H10: las rutas de la API responden JSON o archivos; les basta la política sin
+  // scripts en línea de next.config.ts.
+  if (pathname.startsWith("/api/")) return;
+
+  // Páginas: un nonce nuevo por petición. Va en la petición (Next.js lo toma de ahí para
+  // sus scripts y el layout raíz lo lee de `x-nonce`) y en la respuesta (para el navegador).
+  const nonce = createNonce();
+  const csp = buildCsp({ nonce, dev: process.env.NODE_ENV !== "production" });
+  const headers = new Headers(req.headers);
+  headers.set(NONCE_HEADER, nonce);
+  headers.set("Content-Security-Policy", csp);
+  const res = NextResponse.next({ request: { headers } });
+  res.headers.set("Content-Security-Policy", csp);
+  return res;
 });
 
 export const config = {

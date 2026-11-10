@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Inter, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/shared/ThemeProvider";
 import { ServiceWorkerInit } from "@/components/shared/ServiceWorkerInit";
+import { NONCE_HEADER } from "@/lib/csp";
 
 // Fuentes autoalojadas: next/font las descarga en el build y las sirve desde /_next,
 // así la CSP (font-src 'self') no tiene que abrirse a fonts.googleapis.com/gstatic.
@@ -18,11 +20,15 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // H10: el nonce de la CSP lo genera el proxy en cada petición. Leerlo aquí hace que
+  // todas las páginas se rendericen por petición, que es lo que el nonce exige.
+  const nonce = (await headers()).get(NONCE_HEADER) ?? undefined;
+
   return (
     <html
       lang="es"
@@ -38,6 +44,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="Nómina Xpress" />
         {/* Elimina atributos inyectados por extensiones del navegador */}
         <script
+          nonce={nonce}
           suppressHydrationWarning
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var o=new MutationObserver(function(m){m.forEach(function(r){if(r.type==='attributes'&&r.attributeName.indexOf('bis_')===0){r.target.removeAttribute(r.attributeName)}})});o.observe(document.documentElement,{attributes:true,subtree:true,attributeFilter:['bis_skin_checked','bis_register']})}catch(e){}})()`,

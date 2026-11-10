@@ -606,7 +606,10 @@ de permisos individuales aplica de inmediato y un cambio de rol cierra la sesió
 - **Aislamiento de datos** por `tenantId` en cada query, reforzado por el despliegue
   independiente (una base de datos por cliente).
 - **Cabeceras de seguridad** en `next.config.ts` para todas las respuestas:
-  `Content-Security-Policy` (restringe orígenes; imágenes solo self/data/blob/Cloudinary),
+  `Content-Security-Policy` (restringe orígenes; imágenes solo self/data/blob/Cloudinary;
+  **sin `unsafe-inline` ni `unsafe-eval` en los scripts**: cada página recibe desde
+  `src/proxy.ts` un nonce nuevo por petición, y la API y los archivos una política base sin
+  scripts en línea, ver `src/lib/csp.ts`),
   `Strict-Transport-Security`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`,
   `Referrer-Policy`, `Permissions-Policy` (cámara/micrófono/geo desactivados).
 - **Contraseñas** con bcrypt; **sesión JWT** firmada con `NEXTAUTH_SECRET`, de 12 h y
