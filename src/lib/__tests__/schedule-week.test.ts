@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   addDays,
   getWeekDates,
+  daysBetween,
+  moveShiftsToWeek,
   dayLabelFor,
   dayNameFor,
   isSunday,
@@ -158,5 +160,37 @@ describe("findOverlaps", () => {
 
   it("ignora un rango que se excluye a sí mismo", () => {
     expect(findOverlaps("2026-08-24", ranges, "a")).toEqual([]);
+  });
+});
+
+describe("moveShiftsToWeek", () => {
+  const cells = { "ana__2026-11-02": "lunes", "ana__2026-11-08": "domingo", "luis__2026-11-04": "miércoles" };
+
+  it("mueve cada turno con la semana y conserva su posición: no se pierde ninguno", () => {
+    const moved = moveShiftsToWeek(cells, "2026-11-02", "2026-09-14");
+    expect(moved).toEqual({ "ana__2026-09-14": "lunes", "ana__2026-09-20": "domingo", "luis__2026-09-16": "miércoles" });
+    expect(Object.keys(moved)).toHaveLength(Object.keys(cells).length);
+  });
+
+  it("[LIM] un cambio de un solo día corre todo un día, cruzando de mes", () => {
+    expect(moveShiftsToWeek({ "ana__2026-10-31": "x" }, "2026-10-26", "2026-10-27")).toEqual({ "ana__2026-11-01": "x" });
+  });
+
+  it("ida y vuelta deja las celdas como estaban; la misma fecha no cambia nada", () => {
+    const ida = moveShiftsToWeek(cells, "2026-11-02", "2027-01-04");
+    expect(moveShiftsToWeek(ida, "2027-01-04", "2026-11-02")).toEqual(cells);
+    expect(moveShiftsToWeek(cells, "2026-11-02", "2026-11-02")).toBe(cells);
+  });
+
+  it("un id de empleado con guiones bajos no se rompe", () => {
+    expect(moveShiftsToWeek({ "emp__raro__2026-11-02": 1 }, "2026-11-02", "2026-11-09")).toEqual({ "emp__raro__2026-11-09": 1 });
+  });
+});
+
+describe("daysBetween", () => {
+  it("cuenta días con signo y no se descuadra en cambios de año", () => {
+    expect(daysBetween("2026-11-02", "2026-09-14")).toBe(-49);
+    expect(daysBetween("2026-12-28", "2027-01-04")).toBe(7);
+    expect(daysBetween("2026-11-02", "2026-11-02")).toBe(0);
   });
 });

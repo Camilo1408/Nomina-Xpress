@@ -196,6 +196,13 @@ por su rol). PROPRIETARY y SUPERADMIN abren Usuarios del portal aunque no tengan
   `User` en una sola `$transaction`; un `P2002` dentro responde 409 sin dejar huérfanos.
 - **Logo (H9, CP-51).** El formato se decide por los bytes del archivo (`detectLogoType` de
   `@/lib/logo-validation`), no por su nombre: solo PNG, JPG y WEBP. No se acepta SVG.
+- **Horarios.** Cambiar la fecha de inicio en la parrilla **mueve** los turnos capturados con la
+  semana (`moveShiftsToWeek` de `@/lib/schedule-week`): nunca los descarta. El aviso push sale
+  de `notifyScheduleEmployees` (`@/lib/schedule-notify`) al **publicar** y al **editar un horario
+  ya publicado**: lo reciben todos los que figuran en el horario, con turno o con descanso, les
+  haya cambiado algo o no; quien no tiene ninguna celda no recibe nada. Un borrador no avisa.
+- **Sin diálogos nativos.** No usar `window.confirm` / `alert`: las confirmaciones van en
+  `AlertDialog` y los avisos en `toast` (sonner), con el diseño del sistema.
 - Auto-contraste: usar `getContrastText(hex)` de `@/lib/color-contrast` para texto sobre fondos custom.
 
 ## Design System

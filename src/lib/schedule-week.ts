@@ -28,6 +28,33 @@ export function addDays(dateStr: string, n: number): string {
 }
 
 /** Los 7 días de la semana que arranca en `weekStart`, en orden. */
+/** Días de diferencia entre dos fechas "YYYY-MM-DD" (positivo si `to` es posterior). */
+export function daysBetween(from: string, to: string): number {
+  return Math.round((toLocalDate(to).getTime() - toLocalDate(from).getTime()) / 86_400_000);
+}
+
+/**
+ * Mueve un mapa de celdas `empleado__fecha` cuando cambia la fecha de inicio del horario.
+ *
+ * Cada turno conserva su posición en la semana: el del primer día sigue en el primer día,
+ * el del segundo en el segundo, y así. Cambiar la fecha de inicio nunca descarta lo que
+ * ya estaba capturado.
+ */
+export function moveShiftsToWeek<T>(
+  cells: Record<string, T>,
+  fromStart: string,
+  toStart: string,
+): Record<string, T> {
+  const offset = daysBetween(fromStart, toStart);
+  if (offset === 0) return cells;
+  const moved: Record<string, T> = {};
+  for (const [key, value] of Object.entries(cells)) {
+    const sep = key.lastIndexOf("__");
+    moved[`${key.slice(0, sep)}__${addDays(key.slice(sep + 2), offset)}`] = value;
+  }
+  return moved;
+}
+
 export function getWeekDates(weekStart: string): string[] {
   return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 }
