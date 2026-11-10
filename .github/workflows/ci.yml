@@ -51,8 +51,9 @@ jobs:
       - name: Lint (ESLint, 0 errores)
         run: npx eslint .
 
-      - name: Pruebas (Vitest)
-        run: npx vitest run
+      # G4 / M-01: falla si la cobertura de líneas baja del umbral de vitest.config.ts.
+      - name: Pruebas con cobertura (Vitest)
+        run: npm run test:coverage
 
       - name: Build de producción
         run: npm run build

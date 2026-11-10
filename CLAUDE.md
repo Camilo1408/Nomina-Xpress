@@ -8,6 +8,9 @@ Sistema web de gestión de nómina para restaurantes. **Cada cliente se desplieg
 - `npm run build` — Build de producción
 - `npm run lint` — ESLint
 - `npm run test` — Vitest (unit tests)
+- `npm run test:coverage` — Vitest con cobertura de `src/lib` y `src/app/api` (M-01, G4). Falla
+  si las líneas cubiertas bajan del umbral de `vitest.config.ts`; el CI corre este comando.
+  El umbral es de no retroceso: al subir la cobertura se sube el número, nunca se baja.
 - `npm run test:e2e` — Playwright (`e2e/*.spec.ts`): navegador real contra el **build de producción**
   (`npm run build` antes) con una SQLite efímera `e2e.db` sembrada con `seed-local`. Lo arranca
   `e2e/start-server.mjs` en el puerto 3100; no toca `dev.db` ni Turso. Un solo worker: las pruebas
