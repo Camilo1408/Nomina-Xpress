@@ -132,7 +132,18 @@ export function contestAppliesToDate(
 // ─── Iteración de fechas ─────────────────────────────────────────────────────
 
 /** Tope de seguridad: ningún concurso razonable dura más de dos años. */
-const MAX_RANGE_DAYS = 800;
+export const MAX_RANGE_DAYS = 800;
+
+/**
+ * Si el rango [start, end] cabe en el tope. Las rutas lo validan ANTES de recorrer el
+ * rango: `eachDateInRange` lanza con un rango más largo y eso respondía 500 en vez de 400.
+ */
+export function isRangeWithinLimit(start: string, end: string): boolean {
+  const [sy, sm, sd] = start.split("-").map(Number);
+  const [ey, em, ed] = end.split("-").map(Number);
+  const days = Math.round((new Date(ey, em - 1, ed).getTime() - new Date(sy, sm - 1, sd).getTime()) / 86_400_000) + 1;
+  return Number.isFinite(days) && days <= MAX_RANGE_DAYS;
+}
 
 /**
  * Todos los días del rango [start, end], extremos incluidos, como "YYYY-MM-DD".

@@ -7,7 +7,14 @@ import {
   PAYOUT_MODES,
   WINNER_MODES,
   TIP_CONTEST_MAX_PERCENT,
+  MAX_RANGE_DAYS,
+  isRangeWithinLimit,
 } from "@/lib/contests";
+
+const RANGE_TOO_LONG = {
+  message: `El concurso no puede durar más de ${MAX_RANGE_DAYS} días`,
+  path: ["endDate"],
+};
 
 const dateString = z
   .string()
@@ -45,6 +52,7 @@ export const contestInputSchema = z
     message: "La fecha de fin no puede ser anterior a la de inicio",
     path: ["endDate"],
   })
+  .refine((d) => isRangeWithinLimit(d.startDate, d.endDate), RANGE_TOO_LONG)
   .refine(
     (d) => new Set(d.items.map((i) => i.name.toLowerCase())).size === d.items.length,
     { message: "Hay dos ítems con el mismo nombre", path: ["items"] }
@@ -64,7 +72,8 @@ export const contestUpdateSchema = z
   .refine((d) => d.endDate >= d.startDate, {
     message: "La fecha de fin no puede ser anterior a la de inicio",
     path: ["endDate"],
-  });
+  })
+  .refine((d) => isRangeWithinLimit(d.startDate, d.endDate), RANGE_TOO_LONG);
 
 export const contestResultsSchema = z.object({
   results: z
