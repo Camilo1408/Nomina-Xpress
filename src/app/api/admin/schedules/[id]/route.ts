@@ -6,6 +6,7 @@ import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
 import { buildRestDayShift, buildWorkShift } from "@/lib/schedule-shifts";
+import { employeesInSchedule, notifyScheduleEmployees } from "@/lib/schedule-notify";
 import { forbidden, readJsonBody, unauthorized } from "@/lib/api-response";
 
 const shiftSchema = z.object({
@@ -74,6 +75,18 @@ export async function PUT(
     await prisma.schedule.update({
       where: { id },
       data: { ...(name ? { name } : {}), ...(weekStart ? { weekStart } : {}) },
+    });
+  }
+
+  // Un horario ya publicado es el que el personal está mirando: si se edita, se avisa a
+  // todos los que figuran en él tal como quedó, con turno o con descanso, les haya cambiado
+  // algo o no. Quien no tiene nada asignado no recibe aviso. Un borrador no avisa a nadie.
+  if (existing.published && (shifts || weekStart)) {
+    const current = shifts ?? (await prisma.scheduleShift.findMany({ where: { scheduleId: id }, select: { employeeId: true } }));
+    await notifyScheduleEmployees(session.user.tenantId, employeesInSchedule(current), {
+      title: "📅 Horario actualizado",
+      body: `Se actualizó el horario "${name ?? existing.name}". Revisa cómo quedó tu semana.`,
+      url: "/portal/schedule",
     });
   }
 

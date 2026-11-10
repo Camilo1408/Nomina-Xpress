@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
-import { sendPushNotification } from "@/lib/push";
+import { employeesInSchedule, notifyScheduleEmployees } from "@/lib/schedule-notify";
 import { logAudit } from "@/lib/audit";
 import { sessionCan } from "@/lib/get-permissions";
 import { PERMISSIONS } from "@/lib/permission-keys";
@@ -57,42 +57,14 @@ export async function POST(
     }),
   ]);
 
-  // Send push notifications to all employees with shifts when publishing
+  // Al publicar se avisa a todos los que figuran en el horario, con turno o con descanso.
+  // Quien no tiene nada asignado no recibe aviso.
   if (newPublished) {
-    const employeeIds = [...new Set(schedule.shifts.map((s) => s.employeeId))];
-
-    const subscriptions = await prisma.pushSubscription.findMany({
-      where: {
-        tenantId: session.user.tenantId,
-        user: { employeeId: { in: employeeIds } },
-      },
+    await notifyScheduleEmployees(session.user.tenantId, employeesInSchedule(schedule.shifts), {
+      title: "📅 Horario actualizado",
+      body: `Se publicó el horario "${schedule.name}". ¡Revísalo ahora!`,
+      url: "/portal/schedule",
     });
-
-    if (subscriptions.length > 0) {
-      const results = await Promise.allSettled(
-        subscriptions.map((sub) =>
-          sendPushNotification(
-            { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
-            {
-              title: "📅 Horario actualizado",
-              body: `Se publicó el horario "${schedule.name}". ¡Revísalo ahora!`,
-              url: "/portal/schedule",
-            }
-          )
-        )
-      );
-
-      // Clean up expired/invalid subscriptions (status 410)
-      const expired = subscriptions.filter((_, i) => {
-        const r = results[i];
-        return r.status === "fulfilled" && r.value === false;
-      });
-      if (expired.length > 0) {
-        await prisma.pushSubscription.deleteMany({
-          where: { endpoint: { in: expired.map((s) => s.endpoint) } },
-        });
-      }
-    }
   }
 
   const desplazadosTexto = desplazados.map((d) => `"${d.name}"`).join(", ");
