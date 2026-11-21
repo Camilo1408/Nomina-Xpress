@@ -110,13 +110,13 @@ export default async function ScheduleViewPage({
           <table className="w-full min-w-[760px] text-sm">
             <thead>
               <tr className="border-b border-[#E0D5CA] bg-[#F2EDE6]/60">
-                <th className="sticky left-0 z-10 bg-[#F2EDE6] text-left px-4 py-3 font-semibold text-[#2C1F15] w-40">
+                <th className="sticky left-0 z-10 bg-[#F2EDE6] text-left px-3 sm:px-4 py-3 font-semibold text-[#2C1F15] w-28 min-w-28 max-w-28 sm:w-44 sm:min-w-44 sm:max-w-44">
                   Personal
                 </th>
                 {weekDates.map((date) => (
                   <th
                     key={date}
-                    className={`text-center px-2 py-3 font-semibold ${
+                    className={`text-center px-2 py-3 font-semibold min-w-24 ${
                       isSunday(date) ? "text-[#C1643F]" : "text-[#2C1F15]"
                     }`}
                   >
@@ -144,11 +144,14 @@ export default async function ScheduleViewPage({
                   }`}
                 >
                   <td
-                    className={`sticky left-0 z-10 px-4 py-3 font-medium text-[#2C1F15] whitespace-nowrap ${
+                    className={`sticky left-0 z-10 px-3 sm:px-4 py-3 font-medium text-[#2C1F15] w-28 min-w-28 max-w-28 sm:w-44 sm:min-w-44 sm:max-w-44 ${
                       empIdx % 2 === 1 ? "bg-[#FAF7F2]" : "bg-white"
                     }`}
                   >
-                    {emp.name}
+                    {/* Máx. dos líneas: un nombre largo no debe tapar los días. */}
+                    <span className="line-clamp-2 break-words leading-snug" title={emp.name}>
+                      {emp.name}
+                    </span>
                   </td>
                   {weekDates.map((date) => {
                     const shift = shiftIndex.get(`${emp.id}__${date}`);
@@ -163,20 +166,29 @@ export default async function ScheduleViewPage({
                           </span>
                         ) : (
                           <div className="space-y-1">
+                            {/* Entrada y salida en líneas separadas: la columna queda angosta y legible. */}
                             <span
-                              className={`block text-xs font-medium whitespace-nowrap ${
+                              className={`block text-xs font-medium leading-tight ${
                                 sunday ? "text-[#C1643F]" : "text-[#2C1F15]"
                               }`}
                             >
-                              {formatTime12(shift.startTime)}
-                              <span className="text-[#7A6358]"> a </span>
-                              {formatTime12(shift.endTime)}
+                              <span className="block whitespace-nowrap">
+                                {formatTime12(shift.startTime)}
+                              </span>
+                              <span className="block whitespace-nowrap">
+                                <span className="text-[#7A6358]">a </span>
+                                {formatTime12(shift.endTime)}
+                              </span>
                             </span>
                             {shift.startTime2 && shift.endTime2 && (
-                              <span className="block text-xs text-[#C1643F]/90 bg-[#FDF5F2] rounded px-1 py-0.5 whitespace-nowrap">
-                                {formatTime12(shift.startTime2)}
-                                <span className="text-[#C1643F]/60"> a </span>
-                                {formatTime12(shift.endTime2)}
+                              <span className="block text-xs leading-tight text-[#C1643F]/90 bg-[#FDF5F2] rounded px-1 py-0.5">
+                                <span className="block whitespace-nowrap">
+                                  {formatTime12(shift.startTime2)}
+                                </span>
+                                <span className="block whitespace-nowrap">
+                                  <span className="text-[#C1643F]/60">a </span>
+                                  {formatTime12(shift.endTime2)}
+                                </span>
                               </span>
                             )}
                           </div>

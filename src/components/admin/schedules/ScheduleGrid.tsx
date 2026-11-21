@@ -352,7 +352,7 @@ export function ScheduleGrid({
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr>
-              <th className="sticky left-0 z-10 text-left px-3 py-2 font-semibold text-[#2C1F15] bg-[#F2EDE6] border border-[#E0D5CA] min-w-32">
+              <th className="sticky left-0 z-10 text-left px-3 py-2 font-semibold text-[#2C1F15] bg-[#F2EDE6] border border-[#E0D5CA] w-28 min-w-28 max-w-28 sm:w-44 sm:min-w-44 sm:max-w-44">
                 Personal
               </th>
               {weekDates.map((date) => (
@@ -373,8 +373,11 @@ export function ScheduleGrid({
           <tbody>
             {employees.map((emp) => (
               <tr key={emp.id}>
-                <td className="sticky left-0 z-10 px-3 py-2 border border-[#E0D5CA] font-medium text-[#2C1F15] bg-white">
-                  {emp.name}
+                <td className="sticky left-0 z-10 px-3 py-2 border border-[#E0D5CA] font-medium text-[#2C1F15] bg-white w-28 min-w-28 max-w-28 sm:w-44 sm:min-w-44 sm:max-w-44">
+                  {/* Máx. dos líneas: un nombre largo no debe tapar los días. */}
+                  <span className="line-clamp-2 break-words leading-snug" title={emp.name}>
+                    {emp.name}
+                  </span>
                 </td>
                 {weekDates.map((date) => {
                   const key = buildKey(emp.id, date);
